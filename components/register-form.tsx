@@ -1,4 +1,6 @@
+// components/auth/RegisterForm.tsx
 "use client";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,9 +12,20 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useAuth } from "@/lib/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import toast from "react-hot-toast";
+import { useForm } from "react-hook-form";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
+
+interface RegisterFormData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
 
 export function RegisterForm({
   className,
@@ -22,104 +35,152 @@ export function RegisterForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm();
+    watch,
+  } = useForm<RegisterFormData>();
 
+  const [loading, setLoading] = useState(false);
+  const { register: registerUser } = useAuth();
   const router = useRouter();
 
+  // Watch password para comparar con confirmPassword
+  const password = watch("password");
+
   const onSubmit = handleSubmit(async (data) => {
-    console.log(data);
-    if (data.password !== data.confirmPassword) {
-      return alert("Passwords do not match");
+    setLoading(true);
+
+    try {
+      // Registrar usuario usando AuthContext
+      await registerUser(data.email, data.password, data.name);
+      toast.success("¡Cuenta creada exitosamente!");
+      router.push("/dashboard");
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      toast.error(
+        error.response?.data?.message || error.message || "Error al registrarse"
+      );
+    } finally {
+      setLoading(false);
     }
-    const { confirmPassword, ...rest } = data;
-    const completedData = { ...rest, name: "ExampleUser", role: "secretary" };
-
-    const res = await fetch("http://localhost:4000/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify(completedData),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (res.ok) {
-      console.log("Registration successful");
-      router.push("/auth/login");
-      return alert("Registration successful");
-    }
-
-    const resJSON = await res.json();
-    console.log(resJSON);
   });
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle>Register</CardTitle>
+          <CardTitle className="text-2xl">Create an account</CardTitle>
           <CardDescription>
-            Enter an email and password to register
+            Enter your information to create an account
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit}>
             <div className="flex flex-col gap-6">
-              <div className="grid gap-3">
+              {/* Name Field */}
+              <div className="grid gap-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="John Doe"
+                  disabled={loading}
+                  {...register("name", {
+                    required: "Name is required",
+                    minLength: {
+                      value: 2,
+                      message: "Name must be at least 2 characters",
+                    },
+                  })}
+                />
+                {errors.name && (
+                  <p className="text-sm text-red-500">{errors.name.message}</p>
+                )}
+              </div>
+
+              {/* Email Field */}
+              <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
+                  placeholder="m@example.com"
+                  disabled={loading}
                   {...register("email", {
-                    required: true,
+                    required: "Email is required",
+                    pattern: {
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: "Invalid email address",
+                    },
                   })}
-                  placeholder="email@example.com"
-                  required
                 />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email.message}</p>
+                )}
               </div>
-              <div className="grid gap-3">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                </div>
+
+              {/* Password Field */}
+              <div className="grid gap-2">
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
+                  placeholder="Create a password"
+                  disabled={loading}
                   {...register("password", {
-                    required: {
-                      value: true,
-                      message: "Password is required",
+                    required: "Password is required",
+                    minLength: {
+                      value: 6,
+                      message: "Password must be at least 6 characters",
                     },
                   })}
-                  placeholder="********"
-                  required
                 />
+                {errors.password && (
+                  <p className="text-sm text-red-500">
+                    {errors.password.message}
+                  </p>
+                )}
               </div>
-              <div className="grid gap-3">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Confirm password</Label>
-                </div>
+
+              {/* Confirm Password Field */}
+              <div className="grid gap-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
+                  placeholder="Confirm your password"
+                  disabled={loading}
                   {...register("confirmPassword", {
-                    required: {
-                      value: true,
-                      message: "Password is required",
-                    },
+                    required: "Please confirm your password",
+                    validate: (value) =>
+                      value === password || "Passwords do not match",
                   })}
-                  placeholder="********"
-                  required
                 />
+                {errors.confirmPassword && (
+                  <p className="text-sm text-red-500">
+                    {errors.confirmPassword.message}
+                  </p>
+                )}
               </div>
 
-              <div className="flex flex-col gap-3">
-                <Button type="submit" className="w-full">
-                  Register
-                </Button>
-              </div>
+              {/* Submit Button */}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  "Create account"
+                )}
+              </Button>
             </div>
+
+            {/* Login Link */}
             <div className="mt-4 text-center text-sm">
-              You already have an account?{" "}
-              <Link href="login" className="underline underline-offset-4">
+              Already have an account?{" "}
+              <Link
+                href="/auth/login"
+                className="underline underline-offset-4 hover:text-primary"
+              >
                 Sign in
               </Link>
             </div>

@@ -1,3 +1,4 @@
+// components/auth/LoginForm.tsx
 "use client";
 
 import { cn } from "@/lib/utils";
@@ -11,9 +12,14 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useAuth } from "@/lib/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import toast from "react-hot-toast";
+import { useForm } from "react-hook-form";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import { LoginDto } from "@/lib/types";
 
 export function LoginForm({
   className,
@@ -23,36 +29,36 @@ export function LoginForm({
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm();
+  } = useForm<LoginDto>();
 
+  const [loading, setLoading] = useState(false);
+  const { login } = useAuth();
   const router = useRouter();
 
   const onSubmit = handleSubmit(async (data) => {
-    console.log(data);
+    setLoading(true);
 
-    const res = await fetch("http://localhost:4000/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify(data),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (res.ok) {
-      console.log("Login successful");
+    try {
+      await login(data.email, data.password);
+      toast.success("¡Bienvenido!");
       router.push("/dashboard");
-      return alert("Login successful");
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Error al iniciar sesión"
+      );
+    } finally {
+      setLoading(false);
     }
-
-    const resJSON = await res.json();
-    console.log(resJSON);
   });
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
+          <CardTitle className="text-2xl">Login to your account</CardTitle>
           <CardDescription>
             Enter your email below to login to your account
           </CardDescription>
@@ -60,24 +66,35 @@ export function LoginForm({
         <CardContent>
           <form onSubmit={onSubmit}>
             <div className="flex flex-col gap-6">
-              <div className="grid gap-3">
+              {/* Email Field */}
+              <div className="grid gap-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  {...register("email", {
-                    required: true,
-                  })}
                   placeholder="m@example.com"
-                  required
+                  disabled={loading}
+                  {...register("email", {
+                    required: "Email is required",
+                    pattern: {
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: "Invalid email address",
+                    },
+                  })}
                 />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email.message}</p>
+                )}
               </div>
-              <div className="grid gap-3">
+
+              {/* Password Field */}
+              <div className="grid gap-2">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
                   <Link
                     href="/auth/forgot-password"
                     className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                    tabIndex={-1}
                   >
                     Forgot your password?
                   </Link>
@@ -85,24 +102,42 @@ export function LoginForm({
                 <Input
                   id="password"
                   type="password"
+                  placeholder="Enter your password"
+                  disabled={loading}
                   {...register("password", {
-                    required: true,
+                    required: "Password is required",
+                    minLength: {
+                      value: 6,
+                      message: "Password must be at least 6 characters",
+                    },
                   })}
-                  placeholder="********"
-                  required
                 />
+                {errors.password && (
+                  <p className="text-sm text-red-500">
+                    {errors.password.message}
+                  </p>
+                )}
               </div>
-              <div className="flex flex-col gap-3">
-                <Button type="submit" className="w-full">
-                  Login
-                </Button>
-              </div>
+
+              {/* Submit Button */}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Logging in...
+                  </>
+                ) : (
+                  "Login"
+                )}
+              </Button>
             </div>
+
+            {/* Sign Up Link */}
             <div className="mt-4 text-center text-sm">
               Don&apos;t have an account?{" "}
               <Link
                 href="/auth/register"
-                className="underline underline-offset-4"
+                className="underline underline-offset-4 hover:text-primary"
               >
                 Sign up
               </Link>

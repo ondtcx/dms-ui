@@ -30,7 +30,7 @@ api.interceptors.response.use(
       // Token expirado o inválido
       Cookies.remove("token");
       Cookies.remove("user");
-      window.location.href = "/login";
+      window.location.href = "/auth/login";
     }
     return Promise.reject(error);
   }

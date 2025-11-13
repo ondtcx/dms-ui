@@ -58,8 +58,6 @@ export interface DocumentsResponse {
 }
 
 export interface UploadDocumentDto {
-  category?: string;
   description?: string;
-  tags?: string[];
   isPublic?: boolean;
 }
