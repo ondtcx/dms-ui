@@ -1,184 +1,226 @@
-// src/app/dashboard/home/page.tsx
+// src/app/dashboard/page.tsx
 "use client";
 
 import { useAuth } from "@/lib/contexts/AuthContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useQuery } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
-import { useState } from "react";
-import toast from "react-hot-toast";
+import { AdminOnly } from "@/guards/RoleGuard";
+import Link from "next/link";
+import {
+  FileText,
+  Users,
+  Settings,
+  FolderOpen,
+  TrendingUp,
+  ArrowRight,
+  Sparkles,
+} from "lucide-react";
 
-export default function HomePage() {
+// Shadcn imports
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+
+export default function DashboardHomePage() {
   const { user } = useAuth();
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-
-  const {
-    data: documents,
-    isLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["documents"],
-    queryFn: () => documentsService.getAll({ page: 1, limit: 10 }),
-  });
+  const { isAdmin } = usePermissions();
 
   const { data: stats } = useQuery({
     queryKey: ["stats"],
     queryFn: () => documentsService.getStats(),
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+  const getRoleBadgeVariant = (
+    role: string
+  ): "default" | "secondary" | "destructive" | "outline" => {
+    switch (role) {
+      case "admin":
+        return "destructive";
+      case "moderator":
+        return "default";
+      default:
+        return "secondary";
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error("Selecciona un archivo");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      await documentsService.upload(selectedFile, {
-        isPublic: false,
-      });
-      toast.success("Archivo subido exitosamente");
-      setSelectedFile(null);
-      refetch();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Error al subir archivo");
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleDownload = async (id: number, filename: string) => {
-    try {
-      const blob = await documentsService.download(id);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success("Descarga iniciada");
-    } catch (error) {
-      toast.error("Error al descargar archivo");
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!confirm("¿Estás seguro de eliminar este documento?")) return;
-
-    try {
-      await documentsService.delete(id);
-      toast.success("Documento eliminado");
-      refetch();
-    } catch (error) {
-      toast.error("Error al eliminar documento");
-    }
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "¡Buenos días";
+    if (hour < 19) return "¡Buenas tardes";
+    return "¡Buenas noches";
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="px-8 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">Inicio</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Bienvenido, {user?.name}
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      {/* Bienvenida */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <h1 className="text-4xl font-bold tracking-tight">
+            {getGreeting()}, {user?.name}! 👋
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <p className="text-muted-foreground text-lg">
+            Bienvenido a tu panel de gestión de documentos
           </p>
-        </div>
-      </header>
-
-      <div className="flex-1 px-8 py-6">
-        {/* Estadísticas */}
-        {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-gray-500 text-sm">Total Documentos</h3>
-              <p className="text-3xl font-bold">{stats.totalDocuments}</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-gray-500 text-sm">Espacio Usado</h3>
-              <p className="text-3xl font-bold">{stats.totalSizeMB} MB</p>
-            </div>
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-gray-500 text-sm">Categorías</h3>
-              <p className="text-3xl font-bold">-</p>
-            </div>
-          </div>
-        )}
-
-        {/* Upload */}
-        <div className="bg-white p-6 rounded-lg shadow mb-6">
-          <h2 className="text-lg font-semibold mb-4">Subir Documento</h2>
-          <div className="flex gap-4">
-            <input
-              type="file"
-              onChange={handleFileChange}
-              className="flex-1 border border-gray-300 rounded px-3 py-2"
-            />
-            <button
-              onClick={handleUpload}
-              disabled={uploading || !selectedFile}
-              className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              {uploading ? "Subiendo..." : "Subir"}
-            </button>
-          </div>
-        </div>
-
-        {/* Lista de Documentos */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b">
-            <h2 className="text-lg font-semibold">Mis Documentos</h2>
-          </div>
-          <div className="divide-y">
-            {isLoading ? (
-              <div className="p-6 text-center">Cargando...</div>
-            ) : documents?.data.length === 0 ? (
-              <div className="p-6 text-center text-gray-500">
-                No hay documentos
-              </div>
-            ) : (
-              documents?.data.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="p-6 flex justify-between items-center hover:bg-gray-50"
-                >
-                  <div>
-                    <h3 className="font-medium">{doc.filename}</h3>
-                    <p className="text-sm text-gray-500">
-                      {(doc.size / 1024).toFixed(2)} KB
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      Subido por {doc.uploadedBy.name}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleDownload(doc.id, doc.filename)}
-                      className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-                    >
-                      Descargar
-                    </button>
-                    <button
-                      onClick={() => handleDelete(doc.id)}
-                      className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          <Badge variant={getRoleBadgeVariant(user?.role || "")}>
+            {user?.role?.toUpperCase()}
+          </Badge>
         </div>
       </div>
+
+      {/* Panel Admin */}
+      <AdminOnly>
+        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full">
+                <Sparkles className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                  Panel de Administrador
+                </h3>
+                <p className="text-blue-700 dark:text-blue-300 text-sm mb-4">
+                  Tienes acceso completo a todas las funcionalidades del
+                  sistema.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button asChild variant="default" size="sm">
+                    <Link href="/dashboard/users">
+                      <Users className="mr-2 h-4 w-4" />
+                      Gestionar Usuarios
+                    </Link>
+                  </Button>
+                  <Button asChild variant="default" size="sm">
+                    <Link href="/dashboard/settings">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Configuración
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </AdminOnly>
+
+      {/* Estadísticas */}
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight mb-4">Estadísticas</h2>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Documentos
+              </CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats?.totalDocuments || 0}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Documentos almacenados
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Espacio Usado
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {stats?.totalSizeMB || "0.00"} MB
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Espacio de almacenamiento
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Acceso rápido */}
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight mb-4">
+          Acceso Rápido
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+            <Link href="/dashboard/documents">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full">
+                      <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg">Documentos</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Ver y gestionar documentos
+                      </p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Link>
+          </Card>
+
+          <AdminOnly>
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer">
+              <Link href="/dashboard/users">
+                <CardContent className="pt-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-purple-100 dark:bg-purple-900 p-3 rounded-full">
+                        <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">Usuarios</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Administrar usuarios
+                        </p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Link>
+            </Card>
+          </AdminOnly>
+        </div>
+      </div>
+
+      {/* Mensaje motivacional */}
+      <Card className="border-dashed">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <div className="bg-gradient-to-br from-blue-500 to-purple-600 p-3 rounded-full">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <h3 className="font-semibold">¿Listo para comenzar?</h3>
+              <p className="text-sm text-muted-foreground">
+                Sube tu primer documento o explora las funcionalidades del
+                sistema
+              </p>
+            </div>
+            <Button asChild className="ml-auto" variant="default">
+              <Link href="/dashboard/documents">
+                Ir a Documentos
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

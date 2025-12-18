@@ -1,0 +1,451 @@
+// src/app/dashboard/documents/page.tsx
+"use client";
+
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { usePermissions } from "@/hooks/use-permissions";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { documentsService } from "@/lib/services/documents.service";
+import { useState } from "react";
+import toast from "react-hot-toast";
+import {
+  FileText,
+  Download,
+  Trash2,
+  Upload,
+  Search,
+  Filter,
+  Lock,
+  Unlock,
+  Calendar,
+  User,
+  FolderOpen,
+  X,
+  Plus,
+} from "lucide-react";
+import { Document } from "@/lib/types";
+
+// Shadcn imports
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+import { Separator } from "@/components/ui/separator";
+
+export default function DocumentsPage() {
+  const { user } = useAuth();
+  const { isAdmin } = usePermissions();
+  const queryClient = useQueryClient();
+
+  // Estados
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadData, setUploadData] = useState({
+    category: "",
+    description: "",
+    tags: [] as string[],
+    isPublic: false,
+  });
+  const [tagInput, setTagInput] = useState("");
+
+  // Queries
+  const { data: documents, isLoading: loadingDocuments } = useQuery({
+    queryKey: ["documents", searchTerm],
+    queryFn: () =>
+      documentsService.getAll({
+        search: searchTerm || undefined,
+        page: 1,
+        limit: 50,
+      }),
+  });
+
+  const { data: stats } = useQuery({
+    queryKey: ["stats"],
+    queryFn: () => documentsService.getStats(),
+  });
+
+  // Mutations
+  const deleteMutation = useMutation({
+    mutationFn: documentsService.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      toast.success("Documento eliminado exitosamente");
+    },
+    onError: () => {
+      toast.error("Error al eliminar documento");
+    },
+  });
+
+  // Handlers
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleAddTag = () => {
+    if (tagInput.trim() && !uploadData.tags.includes(tagInput.trim())) {
+      setUploadData({
+        ...uploadData,
+        tags: [...uploadData.tags, tagInput.trim()],
+      });
+      setTagInput("");
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setUploadData({
+      ...uploadData,
+      tags: uploadData.tags.filter((tag) => tag !== tagToRemove),
+    });
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      toast.error("Selecciona un archivo");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await documentsService.upload(selectedFile, uploadData);
+      toast.success("Archivo subido exitosamente");
+      setSelectedFile(null);
+      setUploadData({
+        category: "",
+        description: "",
+        tags: [],
+        isPublic: false,
+      });
+      setShowUploadModal(false);
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || "Error al subir archivo");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownload = async (id: number, filename: string) => {
+    try {
+      const blob = await documentsService.download(id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success("Descarga iniciada");
+    } catch (error) {
+      toast.error("Error al descargar archivo");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("¿Estás seguro de eliminar este documento?")) return;
+    deleteMutation.mutate(id);
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+  };
+
+  const formatDate = (dateString: string): string => {
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  const canDelete = (doc: Document): boolean => {
+    return isAdmin() || doc.uploadedById === user?.id;
+  };
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Documentos</h1>
+        <p className="text-muted-foreground mt-2">
+          Gestiona tus documentos y archivos
+        </p>
+      </div>
+
+      {/* Estadísticas */}
+      {stats && (
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Total Documentos
+              </CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalDocuments}</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Espacio Usado
+              </CardTitle>
+              <FolderOpen className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.totalSizeMB} MB</div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Categorías</CardTitle>
+              <Filter className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+          </Card>
+        </div>
+      )}
+
+      {/* Barra de acciones */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Búsqueda */}
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                placeholder="Buscar documentos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Botón subir */}
+            <Button onClick={() => setShowUploadModal(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Subir Documento
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Lista de documentos */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {isAdmin() ? "Todos los Documentos" : "Mis Documentos"}
+          </CardTitle>
+          <CardDescription>
+            {documents?.data.length || 0} documento(s) encontrado(s)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingDocuments ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+              <p className="text-muted-foreground mt-4">
+                Cargando documentos...
+              </p>
+            </div>
+          ) : documents?.data.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+              <p className="text-lg font-medium">No hay documentos</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Comienza subiendo tu primer documento
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {documents?.data.map((doc, index) => (
+                <div key={doc.id}>
+                  {index > 0 && <Separator />}
+                  <div className="flex items-start justify-between gap-4 py-4">
+                    {/* Información del documento */}
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                        <h3 className="font-medium truncate">{doc.filename}</h3>
+                        {doc.isPublic ? (
+                          <Badge variant="outline" className="gap-1">
+                            <Unlock className="h-3 w-3" />
+                            Público
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="gap-1">
+                            <Lock className="h-3 w-3" />
+                            Privado
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <FileText className="h-3 w-3" />
+                          {formatFileSize(doc.size)}
+                        </span>
+
+                        <span className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {doc.uploadedBy.name}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {formatDate(doc.createdAt)}
+                        </span>
+                      </div>
+
+                      {doc.description && (
+                        <p className="text-sm text-muted-foreground">
+                          {doc.description}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={() => handleDownload(doc.id, doc.filename)}
+                        variant="default"
+                        size="sm"
+                      >
+                        <Download className="mr-2 h-4 w-4" />
+                        Descargar
+                      </Button>
+
+                      {canDelete(doc) && (
+                        <Button
+                          onClick={() => handleDelete(doc.id)}
+                          disabled={deleteMutation.isPending}
+                          variant="destructive"
+                          size="sm"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Modal de subir documento */}
+      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Subir Documento</DialogTitle>
+            <DialogDescription>
+              Completa la información del documento que deseas subir
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Seleccionar archivo */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Archivo *</label>
+              <Input
+                type="file"
+                onChange={handleFileChange}
+                className="cursor-pointer"
+              />
+              {selectedFile && (
+                <p className="text-sm text-muted-foreground">
+                  Archivo seleccionado: {selectedFile.name} (
+                  {formatFileSize(selectedFile.size)})
+                </p>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Categoría */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoría</label>
+              <Input
+                value={uploadData.category}
+                onChange={(e) =>
+                  setUploadData({ ...uploadData, category: e.target.value })
+                }
+                placeholder="Ej: Contratos, Facturas, Reportes..."
+              />
+            </div>
+
+            {/* Descripción */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Descripción</label>
+              <Textarea
+                value={uploadData.description}
+                onChange={(e) =>
+                  setUploadData({ ...uploadData, description: e.target.value })
+                }
+                placeholder="Describe el contenido del documento..."
+                rows={3}
+              />
+            </div>
+
+            {/* Visibilidad */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="isPublic"
+                checked={uploadData.isPublic}
+                onCheckedChange={(checked) =>
+                  setUploadData({ ...uploadData, isPublic: checked as boolean })
+                }
+              />
+              <label
+                htmlFor="isPublic"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Hacer público (visible para todos los usuarios)
+              </label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUploadModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={uploading || !selectedFile}
+            >
+              {uploading ? "Subiendo..." : "Subir Documento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
