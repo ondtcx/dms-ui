@@ -19,6 +19,11 @@ export interface DocumentTemplate {
   type: string;
   description: string | null;
   fields: TemplateFields;
+  htmlTemplate: string;
+  styles: string | null;
+  outputFormat: 'pdf' | 'docx' | 'html';
+  pageSize: 'A4' | 'Letter' | 'Legal';
+  orientation: 'portrait' | 'landscape';
   isActive: boolean;
   createdById: string;
   createdBy: {
@@ -48,6 +53,11 @@ export interface CreateDocumentTemplateDto {
   type: string;
   description?: string;
   fields: TemplateFields;
+  htmlTemplate: string;
+  styles?: string;
+  outputFormat?: 'pdf' | 'docx' | 'html';
+  pageSize?: 'A4' | 'Letter' | 'Legal';
+  orientation?: 'portrait' | 'landscape';
   isActive?: boolean;
 }
 
@@ -56,6 +66,11 @@ export interface UpdateDocumentTemplateDto {
   type?: string;
   description?: string;
   fields?: TemplateFields;
+  htmlTemplate?: string;
+  styles?: string;
+  outputFormat?: 'pdf' | 'docx' | 'html';
+  pageSize?: 'A4' | 'Letter' | 'Legal';
+  orientation?: 'portrait' | 'landscape';
   isActive?: boolean;
 }
 

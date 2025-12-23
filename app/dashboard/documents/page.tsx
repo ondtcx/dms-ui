@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import {
   FileText,
@@ -20,6 +20,7 @@ import {
   User,
   FolderOpen,
   FileType,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { Document } from "@/lib/types";
@@ -58,6 +59,10 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [uploadData, setUploadData] = useState({
     category: "",
     description: "",
@@ -149,6 +154,32 @@ export default function DocumentsPage() {
     if (!confirm("¿Estás seguro de eliminar este documento?")) return;
     deleteMutation.mutate(id);
   };
+
+  const handlePreview = async (doc: Document) => {
+    setPreviewDocument(doc);
+    setShowPreviewModal(true);
+    setLoadingPreview(true);
+
+    try {
+      const blob = await documentsService.view(doc.id);
+      const url = window.URL.createObjectURL(blob);
+      setPreviewUrl(url);
+    } catch (error) {
+      toast.error("Error al cargar la vista previa");
+      setShowPreviewModal(false);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  // Limpiar URL del blob cuando se cierra el modal
+  useEffect(() => {
+    if (!showPreviewModal && previewUrl) {
+      window.URL.revokeObjectURL(previewUrl);
+      setPreviewUrl("");
+      setPreviewDocument(null);
+    }
+  }, [showPreviewModal, previewUrl]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -328,6 +359,15 @@ export default function DocumentsPage() {
                     {/* Acciones */}
                     <div className="flex items-center gap-2">
                       <Button
+                        onClick={() => handlePreview(doc)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver
+                      </Button>
+
+                      <Button
                         onClick={() => handleDownload(doc.id, doc.filename)}
                         variant="default"
                         size="sm"
@@ -438,6 +478,55 @@ export default function DocumentsPage() {
             >
               {uploading ? "Subiendo..." : "Subir Documento"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de vista previa de documento */}
+      <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
+        <DialogContent className="sm:max-w-[90vw] sm:max-h-[90vh] h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Vista Previa: {previewDocument?.filename}</DialogTitle>
+            <DialogDescription>
+              {previewDocument?.description || "Previsualización del documento"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 min-h-0 h-full">
+            {loadingPreview ? (
+              <div className="flex flex-col items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                <p className="text-muted-foreground mt-4">
+                  Cargando vista previa...
+                </p>
+              </div>
+            ) : previewUrl ? (
+              <iframe
+                src={previewUrl}
+                className="w-full h-full border rounded-md"
+                title={previewDocument?.filename}
+              />
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowPreviewModal(false)}
+            >
+              Cerrar
+            </Button>
+            {previewDocument && (
+              <Button
+                onClick={() =>
+                  handleDownload(previewDocument.id, previewDocument.filename)
+                }
+                disabled={loadingPreview}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Descargar
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

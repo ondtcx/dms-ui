@@ -25,9 +25,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { DocumentTemplate, TemplateField, UpdateDocumentTemplateDto } from "@/lib/types";
-import { Plus, Trash2, FileType } from "lucide-react";
+import { Plus, Trash2, FileType, Code, Settings, Layout } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import Editor from "react-simple-code-editor";
+import Prism from "prismjs";
+import "prismjs/components/prism-markup";
+import "prismjs/themes/prism-tomorrow.css";
 
 interface CreateTemplateDialogProps {
   open: boolean;
@@ -45,6 +55,35 @@ const FIELD_TYPES = [
   { value: "email", label: "Email" },
 ];
 
+const DEFAULT_HTML_TEMPLATE = `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>{{_metadata.templateName}}</title>
+</head>
+<body>
+  <h1>{{_metadata.templateName}}</h1>
+  <p><em>Generado: {{_metadata.generatedDate}}</em></p>
+  <hr>
+
+  <!-- Agrega tus campos aquí usando sintaxis Handlebars -->
+  <!-- Ejemplo: <p><strong>Campo:</strong> {{nombre_campo}}</p> -->
+
+</body>
+</html>`;
+
+const DEFAULT_STYLES = `body {
+  font-family: Arial, sans-serif;
+  margin: 40px;
+  color: #333;
+}
+
+h1 {
+  color: #000;
+  border-bottom: 2px solid #333;
+  padding-bottom: 10px;
+}`;
+
 export function CreateTemplateDialog({
   open,
   onOpenChange,
@@ -60,6 +99,13 @@ export function CreateTemplateDialog({
   const [isActive, setIsActive] = useState(true);
   const [fields, setFields] = useState<TemplateField[]>([]);
 
+  // Nuevos campos
+  const [htmlTemplate, setHtmlTemplate] = useState(DEFAULT_HTML_TEMPLATE);
+  const [styles, setStyles] = useState(DEFAULT_STYLES);
+  const [outputFormat, setOutputFormat] = useState<'pdf' | 'docx' | 'html'>('pdf');
+  const [pageSize, setPageSize] = useState<'A4' | 'Letter' | 'Legal'>('A4');
+  const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
+
   // Cargar datos si estamos editando
   useEffect(() => {
     if (template) {
@@ -68,6 +114,11 @@ export function CreateTemplateDialog({
       setDescription(template.description || "");
       setIsActive(template.isActive);
       setFields(template.fields.fields);
+      setHtmlTemplate(template.htmlTemplate);
+      setStyles(template.styles || DEFAULT_STYLES);
+      setOutputFormat(template.outputFormat);
+      setPageSize(template.pageSize);
+      setOrientation(template.orientation);
     } else {
       resetForm();
     }
@@ -112,6 +163,11 @@ export function CreateTemplateDialog({
     setDescription("");
     setIsActive(true);
     setFields([]);
+    setHtmlTemplate(DEFAULT_HTML_TEMPLATE);
+    setStyles(DEFAULT_STYLES);
+    setOutputFormat('pdf');
+    setPageSize('A4');
+    setOrientation('portrait');
   };
 
   const addField = () => {
@@ -157,6 +213,11 @@ export function CreateTemplateDialog({
       return;
     }
 
+    if (!htmlTemplate.trim()) {
+      toast.error("El template HTML es requerido");
+      return;
+    }
+
     // Validar que todos los campos tengan nombre y label
     const invalidFields = fields.some((f) => !f.name.trim() || !f.label.trim());
     if (invalidFields) {
@@ -169,6 +230,11 @@ export function CreateTemplateDialog({
       type: type.trim(),
       description: description.trim() || undefined,
       fields: { fields },
+      htmlTemplate: htmlTemplate.trim(),
+      styles: styles.trim() || undefined,
+      outputFormat,
+      pageSize,
+      orientation,
       isActive,
     };
 
@@ -181,7 +247,7 @@ export function CreateTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileType className="h-5 w-5" />
@@ -194,66 +260,85 @@ export function CreateTemplateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Información básica */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">
-                Nombre de la plantilla <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ej: Acta de Reunión, Certificado de Trabajo"
-              />
+        <Tabs defaultValue="basic" className="w-full">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="basic">
+              <Layout className="h-4 w-4 mr-2" />
+              Básico
+            </TabsTrigger>
+            <TabsTrigger value="fields">
+              <Settings className="h-4 w-4 mr-2" />
+              Campos
+            </TabsTrigger>
+            <TabsTrigger value="template">
+              <Code className="h-4 w-4 mr-2" />
+              HTML
+            </TabsTrigger>
+            <TabsTrigger value="config">
+              <FileType className="h-4 w-4 mr-2" />
+              Configuración
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Tab: Información Básica */}
+          <TabsContent value="basic" className="space-y-4 mt-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">
+                  Nombre de la plantilla <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ej: Acta de Reunión, Certificado de Trabajo"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="type">
+                  Tipo <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="type"
+                  value={type}
+                  onChange={(e) => setType(e.target.value)}
+                  placeholder="Ej: acta, certificado, informe"
+                />
+                <p className="text-xs text-muted-foreground">
+                  El tipo permite agrupar plantillas similares
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Descripción</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe para qué sirve esta plantilla"
+                  rows={3}
+                />
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="isActive"
+                  checked={isActive}
+                  onCheckedChange={(checked) => setIsActive(checked as boolean)}
+                />
+                <label
+                  htmlFor="isActive"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Plantilla activa
+                </label>
+              </div>
             </div>
+          </TabsContent>
 
-            <div className="space-y-2">
-              <Label htmlFor="type">
-                Tipo <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="type"
-                value={type}
-                onChange={(e) => setType(e.target.value)}
-                placeholder="Ej: acta, certificado, informe"
-              />
-              <p className="text-xs text-muted-foreground">
-                El tipo permite agrupar plantillas similares
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe para qué sirve esta plantilla"
-                rows={2}
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isActive"
-                checked={isActive}
-                onCheckedChange={(checked) => setIsActive(checked as boolean)}
-              />
-              <label
-                htmlFor="isActive"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Plantilla activa
-              </label>
-            </div>
-          </div>
-
-          <Separator />
-
-          {/* Campos del formulario */}
-          <div className="space-y-4">
+          {/* Tab: Campos del Formulario */}
+          <TabsContent value="fields" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-sm">
                 Campos del Formulario <span className="text-red-500">*</span>
@@ -268,13 +353,12 @@ export function CreateTemplateDialog({
               <Card className="border-dashed">
                 <CardContent className="pt-6 pb-6 text-center">
                   <p className="text-sm text-muted-foreground">
-                    No hay campos. Haz clic en &quot;Agregar Campo&quot; para
-                    empezar.
+                    No hay campos. Haz clic en &quot;Agregar Campo&quot; para empezar.
                   </p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-[400px] overflow-y-auto">
                 {fields.map((field, index) => (
                   <Card key={index}>
                     <CardContent className="pt-6 space-y-4">
@@ -345,7 +429,7 @@ export function CreateTemplateDialog({
                                 id={`field-required-${index}`}
                                 checked={field.required}
                                 onCheckedChange={(checked) =>
-                                  updateField(index, "required", checked)
+                                  updateField(index, "required", checked as boolean)
                                 }
                               />
                               <label
@@ -372,8 +456,125 @@ export function CreateTemplateDialog({
                 ))}
               </div>
             )}
-          </div>
-        </div>
+          </TabsContent>
+
+          {/* Tab: Template HTML */}
+          <TabsContent value="template" className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="htmlTemplate">
+                Plantilla HTML <span className="text-red-500">*</span>
+              </Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Usa sintaxis Handlebars para los campos. Ejemplo: {"{{"} nombre_campo {"}}"}
+              </p>
+              <div className="border rounded-md overflow-hidden">
+                <Editor
+                  value={htmlTemplate}
+                  onValueChange={setHtmlTemplate}
+                  highlight={(code) => Prism.highlight(code, Prism.languages.markup, 'markup')}
+                  padding={10}
+                  style={{
+                    fontFamily: '"Fira code", "Fira Mono", monospace',
+                    fontSize: 14,
+                    minHeight: "300px",
+                    maxHeight: "400px",
+                    overflow: "auto",
+                  }}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <Label htmlFor="styles">CSS Personalizado</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Estilos CSS adicionales para el documento
+              </p>
+              <div className="border rounded-md overflow-hidden">
+                <Editor
+                  value={styles}
+                  onValueChange={setStyles}
+                  highlight={(code) => Prism.highlight(code, Prism.languages.css, 'css')}
+                  padding={10}
+                  style={{
+                    fontFamily: '"Fira code", "Fira Mono", monospace',
+                    fontSize: 14,
+                    minHeight: "200px",
+                    maxHeight: "300px",
+                    overflow: "auto",
+                  }}
+                />
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Tab: Configuración */}
+          <TabsContent value="config" className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="outputFormat">Formato de salida</Label>
+                <Select
+                  value={outputFormat}
+                  onValueChange={(value: 'pdf' | 'docx' | 'html') => setOutputFormat(value)}
+                >
+                  <SelectTrigger id="outputFormat">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pdf">PDF</SelectItem>
+                    <SelectItem value="html">HTML</SelectItem>
+                    <SelectItem value="docx" disabled>DOCX (Próximamente)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="pageSize">Tamaño de página</Label>
+                <Select
+                  value={pageSize}
+                  onValueChange={(value: 'A4' | 'Letter' | 'Legal') => setPageSize(value)}
+                >
+                  <SelectTrigger id="pageSize">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="A4">A4</SelectItem>
+                    <SelectItem value="Letter">Letter</SelectItem>
+                    <SelectItem value="Legal">Legal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="orientation">Orientación</Label>
+                <Select
+                  value={orientation}
+                  onValueChange={(value: 'portrait' | 'landscape') => setOrientation(value)}
+                >
+                  <SelectTrigger id="orientation">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">Vertical (Portrait)</SelectItem>
+                    <SelectItem value="landscape">Horizontal (Landscape)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg mt-4">
+              <h4 className="text-sm font-medium mb-2">Helpers disponibles:</h4>
+              <ul className="text-xs text-muted-foreground space-y-1">
+                <li>• <code>{"{{"} formatDate fecha {"}}"}</code> - Formatea fechas</li>
+                <li>• <code>{"{{"} nl2br texto {"}}"}</code> - Convierte saltos de línea a &lt;br&gt;</li>
+                <li>• <code>{"{{"} capitalize texto {"}}"}</code> - Capitaliza la primera letra</li>
+                <li>• <code>{"{{"} _metadata.generatedDate {"}}"}</code> - Fecha de generación</li>
+                <li>• <code>{"{{"} _metadata.generatedTime {"}}"}</code> - Hora de generación</li>
+              </ul>
+            </div>
+          </TabsContent>
+        </Tabs>
 
         <DialogFooter>
           <Button

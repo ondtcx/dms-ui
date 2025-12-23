@@ -84,6 +84,13 @@ export const documentsService = {
     return response.data;
   },
 
+  async view(id: number): Promise<Blob> {
+    const response = await api.get(`/documents/${id}/view`, {
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
   async getStats(): Promise<{
     totalDocuments: number;
     totalSize: number;
