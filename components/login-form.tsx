@@ -42,11 +42,12 @@ export function LoginForm({
       await login(data.email, data.password);
       toast.success("¡Bienvenido!");
       router.push("/dashboard");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Login error:", error);
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
       toast.error(
-        error.response?.data?.message ||
-          error.message ||
+        err.response?.data?.message ||
+          err.message ||
           "Error al iniciar sesión"
       );
     } finally {

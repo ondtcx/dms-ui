@@ -39,11 +39,18 @@ export interface Document {
   description: string | null;
   isPublic: boolean;
   uploadedBy: {
-    id: number;
+    id: string;
     name: string;
     email: string;
   };
-  uploadedById: number;
+  uploadedById: string;
+  templateId: number | null;
+  template?: {
+    id: number;
+    name: string;
+    type: string;
+  };
+  formData: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -62,3 +69,6 @@ export interface UploadDocumentDto {
   description?: string;
   isPublic?: boolean;
 }
+
+// Exportar tipos de plantillas
+export * from './templates';

@@ -53,10 +53,11 @@ export function RegisterForm({
       await registerUser(data.email, data.password, data.name);
       toast.success("¡Cuenta creada exitosamente!");
       router.push("/dashboard");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Registration error:", error);
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
       toast.error(
-        error.response?.data?.message || error.message || "Error al registrarse"
+        err.response?.data?.message || err.message || "Error al registrarse"
       );
     } finally {
       setLoading(false);

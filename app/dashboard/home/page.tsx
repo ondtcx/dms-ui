@@ -2,7 +2,6 @@
 "use client";
 
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { usePermissions } from "@/hooks/use-permissions";
 import { useQuery } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
 import { AdminOnly } from "@/guards/RoleGuard";
@@ -11,7 +10,6 @@ import {
   FileText,
   Users,
   Settings,
-  FolderOpen,
   TrendingUp,
   ArrowRight,
   Sparkles,
@@ -24,7 +22,6 @@ import { Badge } from "@/components/ui/badge";
 
 export default function DashboardHomePage() {
   const { user } = useAuth();
-  const { isAdmin } = usePermissions();
 
   const { data: stats } = useQuery({
     queryKey: ["stats"],

@@ -32,8 +32,9 @@ function UsersManagementContent() {
       setIsCreating(false);
       setNewUser({ name: "", email: "", password: "", role: UserRole.USER });
     },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || "Error al crear usuario");
+    onError: (error) => {
+      const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Error al crear usuario";
+      toast.error(message);
     },
   });
 

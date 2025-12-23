@@ -19,9 +19,9 @@ import {
   Calendar,
   User,
   FolderOpen,
-  X,
-  Plus,
+  FileType,
 } from "lucide-react";
+import Link from "next/link";
 import { Document } from "@/lib/types";
 
 // Shadcn imports
@@ -61,10 +61,8 @@ export default function DocumentsPage() {
   const [uploadData, setUploadData] = useState({
     category: "",
     description: "",
-    tags: [] as string[],
     isPublic: false,
   });
-  const [tagInput, setTagInput] = useState("");
 
   // Queries
   const { data: documents, isLoading: loadingDocuments } = useQuery({
@@ -102,23 +100,6 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleAddTag = () => {
-    if (tagInput.trim() && !uploadData.tags.includes(tagInput.trim())) {
-      setUploadData({
-        ...uploadData,
-        tags: [...uploadData.tags, tagInput.trim()],
-      });
-      setTagInput("");
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setUploadData({
-      ...uploadData,
-      tags: uploadData.tags.filter((tag) => tag !== tagToRemove),
-    });
-  };
-
   const handleUpload = async () => {
     if (!selectedFile) {
       toast.error("Selecciona un archivo");
@@ -133,15 +114,15 @@ export default function DocumentsPage() {
       setUploadData({
         category: "",
         description: "",
-        tags: [],
         isPublic: false,
       });
       setShowUploadModal(false);
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || "Error al subir archivo");
+    } catch (error) {
+      const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Error al subir archivo";
+      toast.error(message);
     } finally {
       setUploading(false);
     }
@@ -159,7 +140,7 @@ export default function DocumentsPage() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       toast.success("Descarga iniciada");
-    } catch (error) {
+    } catch {
       toast.error("Error al descargar archivo");
     }
   };
@@ -186,7 +167,7 @@ export default function DocumentsPage() {
   };
 
   const canDelete = (doc: Document): boolean => {
-    return isAdmin() || doc.uploadedById === user?.id;
+    return isAdmin() || doc.uploadedById === String(user?.id);
   };
 
   return (
@@ -248,11 +229,19 @@ export default function DocumentsPage() {
               />
             </div>
 
-            {/* Botón subir */}
-            <Button onClick={() => setShowUploadModal(true)}>
-              <Upload className="mr-2 h-4 w-4" />
-              Subir Documento
-            </Button>
+            {/* Botones */}
+            <div className="flex gap-2">
+              <Link href="/dashboard/templates">
+                <Button variant="outline">
+                  <FileType className="mr-2 h-4 w-4" />
+                  Desde Plantilla
+                </Button>
+              </Link>
+              <Button onClick={() => setShowUploadModal(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                Subir Archivo
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -291,9 +280,15 @@ export default function DocumentsPage() {
                   <div className="flex items-start justify-between gap-4 py-4">
                     {/* Información del documento */}
                     <div className="flex-1 min-w-0 space-y-2">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-wrap">
                         <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                         <h3 className="font-medium truncate">{doc.filename}</h3>
+                        {doc.template && (
+                          <Badge variant="default" className="gap-1">
+                            <FileType className="h-3 w-3" />
+                            {doc.template.type}
+                          </Badge>
+                        )}
                         {doc.isPublic ? (
                           <Badge variant="outline" className="gap-1">
                             <Unlock className="h-3 w-3" />

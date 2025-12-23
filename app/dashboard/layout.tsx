@@ -16,7 +16,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, FileText, Users, Settings, LogOut } from "lucide-react";
+import { Home, FileText, Users, Settings, LogOut, FileType } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@/lib/types";
@@ -49,6 +49,11 @@ export default function DashboardLayout({
       title: "Documentos",
       icon: FileText,
       url: "/dashboard/documents",
+    },
+    {
+      title: "Plantillas",
+      icon: FileType,
+      url: "/dashboard/templates",
     },
     {
       title: "Usuarios",
