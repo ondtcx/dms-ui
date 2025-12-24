@@ -21,6 +21,8 @@ import {
   FolderOpen,
   FileType,
   Eye,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { Document } from "@/lib/types";
@@ -48,6 +50,11 @@ import {
 } from "@/components/ui/dialog";
 
 import { Separator } from "@/components/ui/separator";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 
 export default function DocumentsPage() {
   const { user } = useAuth();
@@ -70,7 +77,12 @@ export default function DocumentsPage() {
   });
 
   // Queries
-  const { data: documents, isLoading: loadingDocuments } = useQuery({
+  const {
+    data: documents,
+    isLoading: loadingDocuments,
+    error: documentsError,
+    refetch: refetchDocuments
+  } = useQuery({
     queryKey: ["documents", searchTerm],
     queryFn: () =>
       documentsService.getAll({
@@ -80,7 +92,10 @@ export default function DocumentsPage() {
       }),
   });
 
-  const { data: stats } = useQuery({
+  const {
+    data: stats,
+    error: statsError
+  } = useQuery({
     queryKey: ["stats"],
     queryFn: () => documentsService.getStats(),
   });
@@ -288,7 +303,28 @@ export default function DocumentsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {loadingDocuments ? (
+          {documentsError ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error al cargar documentos</AlertTitle>
+              <AlertDescription className="flex flex-col gap-3">
+                <p>
+                  No se pudieron cargar los documentos. Verifica que el servidor
+                  esté ejecutándose y que tengas conexión a internet.
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => refetchDocuments()}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reintentar
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          ) : loadingDocuments ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
               <p className="text-muted-foreground mt-4">
