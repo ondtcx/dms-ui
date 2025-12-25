@@ -80,6 +80,7 @@ export interface CreateDocumentFromTemplateDto {
   filename?: string;
   description?: string;
   isPublic?: boolean;
+  categoryId?: number;
 }
 
 export interface TemplateType {

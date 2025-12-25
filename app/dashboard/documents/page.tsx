@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
+import { categoriesService } from "@/lib/services/categories.service";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import {
@@ -55,6 +56,13 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function DocumentsPage() {
   const { user } = useAuth();
@@ -65,13 +73,14 @@ export default function DocumentsPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<number | undefined>(undefined);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [uploadData, setUploadData] = useState({
-    category: "",
+    categoryId: undefined as number | undefined,
     description: "",
     isPublic: false,
   });
@@ -83,21 +92,29 @@ export default function DocumentsPage() {
     error: documentsError,
     refetch: refetchDocuments
   } = useQuery({
-    queryKey: ["documents", searchTerm],
+    queryKey: ["documents", searchTerm, categoryFilter],
     queryFn: () =>
       documentsService.getAll({
         search: searchTerm || undefined,
+        categoryId: categoryFilter,
         page: 1,
         limit: 50,
       }),
   });
 
   const {
-    data: stats,
-    error: statsError
+    data: stats
   } = useQuery({
     queryKey: ["stats"],
     queryFn: () => documentsService.getStats(),
+  });
+
+  const {
+    data: categories,
+    isLoading: loadingCategories
+  } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => categoriesService.getAll(),
   });
 
   // Mutations
@@ -132,7 +149,7 @@ export default function DocumentsPage() {
       toast.success("Archivo subido exitosamente");
       setSelectedFile(null);
       setUploadData({
-        category: "",
+        categoryId: undefined,
         description: "",
         isPublic: false,
       });
@@ -179,7 +196,7 @@ export default function DocumentsPage() {
       const blob = await documentsService.view(doc.id);
       const url = window.URL.createObjectURL(blob);
       setPreviewUrl(url);
-    } catch (error) {
+    } catch {
       toast.error("Error al cargar la vista previa");
       setShowPreviewModal(false);
     } finally {
@@ -264,15 +281,36 @@ export default function DocumentsPage() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
-            {/* Búsqueda */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Buscar documentos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            {/* Búsqueda y Filtros */}
+            <div className="flex-1 flex gap-2">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Buscar documentos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Filtro de categorías */}
+              <Select
+                value={categoryFilter?.toString() || "all"}
+                onValueChange={(value) => setCategoryFilter(value === "all" ? undefined : parseInt(value))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <Filter className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {!loadingCategories && categories?.filter(cat => cat.isActive).map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Botones */}
@@ -350,6 +388,12 @@ export default function DocumentsPage() {
                       <div className="flex items-center gap-3 flex-wrap">
                         <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                         <h3 className="font-medium truncate">{doc.filename}</h3>
+                        {doc.category && (
+                          <Badge variant="outline" className="gap-1" style={{ borderColor: doc.category.color }}>
+                            <Filter className="h-3 w-3" style={{ color: doc.category.color }} />
+                            <span style={{ color: doc.category.color }}>{doc.category.name}</span>
+                          </Badge>
+                        )}
                         {doc.template && (
                           <Badge variant="default" className="gap-1">
                             <FileType className="h-3 w-3" />
@@ -464,13 +508,23 @@ export default function DocumentsPage() {
             {/* Categoría */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Categoría</label>
-              <Input
-                value={uploadData.category}
-                onChange={(e) =>
-                  setUploadData({ ...uploadData, category: e.target.value })
+              <Select
+                value={uploadData.categoryId?.toString() || ""}
+                onValueChange={(value) =>
+                  setUploadData({ ...uploadData, categoryId: value ? parseInt(value) : undefined })
                 }
-                placeholder="Ej: Contratos, Facturas, Reportes..."
-              />
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!loadingCategories && categories?.filter(cat => cat.isActive).map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Descripción */}

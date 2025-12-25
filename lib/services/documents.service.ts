@@ -4,6 +4,7 @@ import { Document, DocumentsResponse, UploadDocumentDto } from "@/lib/types";
 export const documentsService = {
   async getAll(params?: {
     search?: string;
+    categoryId?: number;
     isPublic?: boolean;
     page?: number;
     limit?: number;
@@ -22,6 +23,7 @@ export const documentsService = {
     formData.append("file", file);
 
     if (data.description) formData.append("description", data.description);
+    if (data.categoryId) formData.append("categoryId", String(data.categoryId));
 
     if (data.isPublic !== undefined) {
       formData.append("isPublic", String(data.isPublic));
@@ -47,6 +49,7 @@ export const documentsService = {
     });
 
     if (data.description) formData.append("description", data.description);
+    if (data.categoryId) formData.append("categoryId", String(data.categoryId));
 
     if (data.isPublic !== undefined) {
       formData.append("isPublic", String(data.isPublic));
@@ -99,4 +102,5 @@ export const documentsService = {
     const response = await api.get("/documents/stats");
     return response.data;
   },
+
 };

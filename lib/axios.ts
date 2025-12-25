@@ -57,7 +57,7 @@ api.interceptors.response.use(
       toast.error("Error interno del servidor. Intenta nuevamente más tarde.");
     } else if (status >= 400 && status < 500) {
       // Otros errores del cliente
-      const message = (error.response.data as any)?.message || "Error en la solicitud.";
+      const message = (error.response.data as { message?: string })?.message || "Error en la solicitud.";
       toast.error(message);
     }
 

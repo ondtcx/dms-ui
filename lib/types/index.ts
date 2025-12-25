@@ -29,6 +29,17 @@ export interface RegisterDto {
   name: string;
 }
 
+export interface Category {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string;
+  icon: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Document {
   id: number;
   filename: string;
@@ -37,6 +48,8 @@ export interface Document {
   size: number;
   path: string;
   description: string | null;
+  categoryId: number | null;
+  category: Category | null;
   isPublic: boolean;
   uploadedBy: {
     id: string;
@@ -67,7 +80,14 @@ export interface DocumentsResponse {
 
 export interface UploadDocumentDto {
   description?: string;
+  categoryId?: number;
   isPublic?: boolean;
+}
+
+export interface CategoryCount {
+  categoryId: number;
+  categoryName: string;
+  count: number;
 }
 
 // Exportar tipos de plantillas

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
+import { categoriesService } from "@/lib/services/categories.service";
 import toast from "react-hot-toast";
 import {
   Dialog,
@@ -18,6 +19,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DocumentTemplate, TemplateField } from "@/lib/types";
 import { FileText, AlertCircle } from "lucide-react";
 
@@ -39,7 +47,14 @@ export function CreateDocumentFromTemplateDialog({
   const [description, setDescription] = useState("");
   const [filename, setFilename] = useState("");
   const [isPublic, setIsPublic] = useState(false);
+  const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Query para categorías
+  const { data: categories, isLoading: loadingCategories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () => categoriesService.getAll(),
+  });
 
   const createDocumentMutation = useMutation({
     mutationFn: templatesService.createDocumentFromTemplate,
@@ -62,6 +77,7 @@ export function CreateDocumentFromTemplateDialog({
     setDescription("");
     setFilename("");
     setIsPublic(false);
+    setCategoryId(undefined);
     setErrors({});
   };
 
@@ -105,6 +121,7 @@ export function CreateDocumentFromTemplateDialog({
       filename: filename || undefined,
       description: description || undefined,
       isPublic,
+      categoryId: categoryId || undefined,
     });
   };
 
@@ -253,6 +270,25 @@ export function CreateDocumentFromTemplateDialog({
                 placeholder="Descripción del documento (opcional)"
                 rows={2}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="category">Categoría</Label>
+              <Select
+                value={categoryId?.toString() || ""}
+                onValueChange={(value) => setCategoryId(value ? parseInt(value) : undefined)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una categoría (opcional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!loadingCategories && categories?.filter(cat => cat.isActive).map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex items-center space-x-2">

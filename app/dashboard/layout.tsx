@@ -16,7 +16,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, FileText, Users, Settings, LogOut, FileType } from "lucide-react";
+import { Home, FileText, Users, Settings, LogOut, FileType, FolderKanban } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@/lib/types";
@@ -54,6 +54,12 @@ export default function DashboardLayout({
       title: "Plantillas",
       icon: FileType,
       url: "/dashboard/templates",
+    },
+    {
+      title: "Categorías",
+      icon: FolderKanban,
+      url: "/dashboard/categories",
+      requiredRole: UserRole.ADMIN, // ✅ Solo ADMIN
     },
     {
       title: "Usuarios",
