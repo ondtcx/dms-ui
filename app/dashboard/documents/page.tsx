@@ -27,6 +27,11 @@ import {
   History,
   FileUp,
   Pencil,
+  MoreVertical,
+  FileImage,
+  FileSpreadsheet,
+  FileCode,
+  File,
 } from "lucide-react";
 import { Document } from "@/lib/types";
 import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
@@ -70,6 +75,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function DocumentsPage() {
   const { user } = useAuth();
@@ -102,6 +114,7 @@ export default function DocumentsPage() {
   const [replaceFileDocument, setReplaceFileDocument] = useState<Document | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>({});
 
   // Queries
   const {
@@ -259,6 +272,39 @@ export default function DocumentsPage() {
     }
   }, [showPreviewModal, previewUrl]);
 
+  // Cargar thumbnails para documentos que lo soporten
+  useEffect(() => {
+    const loadThumbnails = async () => {
+      if (!documents?.data) return;
+
+      for (const doc of documents.data) {
+        // Solo para PDFs e imágenes
+        if (doc.mimetype.startsWith('image/') || doc.mimetype === 'application/pdf') {
+          // Si ya tenemos el thumbnail, no volver a cargarlo
+          if (thumbnailUrls[doc.id]) continue;
+
+          try {
+            const blob = await documentsService.getThumbnail(doc.id);
+            const url = window.URL.createObjectURL(blob);
+            setThumbnailUrls(prev => ({ ...prev, [doc.id]: url }));
+          } catch (error) {
+            // Si falla, no hacer nada (se mostrará el icono)
+            console.log(`No se pudo cargar thumbnail para documento ${doc.id}`);
+          }
+        }
+      }
+    };
+
+    loadThumbnails();
+
+    // Cleanup: revocar URLs cuando se desmonte o cambien los documentos
+    return () => {
+      Object.values(thumbnailUrls).forEach(url => {
+        window.URL.revokeObjectURL(url);
+      });
+    };
+  }, [documents?.data]);
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -277,6 +323,37 @@ export default function DocumentsPage() {
 
   const canDelete = (doc: Document): boolean => {
     return isAdmin() || doc.uploadedById === String(user?.id);
+  };
+
+  const getFileIcon = (mimetype: string, hasTemplate: boolean) => {
+    if (hasTemplate) return FileType;
+
+    if (mimetype.startsWith('image/')) return FileImage;
+    if (mimetype.includes('pdf')) return FileText;
+    if (mimetype.includes('spreadsheet') || mimetype.includes('excel')) return FileSpreadsheet;
+    if (mimetype.includes('json') || mimetype.includes('xml') || mimetype.includes('code')) return FileCode;
+    return File;
+  };
+
+  const getFilePreviewContent = (doc: Document): string => {
+    // Si tiene descripción, mostrarla
+    if (doc.description) {
+      const desc = doc.description.length > 150
+        ? doc.description.substring(0, 150) + '...'
+        : doc.description;
+      return desc;
+    }
+
+    // Si es un documento generado desde plantilla
+    if (doc.template) {
+      return `Documento generado desde plantilla "${doc.template.name}" • Tipo: ${doc.template.type}`;
+    }
+
+    // Información basada en el tipo de archivo
+    const fileType = doc.mimetype.split('/')[1]?.toUpperCase() || 'ARCHIVO';
+    const uploadInfo = `Subido por ${doc.uploadedBy.name} el ${formatDate(doc.createdAt)}`;
+
+    return `Archivo ${fileType} • ${uploadInfo}`;
   };
 
   const handleShowVersionHistory = (doc: Document) => {
@@ -428,135 +505,158 @@ export default function DocumentsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {documents?.data.map((doc, index) => (
-                <div key={doc.id}>
-                  {index > 0 && <Separator />}
-                  <div className="flex items-start justify-between gap-4 py-4">
-                    {/* Información del documento */}
-                    <div className="flex-1 min-w-0 space-y-2">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        <h3 className="font-medium truncate">{doc.filename}</h3>
-                        {doc.category && (
-                          <Badge variant="outline" className="gap-1" style={{ borderColor: doc.category.color }}>
-                            <Filter className="h-3 w-3" style={{ color: doc.category.color }} />
-                            <span style={{ color: doc.category.color }}>{doc.category.name}</span>
-                          </Badge>
-                        )}
-                        {doc.template && (
-                          <Badge variant="default" className="gap-1">
-                            <FileType className="h-3 w-3" />
-                            {doc.template.type}
-                          </Badge>
-                        )}
-                        {doc.isPublic ? (
-                          <Badge variant="outline" className="gap-1">
-                            <Unlock className="h-3 w-3" />
-                            Público
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="gap-1">
-                            <Lock className="h-3 w-3" />
-                            Privado
-                          </Badge>
-                        )}
+              {documents?.data.map((doc, index) => {
+                const FileIcon = getFileIcon(doc.mimetype, !!doc.template);
+                const previewContent = getFilePreviewContent(doc);
+
+                return (
+                  <div key={doc.id}>
+                    {index > 0 && <Separator />}
+                    <div className="py-4 flex gap-4">
+                      {/* Preview Thumbnail */}
+                      <div className="flex-shrink-0">
+                        <div className="w-20 h-20 rounded-lg border-2 border-border bg-muted flex items-center justify-center overflow-hidden relative">
+                          {thumbnailUrls[doc.id] ? (
+                            <img
+                              src={thumbnailUrls[doc.id]}
+                              alt={doc.filename}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <FileIcon className="h-10 w-10 text-muted-foreground" />
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3 w-3" />
-                          {formatFileSize(doc.size)}
-                        </span>
+                      {/* Contenido Principal */}
+                      <div className="flex-1 min-w-0">
+                        {/* Header con título y acciones */}
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <h3 className="font-medium text-lg leading-tight">{doc.filename}</h3>
 
-                        <span className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {doc.uploadedBy.name}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(doc.createdAt)}
-                        </span>
-                      </div>
+                          {/* Botones de acción compactos */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                        <Button
+                          onClick={() => handlePreview(doc)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Eye className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Ver</span>
+                        </Button>
 
-                      {doc.description && (
-                        <p className="text-sm text-muted-foreground">
-                          {doc.description}
+                        <Button
+                          onClick={() => handleDownload(doc.id, doc.filename)}
+                          variant="default"
+                          size="sm"
+                        >
+                          <Download className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Descargar</span>
+                        </Button>
+
+                        {/* Menú de más opciones */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => handleShowVersionHistory(doc)}>
+                              <History className="mr-2 h-4 w-4" />
+                              Ver Versiones
+                            </DropdownMenuItem>
+
+                            {canDelete(doc) && (
+                              <>
+                                <DropdownMenuItem onClick={() => {
+                                  setEditingDocument(doc);
+                                  setShowEditDialog(true);
+                                }}>
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Editar Info
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem onClick={() => handleShowReplaceFile(doc)}>
+                                  <FileUp className="mr-2 h-4 w-4" />
+                                  Reemplazar Archivo
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSeparator />
+
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(doc.id)}
+                                  className="text-destructive focus:text-destructive"
+                                  disabled={deleteMutation.isPending}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                          </div>
+                        </div>
+
+                        {/* Badges y metadata */}
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          {doc.category && (
+                            <Badge variant="outline" className="gap-1" style={{ borderColor: doc.category.color }}>
+                              <Filter className="h-3 w-3" style={{ color: doc.category.color }} />
+                              <span style={{ color: doc.category.color }}>{doc.category.name}</span>
+                            </Badge>
+                          )}
+                          {doc.template && (
+                            <Badge variant="default" className="gap-1">
+                              <FileType className="h-3 w-3" />
+                              {doc.template.type}
+                            </Badge>
+                          )}
+                          {doc.isPublic ? (
+                            <Badge variant="outline" className="gap-1">
+                              <Unlock className="h-3 w-3" />
+                              Público
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              <Lock className="h-3 w-3" />
+                              Privado
+                            </Badge>
+                          )}
+                        </div>
+
+                        {/* Preview del contenido */}
+                        <p className="text-sm text-muted-foreground mb-2" style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {previewContent}
                         </p>
-                      )}
-                    </div>
 
-                    {/* Acciones */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Button
-                        onClick={() => handlePreview(doc)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ver
-                      </Button>
-
-                      {canDelete(doc) && (
-                        <Button
-                          onClick={() => {
-                            setEditingDocument(doc);
-                            setShowEditDialog(true);
-                          }}
-                          variant="outline"
-                          size="sm"
-                          title="Editar información del documento"
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Editar
-                        </Button>
-                      )}
-
-                      <Button
-                        onClick={() => handleDownload(doc.id, doc.filename)}
-                        variant="default"
-                        size="sm"
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Descargar
-                      </Button>
-
-                      <Button
-                        onClick={() => handleShowVersionHistory(doc)}
-                        variant="outline"
-                        size="sm"
-                        title="Ver historial de versiones"
-                      >
-                        <History className="mr-2 h-4 w-4" />
-                        Versiones
-                      </Button>
-
-                      {canDelete(doc) && (
-                        <Button
-                          onClick={() => handleShowReplaceFile(doc)}
-                          variant="outline"
-                          size="sm"
-                          title="Reemplazar archivo (crea nueva versión)"
-                        >
-                          <FileUp className="mr-2 h-4 w-4" />
-                          Reemplazar
-                        </Button>
-                      )}
-
-                      {canDelete(doc) && (
-                        <Button
-                          onClick={() => handleDelete(doc.id)}
-                          disabled={deleteMutation.isPending}
-                          variant="destructive"
-                          size="sm"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Eliminar
-                        </Button>
-                      )}
+                        {/* Información adicional */}
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <FileText className="h-3 w-3" />
+                            {formatFileSize(doc.size)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            {doc.uploadedBy.name}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {formatDate(doc.createdAt)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

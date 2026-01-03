@@ -95,6 +95,13 @@ export const documentsService = {
     return response.data;
   },
 
+  async getThumbnail(id: number): Promise<Blob> {
+    const response = await api.get(`/documents/${id}/thumbnail`, {
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
   async getStats(): Promise<{
     totalDocuments: number;
     totalSize: number;
