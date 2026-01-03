@@ -16,7 +16,7 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, FileText, Users, Settings, LogOut, FileType, FolderKanban } from "lucide-react";
+import { Home, FileText, Users, Settings, LogOut, FolderKanban, Trash2, FileType } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@/lib/types";
@@ -39,9 +39,9 @@ export default function DashboardLayout({
   const { hasRole, hasAnyRole } = usePermissions();
   const pathname = usePathname();
 
-  const menuItems: MenuItem[] = [
+  const mainMenuItems: MenuItem[] = [
     {
-      title: "Home",
+      title: "Dashboard",
       icon: Home,
       url: "/dashboard",
     },
@@ -51,27 +51,36 @@ export default function DashboardLayout({
       url: "/dashboard/documents",
     },
     {
-      title: "Plantillas",
-      icon: FileType,
-      url: "/dashboard/templates",
+      title: "Papelera",
+      icon: Trash2,
+      url: "/dashboard/trash",
+    },
+  ];
+
+  const adminMenuItems: MenuItem[] = [
+    {
+      title: "Usuarios",
+      icon: Users,
+      url: "/dashboard/users",
+      requiredRole: UserRole.ADMIN,
     },
     {
       title: "Categorías",
       icon: FolderKanban,
       url: "/dashboard/categories",
-      requiredRole: UserRole.ADMIN, // ✅ Solo ADMIN
+      requiredRole: UserRole.ADMIN,
     },
     {
-      title: "Usuarios",
-      icon: Users,
-      url: "/dashboard/users",
-      requiredRole: UserRole.ADMIN, // ✅ Solo ADMIN
+      title: "Plantillas",
+      icon: FileType,
+      url: "/dashboard/templates",
+      requiredRole: UserRole.ADMIN,
     },
     {
       title: "Configuración",
       icon: Settings,
       url: "/dashboard/settings",
-      requiredRole: UserRole.ADMIN, // ✅ Solo ADMIN
+      requiredRole: UserRole.ADMIN,
     },
   ];
 
@@ -121,11 +130,33 @@ export default function DashboardLayout({
 
           {/* Content - Menú de navegación */}
           <SidebarContent>
+            {/* Menú Principal */}
             <SidebarGroup>
-              <SidebarGroupLabel>Navegación</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {menuItems.map((item) => {
+                  {mainMenuItems.map((item) => (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.url}
+                      >
+                        <Link href={item.url}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* Menú de Administración */}
+            <SidebarGroup>
+              <SidebarGroupLabel>Administración</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {adminMenuItems.map((item) => {
                     // ✅ Solo mostrar si tiene permisos
                     if (!shouldShowMenuItem(item)) {
                       return null;

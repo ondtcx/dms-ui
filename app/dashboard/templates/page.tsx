@@ -14,6 +14,7 @@ import {
   Eye,
   Power,
   PowerOff,
+  FileSearch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,6 +30,7 @@ import { Separator } from "@/components/ui/separator";
 import { DocumentTemplate } from "@/lib/types";
 import { CreateDocumentFromTemplateDialog } from "@/components/templates/CreateDocumentFromTemplateDialog";
 import { CreateTemplateDialog } from "@/components/templates/CreateTemplateDialog";
+import { PreviewTemplateDialog } from "@/components/templates/PreviewTemplateDialog";
 import {
   Select,
   SelectContent,
@@ -47,6 +49,9 @@ export default function TemplatesPage() {
   const [showCreateTemplateDialog, setShowCreateTemplateDialog] =
     useState(false);
   const [editingTemplate, setEditingTemplate] =
+    useState<DocumentTemplate | null>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
+  const [previewingTemplate, setPreviewingTemplate] =
     useState<DocumentTemplate | null>(null);
 
   // Queries
@@ -100,6 +105,11 @@ export default function TemplatesPage() {
   const handleEditTemplate = (template: DocumentTemplate) => {
     setEditingTemplate(template);
     setShowCreateTemplateDialog(true);
+  };
+
+  const handlePreviewTemplate = (template: DocumentTemplate) => {
+    setPreviewingTemplate(template);
+    setShowPreviewDialog(true);
   };
 
   const handleDeleteTemplate = async (id: number, name: string) => {
@@ -268,6 +278,14 @@ export default function TemplatesPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => handlePreviewTemplate(template)}
+                    title="Vista previa de la plantilla"
+                  >
+                    <FileSearch className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleEditTemplate(template)}
                   >
                     <Pencil className="h-4 w-4" />
@@ -309,6 +327,15 @@ export default function TemplatesPage() {
         template={editingTemplate}
         onSuccess={handleCreateTemplateSuccess}
       />
+
+      {/* Diálogo para previsualizar plantilla */}
+      {previewingTemplate && (
+        <PreviewTemplateDialog
+          template={previewingTemplate}
+          open={showPreviewDialog}
+          onOpenChange={setShowPreviewDialog}
+        />
+      )}
     </div>
   );
 }

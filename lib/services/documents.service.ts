@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import { Document, DocumentsResponse, UploadDocumentDto } from "@/lib/types";
+import { Document, DocumentsResponse, UploadDocumentDto, DocumentVersion } from "@/lib/types";
 
 export const documentsService = {
   async getAll(params?: {
@@ -8,6 +8,7 @@ export const documentsService = {
     isPublic?: boolean;
     page?: number;
     limit?: number;
+    includeDeleted?: boolean;
   }): Promise<DocumentsResponse> {
     const response = await api.get<DocumentsResponse>("/documents", { params });
     return response.data;
@@ -100,6 +101,45 @@ export const documentsService = {
     totalSizeMB: string;
   }> {
     const response = await api.get("/documents/stats");
+    return response.data;
+  },
+
+  // Versionado
+  async getVersions(id: number): Promise<DocumentVersion[]> {
+    const response = await api.get<DocumentVersion[]>(`/documents/${id}/versions`);
+    return response.data;
+  },
+
+  async restoreVersion(id: number, version: number): Promise<Document> {
+    const response = await api.post<Document>(`/documents/${id}/versions/${version}/restore`);
+    return response.data;
+  },
+
+  async replaceFile(id: number, file: File, comment?: string): Promise<Document> {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    if (comment) {
+      formData.append("comment", comment);
+    }
+
+    const response = await api.patch<Document>(`/documents/${id}/replace`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data;
+  },
+
+  // Soft Delete & Restore
+  async restore(id: number): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>(`/documents/${id}/restore`);
+    return response.data;
+  },
+
+  async permanentDelete(id: number): Promise<{ message: string }> {
+    const response = await api.delete<{ message: string }>(`/documents/${id}/permanent`);
     return response.data;
   },
 

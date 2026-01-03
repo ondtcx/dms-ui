@@ -24,9 +24,16 @@ import {
   Eye,
   AlertCircle,
   RefreshCw,
+  History,
+  FileUp,
+  Pencil,
 } from "lucide-react";
-import Link from "next/link";
 import { Document } from "@/lib/types";
+import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
+import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
+import { DocumentVersionHistory } from "@/components/documents/DocumentVersionHistory";
+import { ReplaceFileDialog } from "@/components/documents/ReplaceFileDialog";
+import { EditDocumentDialog } from "@/components/documents/EditDocumentDialog";
 
 // Shadcn imports
 import { Button } from "@/components/ui/button";
@@ -71,10 +78,13 @@ export default function DocumentsPage() {
 
   // Estados
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | undefined>(undefined);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showUploadMultipleModal, setShowUploadMultipleModal] = useState(false);
+  const [showSelectTemplateDialog, setShowSelectTemplateDialog] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
@@ -84,6 +94,14 @@ export default function DocumentsPage() {
     description: "",
     isPublic: false,
   });
+
+  // Estados para version history y replace file
+  const [showVersionHistory, setShowVersionHistory] = useState(false);
+  const [versionHistoryDocument, setVersionHistoryDocument] = useState<Document | null>(null);
+  const [showReplaceFile, setShowReplaceFile] = useState(false);
+  const [replaceFileDocument, setReplaceFileDocument] = useState<Document | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editingDocument, setEditingDocument] = useState<Document | null>(null);
 
   // Queries
   const {
@@ -165,6 +183,34 @@ export default function DocumentsPage() {
     }
   };
 
+  const handleUploadMultiple = async () => {
+    if (selectedFiles.length === 0) {
+      toast.error("Selecciona al menos un archivo");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await documentsService.uploadMultiple(selectedFiles, uploadData);
+      toast.success(`${selectedFiles.length} archivo(s) subido(s) exitosamente`);
+      setSelectedFiles([]);
+      setUploadData({
+        categoryId: undefined,
+        description: "",
+        isPublic: false,
+      });
+      setShowUploadMultipleModal(false);
+      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["stats"] });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    } catch (error) {
+      const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Error al subir archivos";
+      toast.error(message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleDownload = async (id: number, filename: string) => {
     try {
       const blob = await documentsService.download(id);
@@ -231,6 +277,16 @@ export default function DocumentsPage() {
 
   const canDelete = (doc: Document): boolean => {
     return isAdmin() || doc.uploadedById === String(user?.id);
+  };
+
+  const handleShowVersionHistory = (doc: Document) => {
+    setVersionHistoryDocument(doc);
+    setShowVersionHistory(true);
+  };
+
+  const handleShowReplaceFile = (doc: Document) => {
+    setReplaceFileDocument(doc);
+    setShowReplaceFile(true);
   };
 
   return (
@@ -313,19 +369,12 @@ export default function DocumentsPage() {
               </Select>
             </div>
 
-            {/* Botones */}
-            <div className="flex gap-2">
-              <Link href="/dashboard/templates">
-                <Button variant="outline">
-                  <FileType className="mr-2 h-4 w-4" />
-                  Desde Plantilla
-                </Button>
-              </Link>
-              <Button onClick={() => setShowUploadModal(true)}>
-                <Upload className="mr-2 h-4 w-4" />
-                Subir Archivo
-              </Button>
-            </div>
+            {/* Botón Nuevo */}
+            <NewDocumentButton
+              onUploadSingle={() => setShowUploadModal(true)}
+              onUploadMultiple={() => setShowUploadMultipleModal(true)}
+              onFromTemplate={() => setShowSelectTemplateDialog(true)}
+            />
           </div>
         </CardContent>
       </Card>
@@ -437,7 +486,7 @@ export default function DocumentsPage() {
                     </div>
 
                     {/* Acciones */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Button
                         onClick={() => handlePreview(doc)}
                         variant="outline"
@@ -447,6 +496,21 @@ export default function DocumentsPage() {
                         Ver
                       </Button>
 
+                      {canDelete(doc) && (
+                        <Button
+                          onClick={() => {
+                            setEditingDocument(doc);
+                            setShowEditDialog(true);
+                          }}
+                          variant="outline"
+                          size="sm"
+                          title="Editar información del documento"
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar
+                        </Button>
+                      )}
+
                       <Button
                         onClick={() => handleDownload(doc.id, doc.filename)}
                         variant="default"
@@ -455,6 +519,28 @@ export default function DocumentsPage() {
                         <Download className="mr-2 h-4 w-4" />
                         Descargar
                       </Button>
+
+                      <Button
+                        onClick={() => handleShowVersionHistory(doc)}
+                        variant="outline"
+                        size="sm"
+                        title="Ver historial de versiones"
+                      >
+                        <History className="mr-2 h-4 w-4" />
+                        Versiones
+                      </Button>
+
+                      {canDelete(doc) && (
+                        <Button
+                          onClick={() => handleShowReplaceFile(doc)}
+                          variant="outline"
+                          size="sm"
+                          title="Reemplazar archivo (crea nueva versión)"
+                        >
+                          <FileUp className="mr-2 h-4 w-4" />
+                          Reemplazar
+                        </Button>
+                      )}
 
                       {canDelete(doc) && (
                         <Button
@@ -617,6 +703,166 @@ export default function DocumentsPage() {
                 Descargar
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de historial de versiones */}
+      {versionHistoryDocument && (
+        <DocumentVersionHistory
+          documentId={versionHistoryDocument.id}
+          currentVersion={versionHistoryDocument.currentVersion}
+          open={showVersionHistory}
+          onOpenChange={setShowVersionHistory}
+        />
+      )}
+
+      {/* Modal de reemplazar archivo */}
+      {replaceFileDocument && (
+        <ReplaceFileDialog
+          documentId={replaceFileDocument.id}
+          documentName={replaceFileDocument.filename}
+          open={showReplaceFile}
+          onOpenChange={setShowReplaceFile}
+        />
+      )}
+
+      {/* Modal de editar documento */}
+      {editingDocument && (
+        <EditDocumentDialog
+          document={editingDocument}
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+        />
+      )}
+
+      {/* Dialog de seleccionar plantilla */}
+      <SelectTemplateDialog
+        open={showSelectTemplateDialog}
+        onOpenChange={setShowSelectTemplateDialog}
+      />
+
+      {/* Modal de subir múltiples documentos */}
+      <Dialog open={showUploadMultipleModal} onOpenChange={setShowUploadMultipleModal}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Subir Múltiples Documentos</DialogTitle>
+            <DialogDescription>
+              Selecciona varios archivos para subir al mismo tiempo
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* Seleccionar archivos múltiples */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Archivos *</label>
+              <Input
+                type="file"
+                multiple
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setSelectedFiles(files);
+                }}
+                className="cursor-pointer"
+              />
+              {selectedFiles.length > 0 && (
+                <div className="space-y-1 mt-2">
+                  <p className="text-sm font-medium">
+                    {selectedFiles.length} archivo(s) seleccionado(s):
+                  </p>
+                  {selectedFiles.map((file, idx) => (
+                    <p key={idx} className="text-sm text-muted-foreground">
+                      • {file.name} ({formatFileSize(file.size)})
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
+            {/* Categoría */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoría</label>
+              <Select
+                value={uploadData.categoryId?.toString() || ""}
+                onValueChange={(value) =>
+                  setUploadData({ ...uploadData, categoryId: value ? parseInt(value) : undefined })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!loadingCategories && categories?.filter(cat => cat.isActive).map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id.toString()}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Descripción */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Descripción (opcional)</label>
+              <Textarea
+                value={uploadData.description}
+                onChange={(e) =>
+                  setUploadData({ ...uploadData, description: e.target.value })
+                }
+                placeholder="Descripción que se aplicará a todos los archivos..."
+                rows={3}
+              />
+            </div>
+
+            {/* Visibilidad */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="isPublicMultiple"
+                checked={uploadData.isPublic}
+                onCheckedChange={(checked) =>
+                  setUploadData({ ...uploadData, isPublic: checked as boolean })
+                }
+              />
+              <label
+                htmlFor="isPublicMultiple"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Hacer públicos (visible para todos los usuarios)
+              </label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowUploadMultipleModal(false);
+                setSelectedFiles([]);
+                setUploadData({
+                  categoryId: undefined,
+                  description: "",
+                  isPublic: false,
+                });
+              }}
+              disabled={uploading}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleUploadMultiple} disabled={uploading || selectedFiles.length === 0}>
+              {uploading ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Subiendo...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Subir {selectedFiles.length} archivo(s)
+                </>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

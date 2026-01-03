@@ -7,12 +7,12 @@ import {
   Calendar,
   Command,
   Home,
-  Inbox,
   MessageCircleQuestion,
-  Search,
   Settings2,
-  Sparkles,
   Trash2,
+  FileText,
+  FolderOpen,
+  Users,
 } from "lucide-react"
 
 import { NavFavorites } from "@/components/nav-favorites"
@@ -48,26 +48,25 @@ const data = {
   ],
   navMain: [
     {
-      title: "Search",
-      url: "#",
-      icon: Search,
-    },
-    {
-      title: "Ask AI",
-      url: "#",
-      icon: Sparkles,
-    },
-    {
       title: "Home",
-      url: "#",
+      url: "/dashboard/home",
       icon: Home,
       isActive: true,
     },
     {
-      title: "Inbox",
-      url: "#",
-      icon: Inbox,
-      badge: "10",
+      title: "Documentos",
+      url: "/dashboard/documents",
+      icon: FileText,
+    },
+    {
+      title: "Categorías",
+      url: "/dashboard/categories",
+      icon: FolderOpen,
+    },
+    {
+      title: "Usuarios",
+      url: "/dashboard/users",
+      icon: Users,
     },
   ],
   navSecondary: [
@@ -78,17 +77,17 @@ const data = {
     },
     {
       title: "Settings",
-      url: "#",
+      url: "/dashboard/settings",
       icon: Settings2,
     },
     {
       title: "Templates",
-      url: "#",
+      url: "/dashboard/templates",
       icon: Blocks,
     },
     {
       title: "Trash",
-      url: "#",
+      url: "/dashboard/trash",
       icon: Trash2,
     },
     {

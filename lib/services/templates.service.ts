@@ -96,4 +96,14 @@ export const templatesService = {
     );
     return response.data;
   },
+
+  /**
+   * Obtener vista previa de una plantilla como PDF
+   */
+  async preview(id: number): Promise<Blob> {
+    const response = await api.get(`/document-templates/${id}/preview`, {
+      responseType: "blob",
+    });
+    return response.data;
+  },
 };

@@ -40,6 +40,39 @@ export interface Category {
   updatedAt: string;
 }
 
+export interface DocumentVersion {
+  id: number;
+  documentId: number;
+  version: number;
+  storedName: string;
+  path: string;
+  size: number;
+  checksumSHA256: string | null;
+  comment: string | null;
+  createdBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  createdById: string;
+  createdAt: string;
+}
+
+export interface DocumentAccess {
+  id: number;
+  documentId: number;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  action: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
 export interface Document {
   id: number;
   filename: string;
@@ -64,6 +97,17 @@ export interface Document {
     type: string;
   };
   formData: Record<string, unknown> | null;
+  currentVersion: number;
+  versions?: DocumentVersion[];
+  checksumSHA256: string | null;
+  deletedAt: string | null;
+  deletedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  deletedById: string | null;
+  accesses?: DocumentAccess[];
   createdAt: string;
   updatedAt: string;
 }
@@ -90,5 +134,4 @@ export interface CategoryCount {
   count: number;
 }
 
-// Exportar tipos de plantillas
 export * from './templates';
