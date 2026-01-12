@@ -106,4 +106,14 @@ export const templatesService = {
     });
     return response.data;
   },
+
+  /**
+   * Obtener thumbnail de una plantilla
+   */
+  async getThumbnail(id: number): Promise<Blob> {
+    const response = await api.get(`/document-templates/${id}/thumbnail`, {
+      responseType: "blob",
+    });
+    return response.data;
+  },
 };

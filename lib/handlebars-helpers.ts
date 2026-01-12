@@ -1,11 +1,17 @@
 import Handlebars from "handlebars";
 
+// Flag para evitar registrar los helpers múltiples veces
+let helpersRegistered = false;
+
 /**
  * Registra helpers personalizados para Handlebars
  * Estos helpers deben coincidir con los del backend para asegurar
  * que la vista previa se vea igual al documento final
  */
 export function registerHandlebarsHelpers() {
+  // Solo registrar una vez
+  if (helpersRegistered) return;
+
   // Helper para formatear fechas
   Handlebars.registerHelper("formatDate", function (date: string) {
     if (!date) return "";
@@ -24,7 +30,7 @@ export function registerHandlebarsHelpers() {
   });
 
   // Helper condicional (block helper)
-  Handlebars.registerHelper("if_eq", function (a: any, b: any, options: any) {
+  Handlebars.registerHelper("if_eq", function (this: any, a: any, b: any, options: any) {
     return a === b ? options.fn(this) : options.inverse(this);
   });
 
@@ -46,4 +52,11 @@ export function registerHandlebarsHelpers() {
       text.replace(/\n/g, "<br>").replace(/\r/g, "")
     );
   });
+
+  helpersRegistered = true;
+}
+
+// Registrar automáticamente al importar el módulo
+if (typeof window !== "undefined") {
+  registerHandlebarsHelpers();
 }

@@ -2,7 +2,8 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
   FileType,
@@ -15,6 +16,7 @@ import {
   Power,
   PowerOff,
   FileSearch,
+  ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +30,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { DocumentTemplate } from "@/lib/types";
-import { CreateDocumentFromTemplateDialog } from "@/components/templates/CreateDocumentFromTemplateDialog";
 import { CreateTemplateDialog } from "@/components/templates/CreateTemplateDialog";
 import { PreviewTemplateDialog } from "@/components/templates/PreviewTemplateDialog";
 import {
@@ -39,13 +40,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+type SortOption = "name" | "date" | "usage";
+
 export default function TemplatesPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [selectedTemplate, setSelectedTemplate] =
-    useState<DocumentTemplate | null>(null);
-  const [showCreateDocDialog, setShowCreateDocDialog] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>("date");
   const [showCreateTemplateDialog, setShowCreateTemplateDialog] =
     useState(false);
   const [editingTemplate, setEditingTemplate] =
@@ -53,6 +55,9 @@ export default function TemplatesPage() {
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewingTemplate, setPreviewingTemplate] =
     useState<DocumentTemplate | null>(null);
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>(
+    {}
+  );
 
   // Queries
   const { data: templates, isLoading } = useQuery({
@@ -70,6 +75,64 @@ export default function TemplatesPage() {
     queryKey: ["template-types"],
     queryFn: () => templatesService.getTypes(),
   });
+
+  // Load thumbnails for templates
+  useEffect(() => {
+    const loadThumbnails = async () => {
+      if (!templates?.data) return;
+
+      for (const template of templates.data) {
+        if (thumbnailUrls[template.id]) continue;
+
+        try {
+          const blob = await templatesService.getThumbnail(template.id);
+          const url = window.URL.createObjectURL(blob);
+          setThumbnailUrls((prev) => ({ ...prev, [template.id]: url }));
+        } catch (error) {
+          if (error instanceof Error) {
+            console.log(
+              `No se pudo cargar thumbnail para plantilla ${template.id}: ${error.message}`
+            );
+          }
+        }
+      }
+    };
+
+    loadThumbnails();
+
+    // Cleanup blob URLs on unmount
+    return () => {
+      Object.values(thumbnailUrls).forEach((url) => {
+        window.URL.revokeObjectURL(url);
+      });
+    };
+  }, [templates?.data]);
+
+  // Sort templates based on selected option
+  const sortedTemplates = useMemo(() => {
+    if (!templates?.data) return [];
+
+    const sorted = [...templates.data];
+
+    switch (sortBy) {
+      case "name":
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "date":
+        sorted.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        break;
+      case "usage":
+        sorted.sort(
+          (a, b) => (b._count?.documents || 0) - (a._count?.documents || 0)
+        );
+        break;
+    }
+
+    return sorted;
+  }, [templates?.data, sortBy]);
 
   // Mutations
   const deleteMutation = useMutation({
@@ -98,8 +161,7 @@ export default function TemplatesPage() {
 
   // Handlers
   const handleUseTemplate = (template: DocumentTemplate) => {
-    setSelectedTemplate(template);
-    setShowCreateDocDialog(true);
+    router.push(`/dashboard/templates/${template.id}/create`);
   };
 
   const handleEditTemplate = (template: DocumentTemplate) => {
@@ -124,11 +186,6 @@ export default function TemplatesPage() {
   const handleCreateTemplateSuccess = () => {
     setShowCreateTemplateDialog(false);
     setEditingTemplate(null);
-  };
-
-  const handleCreateDocumentSuccess = () => {
-    setShowCreateDocDialog(false);
-    setSelectedTemplate(null);
   };
 
   return (
@@ -184,6 +241,22 @@ export default function TemplatesPage() {
               </SelectContent>
             </Select>
 
+            {/* Ordenar por */}
+            <Select
+              value={sortBy}
+              onValueChange={(value) => setSortBy(value as SortOption)}
+            >
+              <SelectTrigger className="w-[200px]">
+                <ArrowUpDown className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Ordenar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Más recientes</SelectItem>
+                <SelectItem value="name">Nombre (A-Z)</SelectItem>
+                <SelectItem value="usage">Más usadas</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Botón nueva plantilla */}
             <Button
               onClick={() => {
@@ -204,7 +277,7 @@ export default function TemplatesPage() {
           <div className="col-span-full flex justify-center py-12">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
           </div>
-        ) : templates?.data.length === 0 ? (
+        ) : sortedTemplates.length === 0 ? (
           <div className="col-span-full flex flex-col items-center justify-center py-12">
             <FileType className="h-16 w-16 text-muted-foreground mb-4" />
             <p className="text-lg font-medium">No hay plantillas</p>
@@ -213,11 +286,45 @@ export default function TemplatesPage() {
             </p>
           </div>
         ) : (
-          templates?.data.map((template) => (
+          sortedTemplates.map((template) => (
             <Card
               key={template.id}
-              className="hover:shadow-lg transition-shadow"
+              className="hover:shadow-lg transition-shadow overflow-hidden"
             >
+              {/* Thumbnail Preview */}
+              <div className="relative w-full h-48 bg-muted">
+                {thumbnailUrls[template.id] ? (
+                  <img
+                    src={thumbnailUrls[template.id]}
+                    alt={template.name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <FileType className="h-16 w-16 text-muted-foreground" />
+                  </div>
+                )}
+
+                {/* Status Badge Overlay */}
+                <div className="absolute top-2 right-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="bg-background/80 backdrop-blur-sm hover:bg-background"
+                    onClick={() =>
+                      handleToggleActive(template.id, template.isActive)
+                    }
+                    title={template.isActive ? "Desactivar" : "Activar"}
+                  >
+                    {template.isActive ? (
+                      <Power className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <PowerOff className="h-4 w-4 text-gray-400" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
@@ -229,24 +336,6 @@ export default function TemplatesPage() {
                         {template.type}
                       </Badge>
                     </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() =>
-                        handleToggleActive(template.id, template.isActive)
-                      }
-                      title={
-                        template.isActive ? "Desactivar" : "Activar"
-                      }
-                    >
-                      {template.isActive ? (
-                        <Power className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <PowerOff className="h-4 w-4 text-gray-400" />
-                      )}
-                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -260,7 +349,7 @@ export default function TemplatesPage() {
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <FileText className="h-3 w-3" />
-                    {template.fields.fields.length} campos
+                    {template.fields?.fields?.length ?? 0} campos
                   </span>
                   <span>{template._count?.documents || 0} docs</span>
                 </div>
@@ -306,16 +395,6 @@ export default function TemplatesPage() {
           ))
         )}
       </div>
-
-      {/* Diálogo para crear documento desde plantilla */}
-      {selectedTemplate && (
-        <CreateDocumentFromTemplateDialog
-          open={showCreateDocDialog}
-          onOpenChange={setShowCreateDocDialog}
-          template={selectedTemplate}
-          onSuccess={handleCreateDocumentSuccess}
-        />
-      )}
 
       {/* Diálogo para crear/editar plantilla */}
       <CreateTemplateDialog

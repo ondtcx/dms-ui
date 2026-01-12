@@ -5,6 +5,7 @@ export const documentsService = {
   async getAll(params?: {
     search?: string;
     categoryId?: number;
+    sectionId?: number;
     isPublic?: boolean;
     page?: number;
     limit?: number;
@@ -25,6 +26,7 @@ export const documentsService = {
 
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
+    if (data.sectionId) formData.append("sectionId", String(data.sectionId));
 
     if (data.isPublic !== undefined) {
       formData.append("isPublic", String(data.isPublic));
@@ -51,6 +53,7 @@ export const documentsService = {
 
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
+    if (data.sectionId) formData.append("sectionId", String(data.sectionId));
 
     if (data.isPublic !== undefined) {
       formData.append("isPublic", String(data.isPublic));

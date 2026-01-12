@@ -119,4 +119,14 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Fix para evitar que los overlays de diálogos persistan */
+  body[style*="pointer-events: none"] {
+    pointer-events: auto !important;
+  }
+
+  /* Asegurar que el body no mantenga overflow hidden después de cerrar diálogos */
+  body:not(:has([data-state="open"])) {
+    overflow: auto !important;
+  }
 }

@@ -6,6 +6,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
 import { categoriesService } from "@/lib/services/categories.service";
+import { sectionsService } from "@/lib/services/sections.service";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import {
@@ -32,13 +33,21 @@ import {
   FileSpreadsheet,
   FileCode,
   File,
+  BookOpen,
+  Building2,
+  GraduationCap,
+  Users,
+  ClipboardList,
+  Share2,
 } from "lucide-react";
 import { Document } from "@/lib/types";
 import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
-import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
+import { useRouter } from "next/navigation";
 import { DocumentVersionHistory } from "@/components/documents/DocumentVersionHistory";
 import { ReplaceFileDialog } from "@/components/documents/ReplaceFileDialog";
 import { EditDocumentDialog } from "@/components/documents/EditDocumentDialog";
+import { BatchActionsBar } from "@/components/documents/batch-actions-bar";
+import { ShareModal } from "@/components/shares/share-modal";
 
 // Shadcn imports
 import { Button } from "@/components/ui/button";
@@ -83,10 +92,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Helper para obtener el componente de icono desde el string
+const getIconComponent = (iconName: string) => {
+  const icons: Record<string, typeof FileText> = {
+    FolderOpen,
+    BookOpen,
+    Building2,
+    GraduationCap,
+    Users,
+    FileText,
+    ClipboardList,
+    Calendar,
+  };
+  return icons[iconName] || FolderOpen;
+};
+
 export default function DocumentsPage() {
   const { user } = useAuth();
   const { isAdmin } = usePermissions();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // Estados
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -94,15 +119,16 @@ export default function DocumentsPage() {
   const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | undefined>(undefined);
+  const [sectionFilter, setSectionFilter] = useState<number | undefined>(undefined);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUploadMultipleModal, setShowUploadMultipleModal] = useState(false);
-  const [showSelectTemplateDialog, setShowSelectTemplateDialog] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [uploadData, setUploadData] = useState({
     categoryId: undefined as number | undefined,
+    sectionId: undefined as number | undefined,
     description: "",
     isPublic: false,
   });
@@ -116,6 +142,11 @@ export default function DocumentsPage() {
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>({});
 
+  // Estados para batch actions y share
+  const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([]);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareDocument, setShareDocument] = useState<Document | null>(null);
+
   // Queries
   const {
     data: documents,
@@ -123,11 +154,12 @@ export default function DocumentsPage() {
     error: documentsError,
     refetch: refetchDocuments
   } = useQuery({
-    queryKey: ["documents", searchTerm, categoryFilter],
+    queryKey: ["documents", searchTerm, categoryFilter, sectionFilter],
     queryFn: () =>
       documentsService.getAll({
         search: searchTerm || undefined,
         categoryId: categoryFilter,
+        sectionId: sectionFilter,
         page: 1,
         limit: 50,
       }),
@@ -146,6 +178,14 @@ export default function DocumentsPage() {
   } = useQuery({
     queryKey: ["categories"],
     queryFn: () => categoriesService.getAll(),
+  });
+
+  const {
+    data: sectionStats,
+    isLoading: loadingSections
+  } = useQuery({
+    queryKey: ["section-stats"],
+    queryFn: () => sectionsService.getStats(),
   });
 
   // Mutations
@@ -181,6 +221,7 @@ export default function DocumentsPage() {
       setSelectedFile(null);
       setUploadData({
         categoryId: undefined,
+        sectionId: undefined,
         description: "",
         isPublic: false,
       });
@@ -209,6 +250,7 @@ export default function DocumentsPage() {
       setSelectedFiles([]);
       setUploadData({
         categoryId: undefined,
+        sectionId: undefined,
         description: "",
         isPublic: false,
       });
@@ -263,6 +305,47 @@ export default function DocumentsPage() {
     }
   };
 
+  // Handlers para batch actions
+  const handleToggleDocument = (doc: Document) => {
+    setSelectedDocuments((prev) => {
+      const isSelected = prev.some((d) => d.id === doc.id);
+      if (isSelected) {
+        return prev.filter((d) => d.id !== doc.id);
+      } else {
+        return [...prev, doc];
+      }
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedDocuments.length === documents?.data.length) {
+      setSelectedDocuments([]);
+    } else {
+      setSelectedDocuments(documents?.data || []);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedDocuments([]);
+  };
+
+  const handleBatchSuccess = () => {
+    setSelectedDocuments([]);
+    queryClient.invalidateQueries({ queryKey: ["documents"] });
+    queryClient.invalidateQueries({ queryKey: ["stats"] });
+  };
+
+  const handleShare = (doc: Document) => {
+    setShareDocument(doc);
+    setShowShareModal(true);
+  };
+
+  const handleShareSuccess = () => {
+    setShowShareModal(false);
+    setShareDocument(null);
+    toast.success("Documento compartido exitosamente");
+  };
+
   // Limpiar URL del blob cuando se cierra el modal
   useEffect(() => {
     if (!showPreviewModal && previewUrl) {
@@ -287,7 +370,7 @@ export default function DocumentsPage() {
             const blob = await documentsService.getThumbnail(doc.id);
             const url = window.URL.createObjectURL(blob);
             setThumbnailUrls(prev => ({ ...prev, [doc.id]: url }));
-          } catch (error) {
+          } catch {
             // Si falla, no hacer nada (se mostrará el icono)
             console.log(`No se pudo cargar thumbnail para documento ${doc.id}`);
           }
@@ -410,6 +493,63 @@ export default function DocumentsPage() {
         </div>
       )}
 
+      {/* Acceso rápido por secciones */}
+      {sectionStats && sectionStats.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Acceso Rápido por Sección</h2>
+            {sectionFilter && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSectionFilter(undefined)}
+                className="text-xs"
+              >
+                Limpiar filtro
+              </Button>
+            )}
+          </div>
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+            {sectionStats.map((section) => {
+              const IconComponent = getIconComponent(section.icon);
+              return (
+                <Card
+                  key={section.id}
+                  className={`cursor-pointer transition-all hover:shadow-md ${
+                    sectionFilter === section.id ? 'ring-2 ring-primary' : ''
+                  }`}
+                  style={{ borderLeft: `4px solid ${section.color}` }}
+                  onClick={() => {
+                    if (sectionFilter === section.id) {
+                      setSectionFilter(undefined);
+                    } else {
+                      setSectionFilter(section.id);
+                    }
+                  }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex flex-col items-center text-center space-y-2">
+                      <div
+                        className="w-12 h-12 rounded-lg flex items-center justify-center"
+                        style={{ backgroundColor: `${section.color}20` }}
+                      >
+                        <IconComponent className="h-6 w-6" style={{ color: section.color }} />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium leading-tight">{section.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {section.documentCount} doc{section.documentCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Barra de acciones */}
       <Card>
         <CardContent className="pt-6">
@@ -444,13 +584,32 @@ export default function DocumentsPage() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Filtro de secciones */}
+              <Select
+                value={sectionFilter?.toString() || "all"}
+                onValueChange={(value) => setSectionFilter(value === "all" ? undefined : parseInt(value))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  <SelectValue placeholder="Sección" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {!loadingSections && sectionStats?.map((section) => (
+                    <SelectItem key={section.id} value={section.id.toString()}>
+                      {section.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Botón Nuevo */}
             <NewDocumentButton
               onUploadSingle={() => setShowUploadModal(true)}
               onUploadMultiple={() => setShowUploadMultipleModal(true)}
-              onFromTemplate={() => setShowSelectTemplateDialog(true)}
+              onFromTemplate={() => router.push("/dashboard/templates")}
             />
           </div>
         </CardContent>
@@ -459,12 +618,32 @@ export default function DocumentsPage() {
       {/* Lista de documentos */}
       <Card>
         <CardHeader>
-          <CardTitle>
-            {isAdmin() ? "Todos los Documentos" : "Mis Documentos"}
-          </CardTitle>
-          <CardDescription>
-            {documents?.data.length || 0} documento(s) encontrado(s)
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>
+                {isAdmin() ? "Todos los Documentos" : "Mis Documentos"}
+              </CardTitle>
+              <CardDescription>
+                {documents?.data.length || 0} documento(s) encontrado(s)
+                {selectedDocuments.length > 0 && (
+                  <span className="ml-2 text-primary">
+                    ({selectedDocuments.length} seleccionado{selectedDocuments.length > 1 ? 's' : ''})
+                  </span>
+                )}
+              </CardDescription>
+            </div>
+            {documents && documents.data.length > 0 && (
+              <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                <Checkbox
+                  checked={selectedDocuments.length === documents.data.length}
+                  className="mr-2"
+                />
+                {selectedDocuments.length === documents.data.length
+                  ? 'Deseleccionar todos'
+                  : 'Seleccionar todos'}
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {documentsError ? (
@@ -513,6 +692,14 @@ export default function DocumentsPage() {
                   <div key={doc.id}>
                     {index > 0 && <Separator />}
                     <div className="py-4 flex gap-4">
+                      {/* Checkbox para batch selection */}
+                      <div className="flex items-start pt-1">
+                        <Checkbox
+                          checked={selectedDocuments.some((d) => d.id === doc.id)}
+                          onCheckedChange={() => handleToggleDocument(doc)}
+                        />
+                      </div>
+
                       {/* Preview Thumbnail */}
                       <div className="flex-shrink-0">
                         <div className="w-20 h-20 rounded-lg border-2 border-border bg-muted flex items-center justify-center overflow-hidden relative">
@@ -552,6 +739,15 @@ export default function DocumentsPage() {
                         >
                           <Download className="h-4 w-4 sm:mr-2" />
                           <span className="hidden sm:inline">Descargar</span>
+                        </Button>
+
+                        <Button
+                          onClick={() => handleShare(doc)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Share2 className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Compartir</span>
                         </Button>
 
                         {/* Menú de más opciones */}
@@ -601,6 +797,12 @@ export default function DocumentsPage() {
 
                         {/* Badges y metadata */}
                         <div className="flex flex-wrap items-center gap-2 mb-2">
+                          {doc.section && (
+                            <Badge variant="outline" className="gap-1" style={{ borderColor: doc.section.color }}>
+                              <FolderOpen className="h-3 w-3" style={{ color: doc.section.color }} />
+                              <span style={{ color: doc.section.color }}>{doc.section.name}</span>
+                            </Badge>
+                          )}
                           {doc.category && (
                             <Badge variant="outline" className="gap-1" style={{ borderColor: doc.category.color }}>
                               <Filter className="h-3 w-3" style={{ color: doc.category.color }} />
@@ -707,6 +909,28 @@ export default function DocumentsPage() {
                   {!loadingCategories && categories?.filter(cat => cat.isActive).map((cat) => (
                     <SelectItem key={cat.id} value={cat.id.toString()}>
                       {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sección */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sección</label>
+              <Select
+                value={uploadData.sectionId?.toString() || ""}
+                onValueChange={(value) =>
+                  setUploadData({ ...uploadData, sectionId: value ? parseInt(value) : undefined })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una sección" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!loadingSections && sectionStats?.map((section) => (
+                    <SelectItem key={section.id} value={section.id.toString()}>
+                      {section.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -836,12 +1060,6 @@ export default function DocumentsPage() {
         />
       )}
 
-      {/* Dialog de seleccionar plantilla */}
-      <SelectTemplateDialog
-        open={showSelectTemplateDialog}
-        onOpenChange={setShowSelectTemplateDialog}
-      />
-
       {/* Modal de subir múltiples documentos */}
       <Dialog open={showUploadMultipleModal} onOpenChange={setShowUploadMultipleModal}>
         <DialogContent className="sm:max-w-[600px]">
@@ -903,6 +1121,28 @@ export default function DocumentsPage() {
               </Select>
             </div>
 
+            {/* Sección */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sección</label>
+              <Select
+                value={uploadData.sectionId?.toString() || ""}
+                onValueChange={(value) =>
+                  setUploadData({ ...uploadData, sectionId: value ? parseInt(value) : undefined })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona una sección" />
+                </SelectTrigger>
+                <SelectContent>
+                  {!loadingSections && sectionStats?.map((section) => (
+                    <SelectItem key={section.id} value={section.id.toString()}>
+                      {section.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Descripción */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Descripción (opcional)</label>
@@ -942,6 +1182,7 @@ export default function DocumentsPage() {
                 setSelectedFiles([]);
                 setUploadData({
                   categoryId: undefined,
+                  sectionId: undefined,
                   description: "",
                   isPublic: false,
                 });
@@ -966,6 +1207,24 @@ export default function DocumentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Batch Actions Bar */}
+      <BatchActionsBar
+        selectedDocuments={selectedDocuments}
+        onClearSelection={handleClearSelection}
+        onSuccess={handleBatchSuccess}
+      />
+
+      {/* Share Modal */}
+      {shareDocument && (
+        <ShareModal
+          open={showShareModal}
+          onOpenChange={setShowShareModal}
+          documentId={shareDocument.id}
+          documentName={shareDocument.filename}
+          onSuccess={handleShareSuccess}
+        />
+      )}
     </div>
   );
 }

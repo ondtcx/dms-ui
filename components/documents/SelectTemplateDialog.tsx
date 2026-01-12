@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { templatesService } from "@/lib/services/templates.service";
 import { DocumentTemplate } from "@/lib/types";
 import {
@@ -17,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search, FileText, Loader2, ExternalLink, FileSearch } from "lucide-react";
-import { CreateDocumentFromTemplateDialog } from "@/components/templates/CreateDocumentFromTemplateDialog";
 import { PreviewTemplateDialog } from "@/components/templates/PreviewTemplateDialog";
 import Link from "next/link";
 
@@ -30,9 +30,8 @@ export function SelectTemplateDialog({
   open,
   onOpenChange,
 }: SelectTemplateDialogProps) {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate | null>(null);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewingTemplate, setPreviewingTemplate] = useState<DocumentTemplate | null>(null);
 
@@ -49,20 +48,14 @@ export function SelectTemplateDialog({
   });
 
   const handleSelectTemplate = (template: DocumentTemplate) => {
-    setSelectedTemplate(template);
-    setShowCreateDialog(true);
+    onOpenChange(false); // Cerrar el dialog
+    router.push(`/dashboard/templates/${template.id}/create`);
   };
 
   const handlePreviewTemplate = (template: DocumentTemplate, e: React.MouseEvent) => {
     e.stopPropagation(); // Evitar que se active el click del card
     setPreviewingTemplate(template);
     setShowPreviewDialog(true);
-  };
-
-  const handleCreateSuccess = () => {
-    setShowCreateDialog(false);
-    setSelectedTemplate(null);
-    onOpenChange(false); // Cerrar el dialog principal también
   };
 
   // Filtrar solo plantillas activas
@@ -150,16 +143,6 @@ export function SelectTemplateDialog({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Dialog para crear documento desde plantilla */}
-      {selectedTemplate && (
-        <CreateDocumentFromTemplateDialog
-          template={selectedTemplate}
-          open={showCreateDialog}
-          onOpenChange={setShowCreateDialog}
-          onSuccess={handleCreateSuccess}
-        />
-      )}
 
       {/* Dialog para previsualizar plantilla */}
       {previewingTemplate && (

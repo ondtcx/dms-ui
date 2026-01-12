@@ -276,7 +276,7 @@ export function CreateDocumentFromTemplateDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
+      <DialogContent className="max-w-[95vw] h-[95vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -308,7 +308,7 @@ export function CreateDocumentFromTemplateDialog({
           </div>
         </DialogHeader>
 
-        <div className={`flex-1 min-h-0 ${showPreview ? 'grid grid-cols-2 gap-6' : ''} py-4`}>
+        <div className={`flex-1 min-h-0 ${showPreview ? 'grid gap-6' : ''} py-4`} style={showPreview ? { gridTemplateColumns: '380px 1fr' } : {}}>
           {/* Columna izquierda - Formulario */}
           <div className={`${showPreview ? 'overflow-y-auto pr-4' : ''} space-y-6`}>
             {/* Información de la plantilla */}

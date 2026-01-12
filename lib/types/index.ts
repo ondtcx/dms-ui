@@ -1,7 +1,13 @@
 export enum UserRole {
-  ADMIN = "admin",
-  USER = "user",
-  MODERATOR = "moderator",
+  DIRECTOR = "director",
+  COORDINADOR = "coordinador",
+  PROFESOR = "profesor",
+  SECRETARIO = "secretario",
+  PADRE = "padre",
+  ESTUDIANTE = "estudiante",
+  MODERADOR = "moderador",
+  ADMIN = "admin",     // Mantener para compatibilidad
+  USER = "user",       // Mantener para compatibilidad
 }
 
 export interface User {
@@ -38,6 +44,54 @@ export interface Category {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Section {
+  id: number;
+  name: string;
+  description: string | null;
+  color: string;
+  icon: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    documents: number;
+  };
+}
+
+export interface SectionStats {
+  id: number;
+  name: string;
+  color: string;
+  icon: string;
+  documentCount: number;
+}
+
+export interface SectionsResponse {
+  data: Section[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
+export interface CreateSectionDto {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  isActive?: boolean;
+}
+
+export interface UpdateSectionDto {
+  name?: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  isActive?: boolean;
 }
 
 export interface DocumentVersion {
@@ -83,6 +137,8 @@ export interface Document {
   description: string | null;
   categoryId: number | null;
   category: Category | null;
+  sectionId: number | null;
+  section: Section | null;
   isPublic: boolean;
   uploadedBy: {
     id: string;
@@ -125,6 +181,7 @@ export interface DocumentsResponse {
 export interface UploadDocumentDto {
   description?: string;
   categoryId?: number;
+  sectionId?: number;
   isPublic?: boolean;
 }
 
@@ -132,6 +189,447 @@ export interface CategoryCount {
   categoryId: number;
   categoryName: string;
   count: number;
+}
+
+// ===== SHARES =====
+
+export interface DocumentShare {
+  id: number;
+  documentId: number;
+  document?: {
+    id: number;
+    filename: string;
+    mimetype: string;
+    size: number;
+    createdAt: string;
+  };
+  userId: string | null;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  role: UserRole | null;
+  departmentId: number | null;
+  department?: {
+    id: number;
+    name: string;
+  } | null;
+  courseId: number | null;
+  course?: {
+    id: number;
+    name: string;
+    code: string;
+  } | null;
+  canView: boolean;
+  canDownload: boolean;
+  canEdit: boolean;
+  canShare: boolean;
+  isPublicLink: boolean;
+  shareToken: string;
+  requiresPassword: boolean;
+  expiresAt: string | null;
+  maxViews: number | null;
+  viewCount: number;
+  sharedBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  sharedById: string;
+  revokedAt: string | null;
+  revokedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  accesses?: ShareAccess[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShareAccess {
+  id: number;
+  shareId: number;
+  userId: string | null;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  action: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  createdAt: string;
+}
+
+export interface CreateShareDto {
+  documentId: number;
+  userId?: string;
+  role?: UserRole;
+  departmentId?: number;
+  courseId?: number;
+  canView?: boolean;
+  canDownload?: boolean;
+  canEdit?: boolean;
+  canShare?: boolean;
+  isPublicLink?: boolean;
+  requiresPassword?: boolean;
+  password?: string;
+  expiresAt?: string;
+  maxViews?: number;
+}
+
+export interface AccessShareDto {
+  password?: string;
+}
+
+// ===== BATCH OPERATIONS =====
+
+export interface BatchUpdateDto {
+  documentIds: number[];
+  categoryId?: number;
+  sectionId?: number;
+  courseId?: number;
+  subjectId?: number;
+  description?: string;
+}
+
+export interface BatchDeleteDto {
+  documentIds: number[];
+  permanent?: boolean;
+}
+
+export interface BatchShareDto {
+  documentIds: number[];
+  userId?: string;
+  role?: UserRole;
+  departmentId?: number;
+  courseId?: number;
+  canView?: boolean;
+  canDownload?: boolean;
+  canEdit?: boolean;
+  canShare?: boolean;
+  isPublicLink?: boolean;
+  expiresAt?: string;
+  maxViews?: number;
+}
+
+export interface BatchExportDto {
+  documentIds: number[];
+}
+
+export interface BatchResponse {
+  success: boolean;
+  updated?: number;
+  deleted?: number;
+  shared?: number;
+  exported?: number;
+  restored?: number;
+  permanent?: boolean;
+  documentIds: number[];
+  shares?: DocumentShare[];
+}
+
+// ===== WORKFLOWS =====
+
+export enum WorkflowStatus {
+  DRAFT = "DRAFT",
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum ApprovalAction {
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  REQUESTED_CHANGES = "REQUESTED_CHANGES",
+  COMMENTED = "COMMENTED",
+}
+
+export interface WorkflowTemplate {
+  id: number;
+  name: string;
+  description: string | null;
+  documentType: string | null;
+  categoryId: number | null;
+  stateDefinitions: any;
+  autoAssign: boolean;
+  requiresComment: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentWorkflow {
+  id: number;
+  documentId: number;
+  document?: Document;
+  templateId: number | null;
+  template?: WorkflowTemplate;
+  status: WorkflowStatus;
+  currentState: string | null;
+  currentStateOrder: number | null;
+  initiatedBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  initiatedById: string;
+  approvals?: WorkflowApproval[];
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkflowApproval {
+  id: number;
+  workflowId: number;
+  state: string;
+  stateOrder: number;
+  action: ApprovalAction | null;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  comment: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ===== NOTIFICATIONS =====
+
+export enum NotificationType {
+  DOCUMENT_SHARED = "DOCUMENT_SHARED",
+  APPROVAL_REQUESTED = "APPROVAL_REQUESTED",
+  APPROVAL_APPROVED = "APPROVAL_APPROVED",
+  APPROVAL_REJECTED = "APPROVAL_REJECTED",
+  COMMENT_ADDED = "COMMENT_ADDED",
+  MENTION = "MENTION",
+  DOCUMENT_UPLOADED = "DOCUMENT_UPLOADED",
+  WORKFLOW_COMPLETED = "WORKFLOW_COMPLETED",
+  PERMISSION_GRANTED = "PERMISSION_GRANTED",
+}
+
+export enum NotificationStatus {
+  UNREAD = "UNREAD",
+  READ = "READ",
+  ARCHIVED = "ARCHIVED",
+}
+
+export interface Notification {
+  id: number;
+  userId: string;
+  type: NotificationType;
+  status: NotificationStatus;
+  title: string;
+  message: string;
+  documentId: number | null;
+  workflowId: number | null;
+  commentId: number | null;
+  actionUrl: string | null;
+  emailSent: boolean;
+  emailSentAt: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPreference {
+  userId: string;
+  inAppEnabled: boolean;
+  emailSettings: any;
+  enableDigest: boolean;
+  digestFrequency: string | null;
+}
+
+// ===== COMMENTS =====
+
+export interface DocumentComment {
+  id: number;
+  documentId: number;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  content: string;
+  parentId: number | null;
+  replies?: DocumentComment[];
+  mentions: any;
+  annotationData: any;
+  isEdited: boolean;
+  editedAt: string | null;
+  deletedAt: string | null;
+  deletedBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  reactions?: CommentReaction[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CommentReaction {
+  id: number;
+  commentId: number;
+  userId: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  emoji: string;
+  createdAt: string;
+}
+
+export interface CreateCommentDto {
+  documentId: number;
+  content: string;
+  parentId?: number;
+  mentions?: string[];
+  annotationData?: any;
+}
+
+// ===== SEARCH =====
+
+export interface SearchQueryDto {
+  query?: string;
+  categoryIds?: number[];
+  sectionIds?: number[];
+  uploadedByIds?: string[];
+  startDate?: string;
+  endDate?: string;
+  minSize?: number;
+  maxSize?: number;
+  mimetypes?: string[];
+  isPublic?: boolean;
+  hasTemplate?: boolean;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface SearchResponse {
+  data: Document[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
+}
+
+export interface SearchHistory {
+  id: number;
+  userId: string;
+  query: string;
+  filters: any;
+  resultCount: number;
+  createdAt: string;
+}
+
+// ===== REPORTS =====
+
+export interface DashboardReport {
+  summary: {
+    totalDocuments: {
+      total: number;
+      active: number;
+      deleted: number;
+    };
+    totalUsers: {
+      total: number;
+      byRole: {
+        role: UserRole;
+        count: number;
+      }[];
+    };
+    totalStorage: {
+      total: number;
+      average: number;
+      max: number;
+      byDepartment: {
+        department: string;
+        documentCount: number;
+        totalSize: number;
+      }[];
+    };
+  };
+  charts: {
+    recentUploads: {
+      date: string;
+      count: number;
+    }[];
+    categoryDistribution: {
+      categoryId: number | null;
+      categoryName: string;
+      color: string;
+      count: number;
+    }[];
+    userActivity: {
+      userId: string;
+      userName: string;
+      role: UserRole;
+      documentCount: number;
+    }[];
+    workflowStats: {
+      total: number;
+      byStatus: {
+        status: WorkflowStatus;
+        count: number;
+      }[];
+      avgCompletionTime: number;
+    };
+  };
+  executionTime: number;
+}
+
+export interface WorkflowBottleneck {
+  workflowId: number;
+  documentId: number;
+  documentName: string;
+  templateName: string;
+  currentState: string | null;
+  daysPending: number;
+  createdAt: string;
+}
+
+export interface DocumentCompliance {
+  category: string;
+  documentCount: number;
+  complianceRate: number;
+}
+
+// ============ Calendar Types ============
+
+export interface CalendarQueryDto {
+  startDate?: string;
+  endDate?: string;
+  categoryId?: number;
+  sectionId?: number;
+}
+
+export interface CalendarResponse {
+  documents: Document[];
+  groupedByDate: Record<string, Document[]>;
+  totalDocuments: number;
+}
+
+export interface CalendarEvent {
+  id: number;
+  title: string;
+  start: Date;
+  end: Date;
+  resource: Document;
+  color?: string;
 }
 
 export * from './templates';

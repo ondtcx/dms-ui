@@ -16,11 +16,25 @@ import {
   SidebarHeader,
   SidebarFooter,
 } from "@/components/ui/sidebar";
-import { Home, FileText, Users, Settings, LogOut, FolderKanban, Trash2, FileType } from "lucide-react";
+import {
+  Home,
+  FileText,
+  Users,
+  Settings,
+  LogOut,
+  FolderKanban,
+  Trash2,
+  FileType,
+  Share2,
+  CheckCircle2,
+  BarChart3,
+  Calendar,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@/lib/types";
 import { LucideIcon } from "lucide-react";
+import { NotificationsDropdown } from "@/components/notifications/notifications-dropdown";
 
 interface MenuItem {
   title: string;
@@ -51,6 +65,21 @@ export default function DashboardLayout({
       url: "/dashboard/documents",
     },
     {
+      title: "Calendario",
+      icon: Calendar,
+      url: "/dashboard/calendar",
+    },
+    {
+      title: "Compartidos",
+      icon: Share2,
+      url: "/dashboard/shares",
+    },
+    {
+      title: "Aprobaciones",
+      icon: CheckCircle2,
+      url: "/dashboard/workflows",
+    },
+    {
       title: "Papelera",
       icon: Trash2,
       url: "/dashboard/trash",
@@ -75,6 +104,12 @@ export default function DashboardLayout({
       icon: FileType,
       url: "/dashboard/templates",
       requiredRole: UserRole.ADMIN,
+    },
+    {
+      title: "Reportes",
+      icon: BarChart3,
+      url: "/dashboard/reports",
+      requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.COORDINADOR],
     },
     {
       title: "Configuración",
@@ -210,8 +245,34 @@ export default function DashboardLayout({
           </SidebarFooter>
         </Sidebar>
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-auto">{children}</main>
+        {/* Main Content with Header */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Header */}
+          <header className="border-b bg-background sticky top-0 z-40">
+            <div className="flex h-16 items-center justify-between px-6">
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-semibold">
+                  {pathname === "/dashboard" && "Dashboard"}
+                  {pathname === "/dashboard/documents" && "Documentos"}
+                  {pathname === "/dashboard/shares" && "Compartidos"}
+                  {pathname === "/dashboard/workflows" && "Aprobaciones"}
+                  {pathname === "/dashboard/trash" && "Papelera"}
+                  {pathname === "/dashboard/users" && "Usuarios"}
+                  {pathname === "/dashboard/categories" && "Categorías"}
+                  {pathname === "/dashboard/templates" && "Plantillas"}
+                  {pathname === "/dashboard/reports" && "Reportes"}
+                  {pathname === "/dashboard/settings" && "Configuración"}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <NotificationsDropdown />
+              </div>
+            </div>
+          </header>
+
+          {/* Main Content */}
+          <main className="flex-1 overflow-auto p-6">{children}</main>
+        </div>
       </div>
     </SidebarProvider>
   );
