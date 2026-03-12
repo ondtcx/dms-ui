@@ -2,7 +2,6 @@ import api from '../axios';
 import {
   BatchUpdateDto,
   BatchDeleteDto,
-  BatchShareDto,
   BatchExportDto,
   BatchResponse,
 } from '../types';
@@ -17,12 +16,6 @@ export const batchService = {
   // Eliminación masiva de documentos
   async delete(data: BatchDeleteDto): Promise<BatchResponse> {
     const response = await api.delete('/batch/delete', { data });
-    return response.data;
-  },
-
-  // Compartir múltiples documentos
-  async share(data: BatchShareDto): Promise<BatchResponse> {
-    const response = await api.post('/batch/share', data);
     return response.data;
   },
 

@@ -21,7 +21,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Interceptor para manejar errores
@@ -30,10 +30,14 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     // Error de red o API no disponible
     if (!error.response) {
-      if (error.code === 'ECONNABORTED') {
-        toast.error("La solicitud tardó demasiado tiempo. Verifica tu conexión.");
-      } else if (error.code === 'ERR_NETWORK') {
-        toast.error("No se pudo conectar con el servidor. Verifica que la API esté ejecutándose.");
+      if (error.code === "ECONNABORTED") {
+        toast.error(
+          "La solicitud tardó demasiado tiempo. Verifica tu conexión.",
+        );
+      } else if (error.code === "ERR_NETWORK") {
+        toast.error(
+          "No se pudo conectar con el servidor. Verifica que la API esté ejecutándose.",
+        );
       } else {
         toast.error("Error de conexión. El servidor no está disponible.");
       }
@@ -45,8 +49,8 @@ api.interceptors.response.use(
 
     if (status === 401) {
       // Token expirado o inválido
-      Cookies.remove("token");
-      Cookies.remove("user");
+      Cookies.remove("token", { path: "/" });
+      Cookies.remove("user", { path: "/" });
       toast.error("Sesión expirada. Por favor inicia sesión nuevamente.");
       window.location.href = "/auth/login";
     } else if (status === 403) {
@@ -57,12 +61,14 @@ api.interceptors.response.use(
       toast.error("Error interno del servidor. Intenta nuevamente más tarde.");
     } else if (status >= 400 && status < 500) {
       // Otros errores del cliente
-      const message = (error.response.data as { message?: string })?.message || "Error en la solicitud.";
+      const message =
+        (error.response.data as { message?: string })?.message ||
+        "Error en la solicitud.";
       toast.error(message);
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

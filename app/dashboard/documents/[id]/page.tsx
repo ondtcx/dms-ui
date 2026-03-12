@@ -1,5 +1,6 @@
 'use client';
 
+import { formatMimeType } from '@/lib/utils';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { documentsService } from '@/lib/services/documents.service';
@@ -20,7 +21,6 @@ import {
   Pencil,
   History,
   FileUp,
-  Share2,
   MoreVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,6 @@ import { Separator } from '@/components/ui/separator';
 import { EditDocumentDialog } from '@/components/documents/EditDocumentDialog';
 import { DocumentVersionHistory } from '@/components/documents/DocumentVersionHistory';
 import { ReplaceFileDialog } from '@/components/documents/ReplaceFileDialog';
-import { ShareModal } from '@/components/shares/share-modal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,7 +50,6 @@ export default function DocumentDetailPage() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showReplaceDialog, setShowReplaceDialog] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
 
   // Cargar documento
   const { data: doc, isLoading } = useQuery({
@@ -73,9 +71,18 @@ export default function DocumentDetailPage() {
     },
   });
 
+  const isPreviewable = (mimetype: string): boolean => {
+    if (mimetype === 'application/pdf') return true;
+    if (mimetype.startsWith('image/')) return true;
+    if (mimetype.startsWith('text/')) return true;
+    if (mimetype.startsWith('video/')) return true;
+    if (mimetype.startsWith('audio/')) return true;
+    return false;
+  };
+
   // Cargar vista previa
   useEffect(() => {
-    if (doc) {
+    if (doc && isPreviewable(doc.mimetype)) {
       loadPreview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,7 +94,8 @@ export default function DocumentDetailPage() {
     setLoadingPreview(true);
     try {
       const blob = await documentsService.view(doc.id);
-      const url = window.URL.createObjectURL(blob);
+      const typedBlob = new Blob([blob], { type: doc.mimetype });
+      const url = window.URL.createObjectURL(typedBlob);
       setPreviewUrl(url);
     } catch {
       toast.error('Error al cargar la vista previa');
@@ -151,9 +159,9 @@ export default function DocumentDetailPage() {
       <div className="flex flex-col items-center justify-center h-screen gap-4">
         <FileText className="h-16 w-16 text-muted-foreground" />
         <h1 className="text-2xl font-bold">Documento no encontrado</h1>
-        <Button onClick={() => router.push('/dashboard/documents')}>
+        <Button onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Volver a documentos
+          Volver
         </Button>
       </div>
     );
@@ -167,7 +175,7 @@ export default function DocumentDetailPage() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => router.push('/dashboard/documents')}
+            onClick={() => router.back()}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
@@ -183,6 +191,10 @@ export default function DocumentDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button onClick={() => router.push(`/dashboard/documents/${doc.id}/edit`)}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Editar
+          </Button>
           <Button variant="outline" onClick={handleDownload}>
             <Download className="mr-2 h-4 w-4" />
             Descargar
@@ -205,10 +217,6 @@ export default function DocumentDetailPage() {
               <DropdownMenuItem onClick={() => setShowVersionHistory(true)}>
                 <History className="mr-2 h-4 w-4" />
                 Historial de versiones
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowShareModal(true)}>
-                <Share2 className="mr-2 h-4 w-4" />
-                Compartir
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleDelete} className="text-destructive">
@@ -245,7 +253,12 @@ export default function DocumentDetailPage() {
               ) : (
                 <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground">
                   <FileText className="h-16 w-16 mb-4" />
-                  <p>No se puede mostrar la vista previa</p>
+                  <p>Vista previa no disponible para este tipo de archivo</p>
+                  <p className="text-sm mt-1">{formatMimeType(doc.mimetype)}</p>
+                  <Button variant="outline" className="mt-4" onClick={handleDownload}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Descargar para ver
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -265,7 +278,7 @@ export default function DocumentDetailPage() {
                   <FileType className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">Tipo de archivo</p>
-                    <p className="text-sm text-muted-foreground">{doc.mimetype}</p>
+                    <p className="text-sm text-muted-foreground">{formatMimeType(doc.mimetype)}</p>
                   </div>
                 </div>
 
@@ -378,14 +391,6 @@ export default function DocumentDetailPage() {
                 <History className="mr-2 h-4 w-4" />
                 Ver historial
               </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => setShowShareModal(true)}
-              >
-                <Share2 className="mr-2 h-4 w-4" />
-                Compartir documento
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -418,14 +423,6 @@ export default function DocumentDetailPage() {
         />
       )}
 
-      {showShareModal && (
-        <ShareModal
-          documentId={doc.id}
-          documentName={doc.filename}
-          open={showShareModal}
-          onOpenChange={setShowShareModal}
-        />
-      )}
     </div>
   );
 }

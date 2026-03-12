@@ -7,8 +7,16 @@ export const authService = {
     const response = await api.post<AuthResponse>("/auth/login", data);
 
     // Guardar token y usuario en cookies
-    Cookies.set("token", response.data.access_token, { expires: 1 }); // 1 día
-    Cookies.set("user", JSON.stringify(response.data.user), { expires: 1 });
+    Cookies.set("token", response.data.access_token, {
+      expires: 30,
+      path: "/",
+      sameSite: "strict",
+    });
+    Cookies.set("user", JSON.stringify(response.data.user), {
+      expires: 30,
+      path: "/",
+      sameSite: "strict",
+    });
 
     return response.data;
   },
@@ -17,8 +25,16 @@ export const authService = {
     const response = await api.post<AuthResponse>("/auth/register", data);
 
     // Guardar token y usuario en cookies
-    Cookies.set("token", response.data.access_token, { expires: 1 });
-    Cookies.set("user", JSON.stringify(response.data.user), { expires: 1 });
+    Cookies.set("token", response.data.access_token, {
+      expires: 30,
+      path: "/",
+      sameSite: "strict",
+    });
+    Cookies.set("user", JSON.stringify(response.data.user), {
+      expires: 30,
+      path: "/",
+      sameSite: "strict",
+    });
 
     return response.data;
   },
@@ -29,8 +45,8 @@ export const authService = {
   },
 
   logout() {
-    Cookies.remove("token");
-    Cookies.remove("user");
+    Cookies.remove("token", { path: "/" });
+    Cookies.remove("user", { path: "/" });
   },
 
   getToken(): string | undefined {

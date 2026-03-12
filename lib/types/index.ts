@@ -191,99 +191,6 @@ export interface CategoryCount {
   count: number;
 }
 
-// ===== SHARES =====
-
-export interface DocumentShare {
-  id: number;
-  documentId: number;
-  document?: {
-    id: number;
-    filename: string;
-    mimetype: string;
-    size: number;
-    createdAt: string;
-  };
-  userId: string | null;
-  user?: {
-    id: string;
-    name: string;
-    email: string;
-  } | null;
-  role: UserRole | null;
-  departmentId: number | null;
-  department?: {
-    id: number;
-    name: string;
-  } | null;
-  courseId: number | null;
-  course?: {
-    id: number;
-    name: string;
-    code: string;
-  } | null;
-  canView: boolean;
-  canDownload: boolean;
-  canEdit: boolean;
-  canShare: boolean;
-  isPublicLink: boolean;
-  shareToken: string;
-  requiresPassword: boolean;
-  expiresAt: string | null;
-  maxViews: number | null;
-  viewCount: number;
-  sharedBy: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  sharedById: string;
-  revokedAt: string | null;
-  revokedBy?: {
-    id: string;
-    name: string;
-    email: string;
-  } | null;
-  accesses?: ShareAccess[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ShareAccess {
-  id: number;
-  shareId: number;
-  userId: string | null;
-  user?: {
-    id: string;
-    name: string;
-    email: string;
-  } | null;
-  action: string;
-  ipAddress: string | null;
-  userAgent: string | null;
-  createdAt: string;
-}
-
-export interface CreateShareDto {
-  documentId: number;
-  userId?: string;
-  role?: UserRole;
-  departmentId?: number;
-  courseId?: number;
-  canView?: boolean;
-  canDownload?: boolean;
-  canEdit?: boolean;
-  canShare?: boolean;
-  isPublicLink?: boolean;
-  requiresPassword?: boolean;
-  password?: string;
-  expiresAt?: string;
-  maxViews?: number;
-}
-
-export interface AccessShareDto {
-  password?: string;
-}
-
 // ===== BATCH OPERATIONS =====
 
 export interface BatchUpdateDto {
@@ -300,21 +207,6 @@ export interface BatchDeleteDto {
   permanent?: boolean;
 }
 
-export interface BatchShareDto {
-  documentIds: number[];
-  userId?: string;
-  role?: UserRole;
-  departmentId?: number;
-  courseId?: number;
-  canView?: boolean;
-  canDownload?: boolean;
-  canEdit?: boolean;
-  canShare?: boolean;
-  isPublicLink?: boolean;
-  expiresAt?: string;
-  maxViews?: number;
-}
-
 export interface BatchExportDto {
   documentIds: number[];
 }
@@ -323,12 +215,10 @@ export interface BatchResponse {
   success: boolean;
   updated?: number;
   deleted?: number;
-  shared?: number;
   exported?: number;
   restored?: number;
   permanent?: boolean;
   documentIds: number[];
-  shares?: DocumentShare[];
 }
 
 // ===== WORKFLOWS =====
@@ -630,6 +520,64 @@ export interface CalendarEvent {
   end: Date;
   resource: Document;
   color?: string;
+}
+
+// ===== TRANSFERS =====
+
+export enum TransferStatus {
+  PENDING = "PENDING",
+  COMPLETED = "COMPLETED",
+  CANCELED = "CANCELED",
+}
+
+export interface TransferHistory {
+  id: number;
+  documentId: number;
+  document: {
+    id: number;
+    filename: string;
+    mimetype: string;
+    size: number;
+    description: string | null;
+    category: { id: number; name: string; color: string } | null;
+    section: { id: number; name: string; color: string } | null;
+  };
+  fromUserId: string;
+  fromUser: {
+    id: string;
+    name: string;
+    email: string;
+    department: { id: number; name: string } | null;
+  };
+  toUserId: string;
+  toUser: {
+    id: string;
+    name: string;
+    email: string;
+    department: { id: number; name: string } | null;
+  };
+  toDepartmentId: number | null;
+  toDepartment: { id: number; name: string } | null;
+  status: TransferStatus;
+  comment: string | null;
+  completedAt: string | null;
+  canceledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTransferDto {
+  documentId: number;
+  toUserId?: string;
+  toDepartmentId?: number;
+  comment?: string;
+}
+
+export interface TransferStats {
+  sent: number;
+  received: number;
+  total: number;
+  pending: number;
 }
 
 export * from './templates';

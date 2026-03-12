@@ -1,5 +1,6 @@
 'use client';
 
+import { formatMimeType } from '@/lib/utils';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer, View } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
@@ -422,7 +423,7 @@ export default function CalendarioPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Tipo:</span>
-                      <span>{selectedDocument.mimetype}</span>
+                      <span>{formatMimeType(selectedDocument.mimetype)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subido por:</span>

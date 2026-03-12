@@ -14,6 +14,16 @@ export const usersService = {
     return response.data;
   },
 
+  async getAllForSelection(): Promise<
+    { id: string; name: string; email: string }[]
+  > {
+    const response =
+      await api.get<{ id: string; name: string; email: string }[]>(
+        `/users/for-selection`,
+      );
+    return response.data;
+  },
+
   async getOne(id: number): Promise<User> {
     const response = await api.get<User>(`/users/${id}`);
     return response.data;

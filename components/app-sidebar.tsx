@@ -1,275 +1,324 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
-  AudioWaveform,
-  Blocks,
-  Calendar,
-  Command,
-  Home,
-  MessageCircleQuestion,
-  Settings2,
-  Trash2,
-  FileText,
-  FolderOpen,
-  Users,
-} from "lucide-react"
-
-import { NavFavorites } from "@/components/nav-favorites"
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavWorkspaces } from "@/components/nav-workspaces"
-import { TeamSwitcher } from "@/components/team-switcher"
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Sidebar,
   SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarHeader,
+  SidebarFooter,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
+import {
+  Home,
+  FileText,
+  Users,
+  Settings,
+  LogOut,
+  FolderKanban,
+  Trash2,
+  FileType,
+  CheckCircle2,
+  BarChart3,
+  Calendar,
+  Send,
+  Inbox,
+  Minus,
+  Plus,
+  PlusCircle,
+  Building2,
+  Archive,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { UserRole } from "@/lib/types";
+import { LucideIcon } from "lucide-react";
 
-// This is sample data.
-const data = {
-  teams: [
-    {
-      name: "Acme Inc",
-      logo: Command,
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: AudioWaveform,
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: Command,
-      plan: "Free",
-    },
-  ],
-  navMain: [
-    {
-      title: "Home",
-      url: "/dashboard/home",
-      icon: Home,
-      isActive: true,
-    },
-    {
-      title: "Documentos",
-      url: "/dashboard/documents",
-      icon: FileText,
-    },
-    {
-      title: "Categorías",
-      url: "/dashboard/categories",
-      icon: FolderOpen,
-    },
-    {
-      title: "Usuarios",
-      url: "/dashboard/users",
-      icon: Users,
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Calendar",
-      url: "#",
-      icon: Calendar,
-    },
-    {
-      title: "Settings",
-      url: "/dashboard/settings",
-      icon: Settings2,
-    },
-    {
-      title: "Templates",
-      url: "/dashboard/templates",
-      icon: Blocks,
-    },
-    {
-      title: "Trash",
-      url: "/dashboard/trash",
-      icon: Trash2,
-    },
-    {
-      title: "Help",
-      url: "#",
-      icon: MessageCircleQuestion,
-    },
-  ],
-  favorites: [
-    {
-      name: "Project Management & Task Tracking",
-      url: "#",
-      emoji: "📊",
-    },
-    {
-      name: "Family Recipe Collection & Meal Planning",
-      url: "#",
-      emoji: "🍳",
-    },
-    {
-      name: "Fitness Tracker & Workout Routines",
-      url: "#",
-      emoji: "💪",
-    },
-    {
-      name: "Book Notes & Reading List",
-      url: "#",
-      emoji: "📚",
-    },
-    {
-      name: "Sustainable Gardening Tips & Plant Care",
-      url: "#",
-      emoji: "🌱",
-    },
-    {
-      name: "Language Learning Progress & Resources",
-      url: "#",
-      emoji: "🗣️",
-    },
-    {
-      name: "Home Renovation Ideas & Budget Tracker",
-      url: "#",
-      emoji: "🏠",
-    },
-    {
-      name: "Personal Finance & Investment Portfolio",
-      url: "#",
-      emoji: "💰",
-    },
-    {
-      name: "Movie & TV Show Watchlist with Reviews",
-      url: "#",
-      emoji: "🎬",
-    },
-    {
-      name: "Daily Habit Tracker & Goal Setting",
-      url: "#",
-      emoji: "✅",
-    },
-  ],
-  workspaces: [
-    {
-      name: "Personal Life Management",
-      emoji: "🏠",
-      pages: [
-        {
-          name: "Daily Journal & Reflection",
-          url: "#",
-          emoji: "📔",
-        },
-        {
-          name: "Health & Wellness Tracker",
-          url: "#",
-          emoji: "🍏",
-        },
-        {
-          name: "Personal Growth & Learning Goals",
-          url: "#",
-          emoji: "🌟",
-        },
-      ],
-    },
-    {
-      name: "Professional Development",
-      emoji: "💼",
-      pages: [
-        {
-          name: "Career Objectives & Milestones",
-          url: "#",
-          emoji: "🎯",
-        },
-        {
-          name: "Skill Acquisition & Training Log",
-          url: "#",
-          emoji: "🧠",
-        },
-        {
-          name: "Networking Contacts & Events",
-          url: "#",
-          emoji: "🤝",
-        },
-      ],
-    },
-    {
-      name: "Creative Projects",
-      emoji: "🎨",
-      pages: [
-        {
-          name: "Writing Ideas & Story Outlines",
-          url: "#",
-          emoji: "✍️",
-        },
-        {
-          name: "Art & Design Portfolio",
-          url: "#",
-          emoji: "🖼️",
-        },
-        {
-          name: "Music Composition & Practice Log",
-          url: "#",
-          emoji: "🎵",
-        },
-      ],
-    },
-    {
-      name: "Home Management",
-      emoji: "🏡",
-      pages: [
-        {
-          name: "Household Budget & Expense Tracking",
-          url: "#",
-          emoji: "💰",
-        },
-        {
-          name: "Home Maintenance Schedule & Tasks",
-          url: "#",
-          emoji: "🔧",
-        },
-        {
-          name: "Family Calendar & Event Planning",
-          url: "#",
-          emoji: "📅",
-        },
-      ],
-    },
-    {
-      name: "Travel & Adventure",
-      emoji: "🧳",
-      pages: [
-        {
-          name: "Trip Planning & Itineraries",
-          url: "#",
-          emoji: "🗺️",
-        },
-        {
-          name: "Travel Bucket List & Inspiration",
-          url: "#",
-          emoji: "🌎",
-        },
-        {
-          name: "Travel Journal & Photo Gallery",
-          url: "#",
-          emoji: "📸",
-        },
-      ],
-    },
-  ],
+export interface MenuItem {
+  title: string;
+  icon: LucideIcon;
+  url: string;
+  isActive?: boolean;
+  items?: MenuItem[];
+  requiredRole?: UserRole;
+  requiredRoles?: UserRole[];
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export const mainMenuItems: MenuItem[] = [
+  {
+    title: "Dashboard",
+    icon: Home,
+    url: "/dashboard",
+    isActive: true,
+  },
+  {
+    title: "Mis Documentos",
+    icon: FileText,
+    url: "/dashboard/documents",
+  },
+  {
+    title: "Transferencias",
+    icon: FolderKanban,
+    url: "/dashboard/transfers",
+    items: [
+      {
+        title: "Nueva Transferencia",
+        icon: PlusCircle,
+        url: "/dashboard/transfers/new-transfer",
+      },
+      {
+        title: "Enviados",
+        icon: Send,
+        url: "/dashboard/transfers/sent",
+      },
+      {
+        title: "Recibidos",
+        icon: Inbox,
+        url: "/dashboard/transfers/received",
+      },
+    ],
+  },
+  {
+    title: "Calendario",
+    icon: Calendar,
+    url: "/dashboard/calendar",
+  },
+  {
+    title: "Aprobaciones",
+    icon: CheckCircle2,
+    url: "/dashboard/workflows",
+  },
+  {
+    title: "Papelera",
+    icon: Trash2,
+    url: "/dashboard/trash",
+  },
+  {
+    title: "Archivo",
+    icon: Archive,
+    url: "/dashboard/archive",
+  },
+];
+
+export const adminMenuItems: MenuItem[] = [
+  {
+    title: "Usuarios",
+    icon: Users,
+    url: "/dashboard/users",
+    requiredRole: UserRole.ADMIN,
+  },
+  {
+    title: "Departamentos",
+    icon: Building2,
+    url: "/dashboard/departments",
+    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR],
+  },
+  {
+    title: "Categorias",
+    icon: FolderKanban,
+    url: "/dashboard/categories",
+    requiredRole: UserRole.ADMIN,
+  },
+  {
+    title: "Plantillas",
+    icon: FileType,
+    url: "/dashboard/templates",
+    requiredRole: UserRole.ADMIN,
+  },
+  {
+    title: "Reportes",
+    icon: BarChart3,
+    url: "/dashboard/reports",
+    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.COORDINADOR],
+  },
+  {
+    title: "Configuracion",
+    icon: Settings,
+    url: "/dashboard/settings",
+    requiredRole: UserRole.ADMIN,
+  },
+];
+
+function getRoleBadgeColor(role: string) {
+  switch (role) {
+    case "admin":
+      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
+    case "moderator":
+      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+    default:
+      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
+  }
+}
+
+export function AppSidebar() {
+  const { user, logout } = useAuth();
+  const { hasRole, hasAnyRole } = usePermissions();
+  const pathname = usePathname();
+
+  const shouldShowMenuItem = (item: MenuItem): boolean => {
+    if (!item.requiredRole && !item.requiredRoles) {
+      return true;
+    }
+    if (item.requiredRole && !hasRole(item.requiredRole)) {
+      return false;
+    }
+    if (item.requiredRoles && !hasAnyRole(item.requiredRoles)) {
+      return false;
+    }
+    return true;
+  };
+
   return (
-    <Sidebar className="border-r-0" {...props}>
-      <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
-        <NavMain items={data.navMain} />
+    <Sidebar>
+      {/* Header */}
+      <SidebarHeader className="border-b p-4">
+        <div className="flex items-center gap-2">
+          <FileText className="h-6 w-6" />
+          <span className="font-semibold">DMS</span>
+        </div>
       </SidebarHeader>
+
+      {/* Content - Menu de navegacion */}
       <SidebarContent>
-        <NavFavorites favorites={data.favorites} />
-        <NavWorkspaces workspaces={data.workspaces} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        {/* Menu Principal */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {mainMenuItems.map((item, index) =>
+                item.items?.length ? (
+                  <Collapsible
+                    key={item.title}
+                    defaultOpen={index === 1}
+                    className="group/collapsible"
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton>
+                          {item.icon && <item.icon className="h-4 w-4 mr-2" />}
+                          {item.title}{" "}
+                          <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
+                          <Minus className="ml-auto group-data-[state=closed]/collapsible:hidden" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {item.items.map((subItem) => (
+                            <SidebarMenuSubItem key={subItem.title}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={pathname === subItem.url}
+                              >
+                                <Link
+                                  href={subItem.url}
+                                  className="flex items-center"
+                                >
+                                  {subItem.icon && (
+                                    <subItem.icon className="h-4 w-4 mr-2" />
+                                  )}
+                                  {subItem.title}
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                ) : (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={pathname === item.url}>
+                      <Link href={item.url} className="flex items-center">
+                        <item.icon className="h-4 w-4 mr-2" />
+                        {item.title}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ),
+              )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Menu de Administracion */}
+        {shouldShowMenuItem({
+          title: "",
+          icon: Home,
+          url: "",
+          requiredRoles: [
+            UserRole.ADMIN,
+            UserRole.DIRECTOR,
+            UserRole.COORDINADOR,
+          ],
+        }) && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administracion</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminMenuItems.map((item) => {
+                  if (!shouldShowMenuItem(item)) {
+                    return null;
+                  }
+
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.url}
+                      >
+                        <Link href={item.url} className="flex items-center">
+                          <item.icon className="h-4 w-4 mr-2" />
+                          {item.title}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
+
+      {/* Footer - Informacion del usuario */}
+      <SidebarFooter className="border-t p-4">
+        <div className="flex flex-col gap-2">
+          <div className="text-sm">
+            <div className="font-medium">{user?.name}</div>
+            <div className="text-xs text-muted-foreground">{user?.email}</div>
+            <div className="mt-1">
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getRoleBadgeColor(
+                  user?.role || "",
+                )}`}
+              >
+                {user?.role?.toUpperCase()}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Cerrar Sesion</span>
+          </button>
+        </div>
+      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  )
+  );
 }

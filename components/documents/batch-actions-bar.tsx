@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { batchService } from '@/lib/services/batch.service';
-import { sharesService } from '@/lib/services/shares.service';
 import { Document } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,10 +12,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { ShareModal } from '@/components/shares/share-modal';
 import toast from 'react-hot-toast';
 import {
-  Share2,
   Download,
   Trash2,
   RotateCcw,
@@ -39,8 +36,6 @@ export function BatchActionsBar({
   onSuccess,
 }: BatchActionsBarProps) {
   const [loading, setLoading] = useState(false);
-  const [showBatchShareModal, setShowBatchShareModal] = useState(false);
-  const [currentShareDocId, setCurrentShareDocId] = useState<number | null>(null);
 
   if (selectedDocuments.length === 0) {
     return null;
@@ -90,20 +85,6 @@ export function BatchActionsBar({
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleBatchShare = () => {
-    // Para batch share, usamos el modal del primer documento seleccionado
-    // como representativo, pero en realidad compartiremos todos
-    setCurrentShareDocId(selectedDocuments[0].id);
-    setShowBatchShareModal(true);
-  };
-
-  const handleBatchShareSuccess = () => {
-    setShowBatchShareModal(false);
-    setCurrentShareDocId(null);
-    onClearSelection();
-    onSuccess?.();
   };
 
   const allDeleted = selectedDocuments.every((d) => d.deletedAt);
@@ -158,16 +139,6 @@ export function BatchActionsBar({
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleBatchShare}
-                  disabled={loading}
-                >
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Compartir
-                </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
                   onClick={handleBatchExport}
                   disabled={loading}
                 >
@@ -210,15 +181,6 @@ export function BatchActionsBar({
         </div>
       </div>
 
-      {currentShareDocId && (
-        <ShareModal
-          open={showBatchShareModal}
-          onOpenChange={setShowBatchShareModal}
-          documentId={currentShareDocId}
-          documentName={`${selectedDocuments.length} documentos`}
-          onSuccess={handleBatchShareSuccess}
-        />
-      )}
     </>
   );
 }

@@ -1,3 +1,4 @@
+//AuthContext.tsx
 "use client";
 
 import {
@@ -32,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const loadUser = async () => {
       try {
         if (authService.isAuthenticated()) {
-          const userData = authService.getUser();
+          const userData = await authService.getProfile();
           setUser(userData);
         }
       } catch (error) {

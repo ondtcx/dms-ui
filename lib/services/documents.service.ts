@@ -1,5 +1,10 @@
 import api from "@/lib/axios";
-import { Document, DocumentsResponse, UploadDocumentDto, DocumentVersion } from "@/lib/types";
+import {
+  Document,
+  DocumentsResponse,
+  UploadDocumentDto,
+  DocumentVersion,
+} from "@/lib/types";
 
 export const documentsService = {
   async getAll(params?: {
@@ -36,6 +41,7 @@ export const documentsService = {
       headers: {
         "Content-Type": "multipart/form-data",
       },
+      timeout: 60000,
     });
 
     return response.data;
@@ -43,7 +49,7 @@ export const documentsService = {
 
   async uploadMultiple(
     files: File[],
-    data: UploadDocumentDto
+    data: UploadDocumentDto,
   ): Promise<Document[]> {
     const formData = new FormData();
 
@@ -66,7 +72,7 @@ export const documentsService = {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      }
+      },
     );
 
     return response.data;
@@ -74,7 +80,7 @@ export const documentsService = {
 
   async update(
     id: number,
-    data: Partial<UploadDocumentDto>
+    data: Partial<UploadDocumentDto>,
   ): Promise<Document> {
     const response = await api.patch<Document>(`/documents/${id}`, data);
     return response.data;
@@ -116,16 +122,24 @@ export const documentsService = {
 
   // Versionado
   async getVersions(id: number): Promise<DocumentVersion[]> {
-    const response = await api.get<DocumentVersion[]>(`/documents/${id}/versions`);
+    const response = await api.get<DocumentVersion[]>(
+      `/documents/${id}/versions`,
+    );
     return response.data;
   },
 
   async restoreVersion(id: number, version: number): Promise<Document> {
-    const response = await api.post<Document>(`/documents/${id}/versions/${version}/restore`);
+    const response = await api.post<Document>(
+      `/documents/${id}/versions/${version}/restore`,
+    );
     return response.data;
   },
 
-  async replaceFile(id: number, file: File, comment?: string): Promise<Document> {
+  async replaceFile(
+    id: number,
+    file: File,
+    comment?: string,
+  ): Promise<Document> {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -133,24 +147,31 @@ export const documentsService = {
       formData.append("comment", comment);
     }
 
-    const response = await api.patch<Document>(`/documents/${id}/replace`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
+    const response = await api.patch<Document>(
+      `/documents/${id}/replace`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       },
-    });
+    );
 
     return response.data;
   },
 
   // Soft Delete & Restore
   async restore(id: number): Promise<{ message: string }> {
-    const response = await api.post<{ message: string }>(`/documents/${id}/restore`);
+    const response = await api.post<{ message: string }>(
+      `/documents/${id}/restore`,
+    );
     return response.data;
   },
 
   async permanentDelete(id: number): Promise<{ message: string }> {
-    const response = await api.delete<{ message: string }>(`/documents/${id}/permanent`);
+    const response = await api.delete<{ message: string }>(
+      `/documents/${id}/permanent`,
+    );
     return response.data;
   },
-
 };

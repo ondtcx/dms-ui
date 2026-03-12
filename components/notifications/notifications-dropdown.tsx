@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { notificationsService } from '@/lib/services/notifications.service';
-import { Notification, NotificationType } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useEffect, useState } from "react";
+import { notificationsService } from "@/lib/services/notifications.service";
+import { Notification, NotificationType } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Separator } from '@/components/ui/separator';
+} from "@/components/ui/dropdown-menu";
+import { Separator } from "@/components/ui/separator";
 import {
   Bell,
   Check,
@@ -27,11 +27,11 @@ import {
   XCircle,
   Shield,
   Workflow,
-} from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-import { es } from 'date-fns/locale';
-import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
+import toast from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
 export function NotificationsDropdown() {
   const router = useRouter();
@@ -44,7 +44,6 @@ export function NotificationsDropdown() {
     loadNotifications();
     loadUnreadCount();
 
-    // Poll for new notifications every 30 seconds
     const interval = setInterval(() => {
       loadUnreadCount();
     }, 30000);
@@ -52,13 +51,20 @@ export function NotificationsDropdown() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (open) {
+      loadNotifications();
+      loadUnreadCount();
+    }
+  }, [open]);
+
   const loadNotifications = async () => {
     try {
       setLoading(true);
       const data = await notificationsService.getAll();
       setNotifications(data.slice(0, 10)); // Only show latest 10
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.error("Error loading notifications:", error);
     } finally {
       setLoading(false);
     }
@@ -69,18 +75,21 @@ export function NotificationsDropdown() {
       const count = await notificationsService.getUnreadCount();
       setUnreadCount(count);
     } catch (error) {
-      console.error('Error loading unread count:', error);
+      console.error("Error loading unread count:", error);
     }
   };
 
-  const handleMarkAsRead = async (notificationId: number, e: React.MouseEvent) => {
+  const handleMarkAsRead = async (
+    notificationId: number,
+    e: React.MouseEvent,
+  ) => {
     e.stopPropagation();
     try {
       await notificationsService.markAsRead(notificationId);
       loadNotifications();
       loadUnreadCount();
     } catch (error) {
-      toast.error('Error al marcar como leída');
+      toast.error("Error al marcar como leída");
     }
   };
 
@@ -89,20 +98,21 @@ export function NotificationsDropdown() {
       await notificationsService.markAllAsRead();
       loadNotifications();
       loadUnreadCount();
-      toast.success('Todas las notificaciones marcadas como leídas');
+      toast.success("Todas las notificaciones marcadas como leídas");
     } catch (error) {
-      toast.error('Error al marcar todas como leídas');
+      toast.error("Error al marcar todas como leídas");
     }
   };
 
   const handleNotificationClick = async (notification: Notification) => {
-    if (notification.status === 'UNREAD') {
+    if (notification.status === "UNREAD") {
       await notificationsService.markAsRead(notification.id);
       loadUnreadCount();
     }
 
     if (notification.actionUrl) {
-      router.push(notification.actionUrl);
+      console.log("Navegando a:", notification.actionUrl);
+      router.push("/dashboard" + notification.actionUrl);
       setOpen(false);
     }
   };
@@ -126,18 +136,18 @@ export function NotificationsDropdown() {
 
   const getNotificationColor = (type: NotificationType) => {
     const colors = {
-      [NotificationType.DOCUMENT_SHARED]: 'text-blue-600',
-      [NotificationType.APPROVAL_REQUESTED]: 'text-orange-600',
-      [NotificationType.APPROVAL_APPROVED]: 'text-green-600',
-      [NotificationType.APPROVAL_REJECTED]: 'text-red-600',
-      [NotificationType.COMMENT_ADDED]: 'text-purple-600',
-      [NotificationType.MENTION]: 'text-yellow-600',
-      [NotificationType.DOCUMENT_UPLOADED]: 'text-blue-600',
-      [NotificationType.WORKFLOW_COMPLETED]: 'text-green-600',
-      [NotificationType.PERMISSION_GRANTED]: 'text-indigo-600',
+      [NotificationType.DOCUMENT_SHARED]: "text-blue-600",
+      [NotificationType.APPROVAL_REQUESTED]: "text-orange-600",
+      [NotificationType.APPROVAL_APPROVED]: "text-green-600",
+      [NotificationType.APPROVAL_REJECTED]: "text-red-600",
+      [NotificationType.COMMENT_ADDED]: "text-purple-600",
+      [NotificationType.MENTION]: "text-yellow-600",
+      [NotificationType.DOCUMENT_UPLOADED]: "text-blue-600",
+      [NotificationType.WORKFLOW_COMPLETED]: "text-green-600",
+      [NotificationType.PERMISSION_GRANTED]: "text-indigo-600",
     };
 
-    return colors[type] || 'text-muted-foreground';
+    return colors[type] || "text-muted-foreground";
   };
 
   return (
@@ -150,7 +160,7 @@ export function NotificationsDropdown() {
               variant="destructive"
               className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
             >
-              {unreadCount > 9 ? '9+' : unreadCount}
+              {unreadCount > 9 ? "9+" : unreadCount}
             </Badge>
           )}
         </Button>
@@ -189,12 +199,14 @@ export function NotificationsDropdown() {
                   key={notification.id}
                   className={`
                     group relative rounded-md p-3 hover:bg-accent cursor-pointer transition-colors
-                    ${notification.status === 'UNREAD' ? 'bg-muted/50' : ''}
+                    ${notification.status === "UNREAD" ? "bg-muted/50" : ""}
                   `}
                   onClick={() => handleNotificationClick(notification)}
                 >
                   <div className="flex gap-3">
-                    <div className={`mt-0.5 ${getNotificationColor(notification.type)}`}>
+                    <div
+                      className={`mt-0.5 ${getNotificationColor(notification.type)}`}
+                    >
                       {getNotificationIcon(notification.type)}
                     </div>
                     <div className="flex-1 space-y-1 min-w-0">
@@ -202,12 +214,14 @@ export function NotificationsDropdown() {
                         <p className="text-sm font-medium leading-none line-clamp-1">
                           {notification.title}
                         </p>
-                        {notification.status === 'UNREAD' && (
+                        {notification.status === "UNREAD" && (
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => handleMarkAsRead(notification.id, e)}
+                            onClick={(e) =>
+                              handleMarkAsRead(notification.id, e)
+                            }
                           >
                             <Check className="h-3 w-3" />
                           </Button>
@@ -224,7 +238,7 @@ export function NotificationsDropdown() {
                       </p>
                     </div>
                   </div>
-                  {notification.status === 'UNREAD' && (
+                  {notification.status === "UNREAD" && (
                     <div className="absolute top-3 right-3 h-2 w-2 bg-primary rounded-full" />
                   )}
                 </div>
@@ -239,7 +253,7 @@ export function NotificationsDropdown() {
             variant="ghost"
             className="w-full justify-center text-xs"
             onClick={() => {
-              router.push('/dashboard/notifications');
+              router.push("/dashboard/notifications");
               setOpen(false);
             }}
           >
