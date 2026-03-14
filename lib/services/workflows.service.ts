@@ -9,7 +9,7 @@ import {
 export const workflowsService = {
   // Obtener aprobaciones pendientes del usuario actual
   async getPendingApprovals(): Promise<WorkflowApproval[]> {
-    const response = await api.get('/workflows/approvals/pending');
+    const response = await api.get('/workflows/pending');
     return response.data;
   },
 
