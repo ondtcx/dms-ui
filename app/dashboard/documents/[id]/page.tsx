@@ -37,6 +37,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import DocumentWorkflowCard from '@/components/workflows/DocumentWorkflowCard';
 
 export default function DocumentDetailPage() {
   const params = useParams();
@@ -191,7 +192,15 @@ export default function DocumentDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button onClick={() => router.push(`/dashboard/documents/${doc.id}/edit`)}>
+          <Button
+            onClick={() =>
+              router.push(
+                doc.templateId
+                  ? `/dashboard/documents/${doc.id}/edit-form`
+                  : `/dashboard/documents/${doc.id}/edit`,
+              )
+            }
+          >
             <Pencil className="mr-2 h-4 w-4" />
             Editar
           </Button>
@@ -360,6 +369,9 @@ export default function DocumentDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Workflow */}
+          <DocumentWorkflowCard documentId={documentId} categoryId={doc?.categoryId} categoryContext={doc?.category?.context} />
 
           {/* Acciones rápidas */}
           <Card>

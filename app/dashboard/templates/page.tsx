@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
@@ -55,9 +55,8 @@ export default function TemplatesPage() {
   const [showPreviewDialog, setShowPreviewDialog] = useState(false);
   const [previewingTemplate, setPreviewingTemplate] =
     useState<DocumentTemplate | null>(null);
-  const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>(
-    {}
-  );
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>({});
+  const blobUrlsRef = useRef<string[]>([]);
 
   // Queries
   const { data: templates, isLoading } = useQuery({
@@ -76,37 +75,31 @@ export default function TemplatesPage() {
     queryFn: () => templatesService.getTypes(),
   });
 
-  // Load thumbnails for templates
+  // Load thumbnails — mismo patrón que documents page (useRef para cleanup en unmount)
   useEffect(() => {
+    if (!templates?.data) return;
     const loadThumbnails = async () => {
-      if (!templates?.data) return;
-
       for (const template of templates.data) {
         if (thumbnailUrls[template.id]) continue;
-
         try {
           const blob = await templatesService.getThumbnail(template.id);
-          const url = window.URL.createObjectURL(blob);
+          const url = URL.createObjectURL(blob);
+          blobUrlsRef.current.push(url);
           setThumbnailUrls((prev) => ({ ...prev, [template.id]: url }));
-        } catch (error) {
-          if (error instanceof Error) {
-            console.log(
-              `No se pudo cargar thumbnail para plantilla ${template.id}: ${error.message}`
-            );
-          }
+        } catch {
+          // thumbnail no disponible, se muestra placeholder
         }
       }
     };
-
     loadThumbnails();
+  }, [templates?.data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Cleanup blob URLs on unmount
+  // Cleanup blob URLs solo en unmount
+  useEffect(() => {
     return () => {
-      Object.values(thumbnailUrls).forEach((url) => {
-        window.URL.revokeObjectURL(url);
-      });
+      blobUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [templates?.data]);
+  }, []);
 
   // Sort templates based on selected option
   const sortedTemplates = useMemo(() => {
@@ -292,7 +285,7 @@ export default function TemplatesPage() {
               className="hover:shadow-lg transition-shadow overflow-hidden"
             >
               {/* Thumbnail Preview */}
-              <div className="relative w-full h-48 bg-muted">
+              <div className="relative w-full h-48 bg-slate-100 dark:bg-slate-800">
                 {thumbnailUrls[template.id] ? (
                   <img
                     src={thumbnailUrls[template.id]}
@@ -300,8 +293,9 @@ export default function TemplatesPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <FileType className="h-16 w-16 text-muted-foreground" />
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                    <FileType className="h-12 w-12 text-slate-400" />
+                    <span className="text-xs text-slate-400">{template.type}</span>
                   </div>
                 )}
 

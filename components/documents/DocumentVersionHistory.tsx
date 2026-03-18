@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
+import { DocumentVersionSource, ApprovalAction } from "@/lib/types";
 import toast from "react-hot-toast";
 import {
   Dialog,
@@ -13,9 +14,21 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { History, RotateCcw, Calendar, User, HardDrive, MessageSquare } from "lucide-react";
+import {
+  History,
+  RotateCcw,
+  Calendar,
+  User,
+  HardDrive,
+  MessageSquare,
+  Upload,
+  FileUp,
+  GitBranch,
+  CheckCircle2,
+} from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import type { LucideIcon } from "lucide-react";
 
 interface DocumentVersionHistoryProps {
   documentId: number;
@@ -23,6 +36,16 @@ interface DocumentVersionHistoryProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+const SOURCE_CONFIG: Record<
+  DocumentVersionSource,
+  { label: string; icon: LucideIcon; variant: 'default' | 'secondary' | 'outline' }
+> = {
+  [DocumentVersionSource.UPLOAD_INICIAL]:      { label: 'Subida inicial',   icon: Upload,    variant: 'secondary' },
+  [DocumentVersionSource.REEMPLAZO_MANUAL]:    { label: 'Reemplazo',         icon: FileUp,    variant: 'outline'   },
+  [DocumentVersionSource.RESTAURACION]:        { label: 'Restauración',      icon: RotateCcw, variant: 'outline'   },
+  [DocumentVersionSource.CAMBIOS_SOLICITADOS]: { label: 'Cambios del flujo', icon: GitBranch, variant: 'default'   },
+};
 
 export function DocumentVersionHistory({
   documentId,
@@ -73,6 +96,12 @@ export function DocumentVersionHistory({
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
   };
 
+  const getApprovalLabel = (action: ApprovalAction | null): string => {
+    if (action === ApprovalAction.APPROVED) return 'Aprobado';
+    if (action === ApprovalAction.REJECTED) return 'Rechazado';
+    return 'Revisado';
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -92,84 +121,106 @@ export function DocumentVersionHistory({
           </div>
         ) : versions && versions.length > 0 ? (
           <div className="space-y-3">
-            {versions.map((version) => (
-              <div
-                key={version.id}
-                className={`border rounded-lg p-4 ${
-                  version.version === currentVersion
-                    ? "bg-blue-50 border-blue-300"
-                    : "bg-white"
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">
-                        Versión {version.version}
-                      </h3>
-                      {version.version === currentVersion && (
-                        <Badge variant="default">Actual</Badge>
-                      )}
-                    </div>
+            {versions.map((version) => {
+              const sourceCfg = version.source ? SOURCE_CONFIG[version.source] : null;
+              const SourceIcon = sourceCfg?.icon;
 
-                    <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>
-                          {format(new Date(version.createdAt), "PPp", {
-                            locale: es,
-                          })}
-                        </span>
+              return (
+                <div
+                  key={version.id}
+                  className={`border rounded-lg p-4 ${
+                    version.version === currentVersion
+                      ? "bg-blue-50 border-blue-300"
+                      : "bg-white"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold">
+                          Versión {version.version}
+                        </h3>
+                        {version.version === currentVersion && (
+                          <Badge variant="default">Actual</Badge>
+                        )}
+                        {sourceCfg && SourceIcon && (
+                          <Badge variant={sourceCfg.variant} className="gap-1 text-xs">
+                            <SourceIcon className="h-3 w-3" />
+                            {sourceCfg.label}
+                          </Badge>
+                        )}
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <User className="h-4 w-4" />
-                        <span>{version.createdBy.name}</span>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <HardDrive className="h-4 w-4" />
-                        <span>{formatFileSize(version.size)}</span>
-                      </div>
-
-                      {version.checksumSHA256 && (
-                        <div className="flex items-center gap-1 col-span-2">
-                          <span className="text-xs font-mono truncate">
-                            SHA256: {version.checksumSHA256.substring(0, 16)}...
+                      <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>
+                            {format(new Date(version.createdAt), "PPp", {
+                              locale: es,
+                            })}
                           </span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <User className="h-4 w-4" />
+                          <span>{version.createdBy.name}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <HardDrive className="h-4 w-4" />
+                          <span>{formatFileSize(version.size)}</span>
+                        </div>
+
+                        {version.checksumSHA256 && (
+                          <div className="flex items-center gap-1 col-span-2">
+                            <span className="text-xs font-mono truncate">
+                              SHA256: {version.checksumSHA256.substring(0, 16)}...
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {version.comment && (
+                        <div className="flex items-start gap-1 text-sm mt-2">
+                          <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <p className="text-gray-700 italic">{version.comment}</p>
+                        </div>
+                      )}
+
+                      {version.approvals && version.approvals.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {version.approvals.map((a) => (
+                            <Badge key={a.id} variant="outline" className="text-xs gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {getApprovalLabel(a.action)} por {a.user.name}
+                            </Badge>
+                          ))}
                         </div>
                       )}
                     </div>
 
-                    {version.comment && (
-                      <div className="flex items-start gap-1 text-sm mt-2">
-                        <MessageSquare className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-700 italic">{version.comment}</p>
-                      </div>
+                    {version.version !== currentVersion && (
+                      <Button
+                        variant={
+                          confirmingVersion === version.version
+                            ? "destructive"
+                            : "outline"
+                        }
+                        size="sm"
+                        onClick={() => handleRestore(version.version)}
+                        disabled={restoreMutation.isPending}
+                        className="ml-4"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-1" />
+                        {confirmingVersion === version.version
+                          ? "Confirmar"
+                          : "Restaurar"}
+                      </Button>
                     )}
                   </div>
-
-                  {version.version !== currentVersion && (
-                    <Button
-                      variant={
-                        confirmingVersion === version.version
-                          ? "destructive"
-                          : "outline"
-                      }
-                      size="sm"
-                      onClick={() => handleRestore(version.version)}
-                      disabled={restoreMutation.isPending}
-                      className="ml-4"
-                    >
-                      <RotateCcw className="h-4 w-4 mr-1" />
-                      {confirmingVersion === version.version
-                        ? "Confirmar"
-                        : "Restaurar"}
-                    </Button>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-8 text-gray-500">

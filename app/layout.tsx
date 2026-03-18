@@ -39,6 +39,7 @@ import "./globals.css";
 
 // 👉 Providers globales
 import { AuthProvider } from "@/lib/contexts/AuthContext";
+import { SettingsProvider } from "@/lib/contexts/SettingsContext";
 import { ReactQueryProvider } from "@/lib/react-query";
 import { Toaster } from "react-hot-toast";
 
@@ -73,7 +74,10 @@ export default function RootLayout({
         <ReactQueryProvider>
           {/* Contexto de Autenticación */}
           <AuthProvider>
-            {children}
+            {/* Configuración del sistema */}
+            <SettingsProvider>
+              {children}
+            </SettingsProvider>
             {/* Notificaciones globales */}
             <Toaster position="top-right" />
           </AuthProvider>

@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useSettings } from "@/lib/contexts/SettingsContext";
 import {
   Collapsible,
   CollapsibleContent,
@@ -66,11 +67,11 @@ export const mainMenuItems: MenuItem[] = [
     isActive: true,
   },
   {
-    title: "Mis Documentos",
+    title: "Documentos",
     icon: FileText,
     url: "/dashboard/documents",
   },
-  {
+  /* {
     title: "Transferencias",
     icon: FolderKanban,
     url: "/dashboard/transfers",
@@ -91,14 +92,14 @@ export const mainMenuItems: MenuItem[] = [
         url: "/dashboard/transfers/received",
       },
     ],
-  },
+  }, */
   {
     title: "Calendario",
     icon: Calendar,
     url: "/dashboard/calendar",
   },
   {
-    title: "Aprobaciones",
+    title: "Workflows",
     icon: CheckCircle2,
     url: "/dashboard/workflows",
   },
@@ -168,6 +169,13 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { hasRole, hasAnyRole } = usePermissions();
   const pathname = usePathname();
+  const { settings } = useSettings();
+
+  const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ?? "";
+  const logoUrl = settings?.institution?.logoPath
+    ? `${apiBase}${settings.institution.logoPath}`
+    : null;
+  const institutionName = settings?.institution?.name ?? "DMS";
 
   const shouldShowMenuItem = (item: MenuItem): boolean => {
     if (!item.requiredRole && !item.requiredRoles) {
@@ -187,8 +195,16 @@ export function AppSidebar() {
       {/* Header */}
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center gap-2">
-          <FileText className="h-6 w-6" />
-          <span className="font-semibold">DMS</span>
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={institutionName}
+              className="h-8 w-8 object-contain rounded shrink-0"
+            />
+          ) : (
+            <Building2 className="h-6 w-6 shrink-0" />
+          )}
+          <span className="font-semibold truncate">{institutionName}</span>
         </div>
       </SidebarHeader>
 
@@ -264,33 +280,33 @@ export function AppSidebar() {
             UserRole.COORDINADOR,
           ],
         }) && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Administracion</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminMenuItems.map((item) => {
-                  if (!shouldShowMenuItem(item)) {
-                    return null;
-                  }
+            <SidebarGroup>
+              <SidebarGroupLabel>Administracion</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {adminMenuItems.map((item) => {
+                    if (!shouldShowMenuItem(item)) {
+                      return null;
+                    }
 
-                  return (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={pathname === item.url}
-                      >
-                        <Link href={item.url} className="flex items-center">
-                          <item.icon className="h-4 w-4 mr-2" />
-                          {item.title}
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={pathname === item.url}
+                        >
+                          <Link href={item.url} className="flex items-center">
+                            <item.icon className="h-4 w-4 mr-2" />
+                            {item.title}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          )}
       </SidebarContent>
 
       {/* Footer - Informacion del usuario */}

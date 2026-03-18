@@ -15,6 +15,7 @@ export const documentsService = {
     page?: number;
     limit?: number;
     includeDeleted?: boolean;
+    onlyMine?: boolean;
   }): Promise<DocumentsResponse> {
     const response = await api.get<DocumentsResponse>("/documents", { params });
     return response.data;
@@ -104,9 +105,10 @@ export const documentsService = {
     return response.data;
   },
 
-  async getThumbnail(id: number): Promise<Blob> {
+  async getThumbnail(id: number, updatedAt?: string): Promise<Blob> {
     const response = await api.get(`/documents/${id}/thumbnail`, {
       responseType: "blob",
+      params: updatedAt ? { v: new Date(updatedAt).getTime() } : undefined,
     });
     return response.data;
   },
@@ -157,6 +159,20 @@ export const documentsService = {
       },
     );
 
+    return response.data;
+  },
+
+  async updateFromTemplate(
+    id: number,
+    data: {
+      formData: Record<string, unknown>;
+      filename?: string;
+      description?: string;
+      categoryId?: number;
+      isPublic?: boolean;
+    },
+  ): Promise<Document> {
+    const response = await api.patch<Document>(`/documents/${id}/from-template`, data);
     return response.data;
   },
 

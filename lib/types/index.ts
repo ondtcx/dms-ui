@@ -35,6 +35,12 @@ export interface RegisterDto {
   name: string;
 }
 
+export enum CategoryContext {
+  ACADEMIC       = 'ACADEMIC',
+  ADMINISTRATIVE = 'ADMINISTRATIVE',
+  INSTITUTIONAL  = 'INSTITUTIONAL',
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -42,6 +48,9 @@ export interface Category {
   color: string;
   icon: string;
   isActive: boolean;
+  context: CategoryContext;
+  requiresCourse: boolean;
+  allowedRoles: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -110,6 +119,13 @@ export interface DocumentVersion {
   };
   createdById: string;
   createdAt: string;
+  source: DocumentVersionSource;
+  workflowId?: number | null;
+  approvals?: {
+    id: number;
+    action: ApprovalAction | null;
+    user: { name: string };
+  }[];
 }
 
 export interface DocumentAccess {
@@ -156,6 +172,11 @@ export interface Document {
   currentVersion: number;
   versions?: DocumentVersion[];
   checksumSHA256: string | null;
+  workflow?: {
+    id: number;
+    status: WorkflowStatus;
+    currentState: string | null;
+  } | null;
   deletedAt: string | null;
   deletedBy?: {
     id: string;
@@ -182,6 +203,8 @@ export interface UploadDocumentDto {
   description?: string;
   categoryId?: number;
   sectionId?: number;
+  courseId?: number;
+  subjectId?: number;
   isPublic?: boolean;
 }
 
@@ -221,11 +244,22 @@ export interface BatchResponse {
   documentIds: number[];
 }
 
+// ===== VERSIONES =====
+
+export enum DocumentVersionSource {
+  UPLOAD_INICIAL      = 'UPLOAD_INICIAL',
+  REEMPLAZO_MANUAL    = 'REEMPLAZO_MANUAL',
+  RESTAURACION        = 'RESTAURACION',
+  CAMBIOS_SOLICITADOS = 'CAMBIOS_SOLICITADOS',
+}
+
 // ===== WORKFLOWS =====
 
 export enum WorkflowStatus {
   DRAFT = "DRAFT",
   PENDING = "PENDING",
+  IN_PROGRESS = "IN_PROGRESS",
+  CHANGES_REQUESTED = "CHANGES_REQUESTED",
   APPROVED = "APPROVED",
   REJECTED = "REJECTED",
   CANCELLED = "CANCELLED",
@@ -238,19 +272,43 @@ export enum ApprovalAction {
   COMMENTED = "COMMENTED",
 }
 
+export interface StateDefinition {
+  state: string;
+  role: string;
+  order: number;
+  requiresComment?: boolean;
+}
+
 export interface WorkflowTemplate {
   id: number;
   name: string;
   description: string | null;
   documentType: string | null;
   categoryId: number | null;
-  stateDefinitions: any;
+  category?: Category;
+  stateDefinitions: StateDefinition[];
   autoAssign: boolean;
   requiresComment: boolean;
+  allowedInitiatorRoles: string[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  _count?: { workflows: number };
 }
+
+export interface CreateWorkflowTemplateDto {
+  name: string;
+  description?: string;
+  documentType?: string;
+  categoryId?: number;
+  stateDefinitions: StateDefinition[];
+  autoAssign?: boolean;
+  requiresComment?: boolean;
+  allowedInitiatorRoles?: string[];
+  isActive?: boolean;
+}
+
+export type UpdateWorkflowTemplateDto = Partial<CreateWorkflowTemplateDto>;
 
 export interface DocumentWorkflow {
   id: number;
@@ -391,14 +449,17 @@ export interface SearchQueryDto {
   query?: string;
   categoryIds?: number[];
   sectionIds?: number[];
-  uploadedByIds?: string[];
-  startDate?: string;
-  endDate?: string;
+  departmentIds?: number[];
+  courseIds?: number[];
+  subjectIds?: number[];
+  uploadedById?: string;
+  dateFrom?: string;
+  dateTo?: string;
   minSize?: number;
   maxSize?: number;
   mimetypes?: string[];
   isPublic?: boolean;
-  hasTemplate?: boolean;
+  includeDeleted?: boolean;
   page?: number;
   limit?: number;
   sortBy?: string;

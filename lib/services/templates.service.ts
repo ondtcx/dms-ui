@@ -113,6 +113,8 @@ export const templatesService = {
   async getThumbnail(id: number): Promise<Blob> {
     const response = await api.get(`/document-templates/${id}/thumbnail`, {
       responseType: "blob",
+      timeout: 60000, // Puppeteer puede tardar bastante en generar el PDF
+      silentErrors: [404, 503],
     });
     return response.data;
   },

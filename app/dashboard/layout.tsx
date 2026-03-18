@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar, mainMenuItems } from "@/components/app-sidebar";
 import { NotificationsDropdown } from "@/components/notifications/notifications-dropdown";
+import { SearchBar } from "@/components/search/SearchBar";
 import { usePathname } from "next/navigation";
 
 export default function DashboardLayout({
@@ -15,6 +16,7 @@ export default function DashboardLayout({
 
   // Encontrar el título de la página actual
   const getCurrentPageTitle = () => {
+    if (pathname.startsWith("/dashboard/search")) return "Resultados de búsqueda";
     for (const item of mainMenuItems) {
       if (pathname === item.url) {
         return item.title;
@@ -47,6 +49,9 @@ export default function DashboardLayout({
                 {pageTitle && (
                   <h2 className="text-lg font-semibold">{pageTitle}</h2>
                 )}
+              </div>
+              <div className="flex-1 max-w-md mx-6">
+                <SearchBar />
               </div>
               <div className="flex items-center gap-2">
                 <NotificationsDropdown />

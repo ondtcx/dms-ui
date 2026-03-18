@@ -15,7 +15,7 @@ export const searchService = {
   // Obtener sugerencias de búsqueda
   async getSuggestions(query: string): Promise<string[]> {
     const response = await api.get('/search/suggestions', {
-      params: { query },
+      params: { q: query },
     });
     return response.data;
   },

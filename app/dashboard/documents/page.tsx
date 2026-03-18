@@ -9,7 +9,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
 import { categoriesService } from "@/lib/services/categories.service";
 import { sectionsService } from "@/lib/services/sections.service";
-import { useState, useEffect } from "react";
+import { coursesService } from "@/lib/services/courses.service";
+import { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import {
   FileText,
@@ -35,8 +36,10 @@ import {
   FileSpreadsheet,
   FileCode,
   File,
+  GitBranch,
 } from "lucide-react";
-import { Document } from "@/lib/types";
+import { Document, WorkflowStatus } from "@/lib/types";
+import { WORKFLOW_STATUS_CONFIG } from "@/lib/workflow-status-config";
 import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
 import { useRouter } from "next/navigation";
 import { DocumentVersionHistory } from "@/components/documents/DocumentVersionHistory";
@@ -102,6 +105,7 @@ export default function DocumentsPage() {
   const [sectionFilter, setSectionFilter] = useState<number | undefined>(
     undefined,
   );
+  const [onlyMine, setOnlyMine] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUploadMultipleModal, setShowUploadMultipleModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -111,6 +115,8 @@ export default function DocumentsPage() {
   const [uploadData, setUploadData] = useState({
     categoryId: undefined as number | undefined,
     sectionId: undefined as number | undefined,
+    courseId: undefined as number | undefined,
+    subjectId: undefined as number | undefined,
     description: "",
     isPublic: false,
   });
@@ -138,12 +144,13 @@ export default function DocumentsPage() {
     error: documentsError,
     refetch: refetchDocuments,
   } = useQuery({
-    queryKey: ["documents", searchTerm, categoryFilter, sectionFilter],
+    queryKey: ["documents", searchTerm, categoryFilter, sectionFilter, onlyMine],
     queryFn: () =>
       documentsService.getAll({
         search: searchTerm || undefined,
         categoryId: categoryFilter,
         sectionId: sectionFilter,
+        onlyMine: onlyMine || undefined,
         page: 1,
         limit: 50,
       }),
@@ -162,6 +169,33 @@ export default function DocumentsPage() {
   const { data: sectionStats, isLoading: loadingSections } = useQuery({
     queryKey: ["section-stats"],
     queryFn: () => sectionsService.getStats(),
+  });
+
+  const selectedCategory = categories?.find((c) => c.id === uploadData.categoryId);
+  const showCourseFields = selectedCategory?.requiresCourse ?? false;
+
+  const CONTEXT_SECTION: Record<string, string> = {
+    ACADEMIC:       'Gestión Académica',
+    ADMINISTRATIVE: 'Gestión Administrativa',
+    INSTITUTIONAL:  'Gestión Institucional',
+  };
+
+  const CONTEXT_LABEL: Record<string, { label: string; color: string }> = {
+    ACADEMIC:       { label: 'Académico',       color: 'text-blue-600 bg-blue-50 border-blue-200' },
+    ADMINISTRATIVE: { label: 'Administrativo',  color: 'text-amber-600 bg-amber-50 border-amber-200' },
+    INSTITUTIONAL:  { label: 'Institucional',   color: 'text-violet-600 bg-violet-50 border-violet-200' },
+  };
+
+  const { data: allCourses, isLoading: loadingCourses } = useQuery({
+    queryKey: ["courses-all"],
+    queryFn: () => coursesService.getAll({ limit: 100 }).then((r) => r.data),
+    enabled: showCourseFields,
+  });
+
+  const { data: courseSubjects, isLoading: loadingSubjects } = useQuery({
+    queryKey: ["course-subjects", uploadData.courseId],
+    queryFn: () => coursesService.getSubjects(uploadData.courseId!),
+    enabled: showCourseFields && !!uploadData.courseId,
   });
 
   // Mutations
@@ -198,6 +232,8 @@ export default function DocumentsPage() {
       setUploadData({
         categoryId: undefined,
         sectionId: undefined,
+        courseId: undefined,
+        subjectId: undefined,
         description: "",
         isPublic: false,
       });
@@ -231,6 +267,8 @@ export default function DocumentsPage() {
       setUploadData({
         categoryId: undefined,
         sectionId: undefined,
+        courseId: undefined,
+        subjectId: undefined,
         description: "",
         isPublic: false,
       });
@@ -326,6 +364,15 @@ export default function DocumentsPage() {
     }
   }, [showPreviewModal, previewUrl]);
 
+  // Ref para rastrear todos los blob URLs creados y revocarlos solo al desmontar
+  const blobUrlsRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    return () => {
+      blobUrlsRef.current.forEach((url) => window.URL.revokeObjectURL(url));
+    };
+  }, []);
+
   // Cargar thumbnails para documentos que lo soporten
   useEffect(() => {
     const loadThumbnails = async () => {
@@ -341,25 +388,18 @@ export default function DocumentsPage() {
           if (thumbnailUrls[doc.id]) continue;
 
           try {
-            const blob = await documentsService.getThumbnail(doc.id);
+            const blob = await documentsService.getThumbnail(doc.id, doc.updatedAt);
             const url = window.URL.createObjectURL(blob);
+            blobUrlsRef.current.push(url);
             setThumbnailUrls((prev) => ({ ...prev, [doc.id]: url }));
           } catch {
             // Si falla, no hacer nada (se mostrará el icono)
-            console.log(`No se pudo cargar thumbnail para documento ${doc.id}`);
           }
         }
       }
     };
 
     loadThumbnails();
-
-    // Cleanup: revocar URLs cuando se desmonte o cambien los documentos
-    return () => {
-      Object.values(thumbnailUrls).forEach((url) => {
-        window.URL.revokeObjectURL(url);
-      });
-    };
   }, [documents?.data]);
 
   const formatFileSize = (bytes: number): string => {
@@ -476,6 +516,11 @@ export default function DocumentsPage() {
                     placeholder="Buscar documentos..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && searchTerm.trim()) {
+                        router.push(`/dashboard/search?q=${encodeURIComponent(searchTerm.trim())}`);
+                      }
+                    }}
                     className="pl-10"
                   />
                 </div>
@@ -532,6 +577,7 @@ export default function DocumentsPage() {
                       ))}
                   </SelectContent>
                 </Select>
+
               </div>
 
               {/* Botón Nuevo */}
@@ -549,9 +595,7 @@ export default function DocumentsPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>
-                  {isAdmin() ? "Todos los Documentos" : "Mis Documentos"}
-                </CardTitle>
+                <CardTitle>Documentos</CardTitle>
                 <CardDescription>
                   {documents?.data.length || 0} documento(s) encontrado(s)
                   {selectedDocuments.length > 0 && (
@@ -562,6 +606,27 @@ export default function DocumentsPage() {
                   )}
                 </CardDescription>
               </div>
+              <div className="flex items-center gap-3">
+                {/* Control segmentado Todos / Mis documentos */}
+                <div className="flex items-center rounded-md border bg-muted p-1 gap-1">
+                  <Button
+                    size="sm"
+                    variant={!onlyMine ? "default" : "ghost"}
+                    className="h-7 px-3 text-xs"
+                    onClick={() => setOnlyMine(false)}
+                  >
+                    Todos
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={onlyMine ? "default" : "ghost"}
+                    className="h-7 px-3 text-xs gap-1.5"
+                    onClick={() => setOnlyMine(true)}
+                  >
+                    <User className="h-3 w-3" />
+                    Mis documentos
+                  </Button>
+                </div>
               {documents && documents.data.length > 0 && (
                 <label
                   onClick={handleSelectAll}
@@ -575,6 +640,7 @@ export default function DocumentsPage() {
                     : "Seleccionar todos"}
                 </label>
               )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -778,6 +844,15 @@ export default function DocumentsPage() {
                                 {doc.template.type}
                               </Badge>
                             )}
+                            {doc.workflow && (
+                              <Badge
+                                variant={WORKFLOW_STATUS_CONFIG[doc.workflow.status].variant}
+                                className="gap-1"
+                              >
+                                <GitBranch className="h-3 w-3" />
+                                {WORKFLOW_STATUS_CONFIG[doc.workflow.status].label}
+                              </Badge>
+                            )}
                             {doc.isPublic ? (
                               <Badge variant="outline" className="gap-1">
                                 <Unlock className="h-3 w-3" />
@@ -868,6 +943,8 @@ export default function DocumentsPage() {
                     setUploadData({
                       ...uploadData,
                       categoryId: value ? parseInt(value) : undefined,
+                      courseId: undefined,
+                      subjectId: undefined,
                     })
                   }
                 >
@@ -877,7 +954,12 @@ export default function DocumentsPage() {
                   <SelectContent>
                     {!loadingCategories &&
                       categories
-                        ?.filter((cat) => cat.isActive)
+                        ?.filter((cat) => {
+                          if (!cat.isActive) return false;
+                          if (user?.role === 'admin') return true;
+                          if (!cat.allowedRoles || cat.allowedRoles.length === 0) return true;
+                          return user?.role && cat.allowedRoles.includes(user.role);
+                        })
                         .map((cat) => (
                           <SelectItem key={cat.id} value={cat.id.toString()}>
                             {cat.name}
@@ -885,36 +967,88 @@ export default function DocumentsPage() {
                         ))}
                   </SelectContent>
                 </Select>
+
+                {/* Info de la categoría seleccionada */}
+                {selectedCategory && (
+                  <div className="rounded-md border bg-muted/40 px-3 py-2 space-y-1.5">
+                    {selectedCategory.description && (
+                      <p className="text-xs text-muted-foreground">{selectedCategory.description}</p>
+                    )}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {CONTEXT_LABEL[selectedCategory.context] && (
+                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${CONTEXT_LABEL[selectedCategory.context].color}`}>
+                          {CONTEXT_LABEL[selectedCategory.context].label}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <FolderOpen className="h-3 w-3" />
+                        Se archivará en:{" "}
+                        <span className="font-medium text-foreground">
+                          {CONTEXT_SECTION[selectedCategory.context] ?? "Sin sección"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Sección */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sección</label>
-                <Select
-                  value={uploadData.sectionId?.toString() || ""}
-                  onValueChange={(value) =>
-                    setUploadData({
-                      ...uploadData,
-                      sectionId: value ? parseInt(value) : undefined,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una sección" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {!loadingSections &&
-                      sectionStats?.map((section) => (
-                        <SelectItem
-                          key={section.id}
-                          value={section.id.toString()}
-                        >
-                          {section.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Curso y Materia (condicional) */}
+              {showCourseFields && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Curso *</label>
+                    <Select
+                      value={uploadData.courseId?.toString() || ""}
+                      onValueChange={(value) =>
+                        setUploadData({
+                          ...uploadData,
+                          courseId: value ? parseInt(value) : undefined,
+                          subjectId: undefined,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un curso" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {!loadingCourses &&
+                          allCourses?.map((course) => (
+                            <SelectItem key={course.id} value={course.id.toString()}>
+                              {course.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {uploadData.courseId && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Materia</label>
+                      <Select
+                        value={uploadData.subjectId?.toString() || ""}
+                        onValueChange={(value) =>
+                          setUploadData({
+                            ...uploadData,
+                            subjectId: value ? parseInt(value) : undefined,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una materia" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {!loadingSubjects &&
+                            courseSubjects?.map((subject) => (
+                              <SelectItem key={subject.id} value={subject.id.toString()}>
+                                {subject.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Descripción */}
               <div className="space-y-2">
@@ -1102,6 +1236,8 @@ export default function DocumentsPage() {
                     setUploadData({
                       ...uploadData,
                       categoryId: value ? parseInt(value) : undefined,
+                      courseId: undefined,
+                      subjectId: undefined,
                     })
                   }
                 >
@@ -1111,7 +1247,12 @@ export default function DocumentsPage() {
                   <SelectContent>
                     {!loadingCategories &&
                       categories
-                        ?.filter((cat) => cat.isActive)
+                        ?.filter((cat) => {
+                          if (!cat.isActive) return false;
+                          if (user?.role === 'admin') return true;
+                          if (!cat.allowedRoles || cat.allowedRoles.length === 0) return true;
+                          return user?.role && cat.allowedRoles.includes(user.role);
+                        })
                         .map((cat) => (
                           <SelectItem key={cat.id} value={cat.id.toString()}>
                             {cat.name}
@@ -1119,36 +1260,87 @@ export default function DocumentsPage() {
                         ))}
                   </SelectContent>
                 </Select>
+
+                {selectedCategory && (
+                  <div className="rounded-md border bg-muted/40 px-3 py-2 space-y-1.5">
+                    {selectedCategory.description && (
+                      <p className="text-xs text-muted-foreground">{selectedCategory.description}</p>
+                    )}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {CONTEXT_LABEL[selectedCategory.context] && (
+                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${CONTEXT_LABEL[selectedCategory.context].color}`}>
+                          {CONTEXT_LABEL[selectedCategory.context].label}
+                        </span>
+                      )}
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <FolderOpen className="h-3 w-3" />
+                        Se archivará en:{" "}
+                        <span className="font-medium text-foreground">
+                          {CONTEXT_SECTION[selectedCategory.context] ?? "Sin sección"}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Sección */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Sección</label>
-                <Select
-                  value={uploadData.sectionId?.toString() || ""}
-                  onValueChange={(value) =>
-                    setUploadData({
-                      ...uploadData,
-                      sectionId: value ? parseInt(value) : undefined,
-                    })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona una sección" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {!loadingSections &&
-                      sectionStats?.map((section) => (
-                        <SelectItem
-                          key={section.id}
-                          value={section.id.toString()}
-                        >
-                          {section.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Curso y Materia (condicional) */}
+              {showCourseFields && (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Curso *</label>
+                    <Select
+                      value={uploadData.courseId?.toString() || ""}
+                      onValueChange={(value) =>
+                        setUploadData({
+                          ...uploadData,
+                          courseId: value ? parseInt(value) : undefined,
+                          subjectId: undefined,
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona un curso" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {!loadingCourses &&
+                          allCourses?.map((course) => (
+                            <SelectItem key={course.id} value={course.id.toString()}>
+                              {course.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {uploadData.courseId && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Materia</label>
+                      <Select
+                        value={uploadData.subjectId?.toString() || ""}
+                        onValueChange={(value) =>
+                          setUploadData({
+                            ...uploadData,
+                            subjectId: value ? parseInt(value) : undefined,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una materia" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {!loadingSubjects &&
+                            courseSubjects?.map((subject) => (
+                              <SelectItem key={subject.id} value={subject.id.toString()}>
+                                {subject.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Descripción */}
               <div className="space-y-2">
@@ -1198,6 +1390,8 @@ export default function DocumentsPage() {
                   setUploadData({
                     categoryId: undefined,
                     sectionId: undefined,
+                    courseId: undefined,
+                    subjectId: undefined,
                     description: "",
                     isPublic: false,
                   });

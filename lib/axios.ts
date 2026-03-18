@@ -2,6 +2,13 @@ import axios, { AxiosError } from "axios";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 
+declare module "axios" {
+  interface InternalAxiosRequestConfig {
+    // Lista de status codes que no deben mostrar toast de error global
+    silentErrors?: number[];
+  }
+}
+
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
@@ -46,25 +53,31 @@ api.interceptors.response.use(
 
     // Errores HTTP específicos
     const status = error.response.status;
+    const silentErrors = error.config?.silentErrors ?? [];
+    const silent = silentErrors.includes(status);
 
     if (status === 401) {
-      // Token expirado o inválido
+      // Token expirado o inválido — side effect crítico, siempre se ejecuta
       Cookies.remove("token", { path: "/" });
       Cookies.remove("user", { path: "/" });
-      toast.error("Sesión expirada. Por favor inicia sesión nuevamente.");
-      window.location.href = "/auth/login";
-    } else if (status === 403) {
-      toast.error("No tienes permisos para realizar esta acción.");
-    } else if (status === 404) {
-      toast.error("Recurso no encontrado.");
-    } else if (status === 500) {
-      toast.error("Error interno del servidor. Intenta nuevamente más tarde.");
-    } else if (status >= 400 && status < 500) {
-      // Otros errores del cliente
-      const message =
-        (error.response.data as { message?: string })?.message ||
-        "Error en la solicitud.";
-      toast.error(message);
+      const publicPaths = ["/auth/login", "/auth/register", "/auth/forgot-password"];
+      if (!publicPaths.includes(window.location.pathname)) {
+        if (!silent) toast.error("Sesión expirada. Por favor inicia sesión nuevamente.");
+        window.location.href = "/auth/login";
+      }
+    } else if (!silent) {
+      if (status === 403) {
+        toast.error("No tienes permisos para realizar esta acción.");
+      } else if (status === 404) {
+        toast.error("Recurso no encontrado.");
+      } else if (status === 500) {
+        toast.error("Error interno del servidor. Intenta nuevamente más tarde.");
+      } else if (status >= 400 && status < 500) {
+        const message =
+          (error.response.data as { message?: string })?.message ||
+          "Error en la solicitud.";
+        toast.error(message);
+      }
     }
 
     return Promise.reject(error);
