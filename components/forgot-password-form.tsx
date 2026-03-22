@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -7,9 +6,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { ShieldAlert } from "lucide-react";
 
 export function ForgotPasswordForm({
   className,
@@ -18,52 +17,26 @@ export function ForgotPasswordForm({
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
-        <CardHeader>
-          <CardTitle>Forgot your password</CardTitle>
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-2">
+            <div className="bg-orange-100 p-3 rounded-full">
+              <ShieldAlert className="h-6 w-6 text-orange-600" />
+            </div>
+          </div>
+          <CardTitle>¿Olvidaste tu contraseña?</CardTitle>
           <CardDescription>
-            Please enter the email address associated with your account.
+            El restablecimiento de contraseñas es gestionado por el
+            administrador del sistema.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form>
-            <div className="flex flex-col gap-6">
-              <div className="grid gap-3">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                />
-              </div>
-              {/* <div className="grid gap-3">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </a>
-                </div>
-                <Input id="password" type="password" required />
-              </div> */}
-              <div className="flex flex-col gap-3">
-                <Button type="submit" className="w-full">
-                  Request reset link
-                </Button>
-                {/* <Button variant="outline" className="w-full">
-                  Login with Google
-                </Button> */}
-              </div>
-            </div>
-            <div className="mt-4 text-center text-sm">
-              Back to Login?{" "}
-              <Link href="login" className="underline underline-offset-4">
-                Sign in
-              </Link>
-            </div>
-          </form>
+        <CardContent className="flex flex-col gap-4 text-center">
+          <p className="text-sm text-muted-foreground">
+            Contacta al administrador de tu institución para que restablezca tu
+            contraseña. Una vez actualizada, podrás iniciar sesión normalmente.
+          </p>
+          <Button asChild variant="outline" className="w-full">
+            <Link href="/auth/login">Volver al inicio de sesión</Link>
+          </Button>
         </CardContent>
       </Card>
     </div>
