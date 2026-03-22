@@ -4,6 +4,7 @@ import {
   DocumentsResponse,
   UploadDocumentDto,
   DocumentVersion,
+  ArchiveStats,
 } from "@/lib/types";
 
 export const documentsService = {
@@ -189,6 +190,29 @@ export const documentsService = {
   async permanentDelete(id: number): Promise<{ message: string }> {
     const response = await api.delete<{ message: string }>(
       `/documents/${id}/permanent`,
+    );
+    return response.data;
+  },
+
+  // Archivo histórico
+  async getArchived(params?: {
+    search?: string;
+    categoryId?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<DocumentsResponse> {
+    const response = await api.get<DocumentsResponse>("/documents/archive", { params });
+    return response.data;
+  },
+
+  async getArchiveStats(): Promise<ArchiveStats> {
+    const response = await api.get<ArchiveStats>("/documents/archive/stats");
+    return response.data;
+  },
+
+  async restoreFromArchive(id: number): Promise<{ message: string }> {
+    const response = await api.post<{ message: string }>(
+      `/documents/${id}/restore-from-archive`,
     );
     return response.data;
   },

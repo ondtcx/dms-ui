@@ -197,6 +197,7 @@ export interface Document {
     email: string;
   } | null;
   deletedById: string | null;
+  archivedAt: string | null;
   accesses?: DocumentAccess[];
   createdAt: string;
   updatedAt: string;
@@ -225,6 +226,16 @@ export interface CategoryCount {
   categoryId: number;
   categoryName: string;
   count: number;
+}
+
+export interface ArchiveStats {
+  total: number;
+  byCategory: {
+    categoryId: number | null;
+    categoryName: string;
+    categoryColor: string;
+    count: number;
+  }[];
 }
 
 // ===== BATCH OPERATIONS =====
