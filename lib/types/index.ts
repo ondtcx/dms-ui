@@ -35,12 +35,6 @@ export interface RegisterDto {
   name: string;
 }
 
-export enum CategoryContext {
-  ACADEMIC       = 'ACADEMIC',
-  ADMINISTRATIVE = 'ADMINISTRATIVE',
-  INSTITUTIONAL  = 'INSTITUTIONAL',
-}
-
 export interface Category {
   id: number;
   name: string;
@@ -48,11 +42,15 @@ export interface Category {
   color: string;
   icon: string;
   isActive: boolean;
-  context: CategoryContext;
+  sectionId: number | null;
+  section?: { id: number; name: string; color: string; icon: string } | null;
   requiresCourse: boolean;
   allowedRoles: string[];
   createdAt: string;
   updatedAt: string;
+  _count?: {
+    documents: number;
+  };
 }
 
 export interface Section {
@@ -65,7 +63,7 @@ export interface Section {
   createdAt: string;
   updatedAt: string;
   _count?: {
-    documents: number;
+    categories: number;
   };
 }
 
@@ -74,6 +72,7 @@ export interface SectionStats {
   name: string;
   color: string;
   icon: string;
+  categoryCount: number;
   documentCount: number;
 }
 
@@ -102,6 +101,19 @@ export interface UpdateSectionDto {
   icon?: string;
   isActive?: boolean;
 }
+
+export interface CreateCategoryDto {
+  name: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  isActive?: boolean;
+  sectionId?: number | null;
+  requiresCourse?: boolean;
+  allowedRoles?: string[];
+}
+
+export type UpdateCategoryDto = Partial<CreateCategoryDto>;
 
 export interface DocumentVersion {
   id: number;
@@ -152,9 +164,7 @@ export interface Document {
   path: string;
   description: string | null;
   categoryId: number | null;
-  category: Category | null;
-  sectionId: number | null;
-  section: Section | null;
+  category: (Category & { section?: { id: number; name: string; color: string; icon: string } | null }) | null;
   isPublic: boolean;
   uploadedBy: {
     id: string;
@@ -177,6 +187,8 @@ export interface Document {
     status: WorkflowStatus;
     currentState: string | null;
   } | null;
+  batchId?: string | null;
+  batch?: { id: string; name: string } | null;
   deletedAt: string | null;
   deletedBy?: {
     id: string;
@@ -219,7 +231,6 @@ export interface CategoryCount {
 export interface BatchUpdateDto {
   documentIds: number[];
   categoryId?: number;
-  sectionId?: number;
   courseId?: number;
   subjectId?: number;
   description?: string;
@@ -283,9 +294,9 @@ export interface WorkflowTemplate {
   id: number;
   name: string;
   description: string | null;
-  documentType: string | null;
   categoryId: number | null;
   category?: Category;
+  sections?: Section[];
   stateDefinitions: StateDefinition[];
   autoAssign: boolean;
   requiresComment: boolean;
@@ -299,8 +310,8 @@ export interface WorkflowTemplate {
 export interface CreateWorkflowTemplateDto {
   name: string;
   description?: string;
-  documentType?: string;
   categoryId?: number;
+  sectionIds?: number[];
   stateDefinitions: StateDefinition[];
   autoAssign?: boolean;
   requiresComment?: boolean;
@@ -639,6 +650,46 @@ export interface TransferStats {
   received: number;
   total: number;
   pending: number;
+}
+
+export interface DocumentBatch {
+  id: string;
+  name: string;
+  templateId: number;
+  template: { id: number; name: string; type: string };
+  createdById: string;
+  createdBy: { id: string; name: string; email: string };
+  documents?: Document[];
+  totalCount: number;
+  _count?: { documents: number };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentBatchesResponse {
+  data: DocumentBatch[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export interface BatchRowDto {
+  formData: Record<string, unknown>;
+  filename?: string;
+  description?: string;
+}
+
+export interface CreateBatchFromTemplateDto {
+  templateId: number;
+  batchName?: string;
+  rows: BatchRowDto[];
+  categoryId?: number;
+  sectionId?: number;
+  isPublic?: boolean;
+}
+
+export interface CreateBatchResult {
+  batch: DocumentBatch;
+  documents: Document[];
+  errors: string[];
 }
 
 export * from './templates';

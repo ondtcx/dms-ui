@@ -50,7 +50,7 @@ import toast from 'react-hot-toast';
 interface Props {
   documentId: number;
   categoryId?: number | null;
-  categoryContext?: string | null;
+  sectionId?: number | null;
 }
 
 const APPROVAL_ACTION_CONFIG = {
@@ -77,7 +77,7 @@ const APPROVAL_ACTION_CONFIG = {
   },
 };
 
-export default function DocumentWorkflowCard({ documentId, categoryId, categoryContext }: Props) {
+export default function DocumentWorkflowCard({ documentId, categoryId, sectionId }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -107,7 +107,7 @@ export default function DocumentWorkflowCard({ documentId, categoryId, categoryC
     if (!t.isActive) return false;
     // Filtro por categoría/contexto del documento
     if (t.categoryId != null && t.categoryId !== categoryId) return false;
-    if (t.categoryId == null && t.documentType != null && t.documentType !== categoryContext) return false;
+    if (t.categoryId == null && t.sections != null && t.sections.length > 0 && !t.sections.some((s) => s.id === sectionId)) return false;
     // ADMIN bypasea el filtro de rol iniciador — acceso total por rol, no por lista
     if (user?.role === 'admin') return true;
     // Filtro por rol del iniciador para los demás roles

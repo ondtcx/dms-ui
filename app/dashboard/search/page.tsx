@@ -317,9 +317,9 @@ export default function SearchPage() {
                           {doc.category.name}
                         </Badge>
                       )}
-                      {doc.section && (
+                      {doc.category?.section && (
                         <span className="text-xs text-muted-foreground">
-                          {doc.section.name}
+                          {doc.category.section.name}
                         </span>
                       )}
                       {doc.uploadedBy && (

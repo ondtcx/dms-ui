@@ -354,16 +354,16 @@ export default function DocumentDetailPage() {
                   </div>
                 )}
 
-                {doc.section && (
+                {doc.category?.section && (
                   <div>
                     <p className="text-sm font-medium mb-2">Sección</p>
-                    <Badge variant="outline" style={{ borderColor: doc.section.color }}>
-                      <span style={{ color: doc.section.color }}>{doc.section.name}</span>
+                    <Badge variant="outline" style={{ borderColor: doc.category.section.color }}>
+                      <span style={{ color: doc.category.section.color }}>{doc.category.section.name}</span>
                     </Badge>
                   </div>
                 )}
 
-                {!doc.category && !doc.section && (
+                {!doc.category && (
                   <p className="text-sm text-muted-foreground">Sin clasificación</p>
                 )}
               </div>
@@ -371,7 +371,7 @@ export default function DocumentDetailPage() {
           </Card>
 
           {/* Workflow */}
-          <DocumentWorkflowCard documentId={documentId} categoryId={doc?.categoryId} categoryContext={doc?.category?.context} />
+          <DocumentWorkflowCard documentId={documentId} categoryId={doc?.categoryId} sectionId={doc?.category?.section?.id} />
 
           {/* Acciones rápidas */}
           <Card>

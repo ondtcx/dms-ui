@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { workflowsService } from '@/lib/services/workflows.service';
 import { categoriesService } from '@/lib/services/categories.service';
+import { sectionsService } from '@/lib/services/sections.service';
 import { useState } from 'react';
 import { WorkflowTemplate, CreateWorkflowTemplateDto } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,9 +57,15 @@ export default function WorkflowTemplatesTab() {
   });
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['categories'],
-    queryFn: () => categoriesService.getAll(),
+    queryKey: ["categories", "active"],
+    queryFn: () => categoriesService.getActive(),
   });
+
+  const { data: sectionsResponse } = useQuery({
+    queryKey: ['sections', 'active'],
+    queryFn: () => sectionsService.getAll({ isActive: true }),
+  });
+  const sections = sectionsResponse?.data ?? [];
 
   const createMutation = useMutation({
     mutationFn: (data: CreateWorkflowTemplateDto) => workflowsService.createTemplate(data),
@@ -197,7 +204,7 @@ export default function WorkflowTemplatesTab() {
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Etapas</TableHead>
-                  <TableHead>Categoría</TableHead>
+                  <TableHead>Alcance</TableHead>
                   <TableHead>Usos</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Creado</TableHead>
@@ -234,11 +241,19 @@ export default function WorkflowTemplatesTab() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      {template.category ? (
-                        <Badge variant="secondary">{template.category.name}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
-                      )}
+                      <div className="flex flex-wrap gap-1">
+                        {template.sections && template.sections.length > 0
+                          ? template.sections.map((s) => (
+                              <Badge key={s.id} variant="outline">{s.name}</Badge>
+                            ))
+                          : null}
+                        {template.category && (
+                          <Badge variant="secondary">{template.category.name}</Badge>
+                        )}
+                        {(!template.sections || template.sections.length === 0) && !template.category && (
+                          <span className="text-muted-foreground text-sm">Todos</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span className="text-sm">{template._count?.workflows ?? 0} workflows</span>
@@ -312,6 +327,7 @@ export default function WorkflowTemplatesTab() {
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
         categories={categories}
+        sections={sections}
       />
     </>
   );

@@ -5,6 +5,8 @@ import {
   CreateDocumentTemplateDto,
   UpdateDocumentTemplateDto,
   CreateDocumentFromTemplateDto,
+  CreateBatchFromTemplateDto,
+  CreateBatchResult,
   TemplateType,
   Document,
 } from "@/lib/types";
@@ -16,6 +18,7 @@ export const templatesService = {
   async getAll(params?: {
     search?: string;
     type?: string;
+    categoryId?: number;
     isActive?: boolean;
     page?: number;
     limit?: number;
@@ -94,6 +97,16 @@ export const templatesService = {
       "/documents/from-template",
       data
     );
+    return response.data;
+  },
+
+  /**
+   * Generar documentos en lote desde una plantilla
+   */
+  async createBatchFromTemplate(data: CreateBatchFromTemplateDto): Promise<CreateBatchResult> {
+    const response = await api.post<CreateBatchResult>("/documents/batch-from-template", data, {
+      timeout: 300000,
+    });
     return response.data;
   },
 

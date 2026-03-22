@@ -91,7 +91,7 @@ export default function CalendarioPage() {
     const loadFilters = async () => {
       try {
         const [categoriesData, sectionsData] = await Promise.all([
-          categoriesService.getAll(),
+          categoriesService.getActive(),
           sectionsService.getStats(),
         ]);
         setCategories(categoriesData);
@@ -126,7 +126,7 @@ export default function CalendarioPage() {
         start: new Date(doc.createdAt),
         end: new Date(doc.createdAt),
         resource: doc,
-        color: doc.category?.color || doc.section?.color || '#3b82f6',
+        color: doc.category?.color || doc.category?.section?.color || '#3b82f6',
       }));
 
       setEvents(calendarEvents);
@@ -229,7 +229,7 @@ export default function CalendarioPage() {
     }, {} as Record<string, number>);
 
     const bySection = documents.reduce((acc, doc) => {
-      const secName = doc.section?.name || 'Sin sección';
+      const secName = doc.category?.section?.name || 'Sin sección';
       acc[secName] = (acc[secName] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -449,9 +449,9 @@ export default function CalendarioPage() {
                       <span style={{ color: selectedDocument.category.color }}>{selectedDocument.category.name}</span>
                     </Badge>
                   )}
-                  {selectedDocument.section && (
-                    <Badge variant="outline" style={{ borderColor: selectedDocument.section.color }}>
-                      <span style={{ color: selectedDocument.section.color }}>{selectedDocument.section.name}</span>
+                  {selectedDocument.category?.section && (
+                    <Badge variant="outline" style={{ borderColor: selectedDocument.category.section.color }}>
+                      <span style={{ color: selectedDocument.category.section.color }}>{selectedDocument.category.section.name}</span>
                     </Badge>
                   )}
                 </div>

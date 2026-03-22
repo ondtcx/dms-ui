@@ -1,9 +1,8 @@
-// app/dashboard/categories/page.tsx
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { categoriesService } from "@/lib/services/categories.service";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import toast from "react-hot-toast";
 import {
   FolderKanban,
@@ -12,13 +11,13 @@ import {
   Trash2,
   Power,
   PowerOff,
+  Search,
+  FileText,
 } from "lucide-react";
-import { Category } from "@/lib/types";
-
-// Shadcn imports
+import { Category, CreateCategoryDto, UpdateCategoryDto } from "@/lib/types";
+import { CategoryForm } from "@/components/categories/CategoryForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -31,7 +30,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -43,38 +41,43 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Separator } from "@/components/ui/separator";
 
 export default function CategoriesPage() {
   const queryClient = useQueryClient();
-
-  // Estados
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    color: "#3b82f6",
-    icon: "Folder",
-  });
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // Queries
-  const {
-    data: categories,
-    isLoading,
-    error,
-  } = useQuery({
+  const { data: categories, isLoading, error } = useQuery({
     queryKey: ["categories"],
     queryFn: () => categoriesService.getAll(),
   });
 
+  // Filtrado client-side por nombre o descripción
+  const filteredCategories = useMemo(() => {
+    if (!categories) return [];
+    if (!searchTerm.trim()) return categories;
+    const term = searchTerm.toLowerCase();
+    return categories.filter(
+      (c) =>
+        c.name.toLowerCase().includes(term) ||
+        (c.description ?? "").toLowerCase().includes(term)
+    );
+  }, [categories, searchTerm]);
+
+  // Stats calculadas sobre el total (no sobre el filtrado)
+  const totalDocs = useMemo(
+    () => categories?.reduce((acc, c) => acc + (c._count?.documents ?? 0), 0) ?? 0,
+    [categories]
+  );
+
   // Mutations
   const createMutation = useMutation({
-    mutationFn: categoriesService.create,
+    mutationFn: (data: CreateCategoryDto) => categoriesService.create(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Categoría creada exitosamente");
-      resetForm();
+      setShowModal(false);
     },
     onError: (error: { response?: { data?: { message?: string } } }) => {
       toast.error(error.response?.data?.message || "Error al crear categoría");
@@ -82,27 +85,16 @@ export default function CategoriesPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      data,
-    }: {
-      id: number;
-      data: Partial<{
-        name: string;
-        description: string;
-        color: string;
-        icon: string;
-      }>;
-    }) => categoriesService.update(id, data),
+    mutationFn: ({ id, data }: { id: number; data: UpdateCategoryDto }) =>
+      categoriesService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
       toast.success("Categoría actualizada exitosamente");
-      resetForm();
+      setEditingCategory(null);
+      setShowModal(false);
     },
     onError: (error: { response?: { data?: { message?: string } } }) => {
-      toast.error(
-        error.response?.data?.message || "Error al actualizar categoría"
-      );
+      toast.error(error.response?.data?.message || "Error al actualizar categoría");
     },
   });
 
@@ -113,9 +105,7 @@ export default function CategoriesPage() {
       toast.success("Categoría eliminada exitosamente");
     },
     onError: (error: { response?: { data?: { message?: string } } }) => {
-      toast.error(
-        error.response?.data?.message || "Error al eliminar categoría"
-      );
+      toast.error(error.response?.data?.message || "Error al eliminar categoría");
     },
   });
 
@@ -124,135 +114,123 @@ export default function CategoriesPage() {
       categoriesService.update(id, { isActive }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
-      toast.success("Estado actualizado exitosamente");
+      toast.success("Estado actualizado");
     },
     onError: () => {
       toast.error("Error al actualizar estado");
     },
   });
 
-  // Handlers
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.name.trim()) {
-      toast.error("El nombre es requerido");
-      return;
-    }
-
-    if (editingCategory) {
-      updateMutation.mutate({
-        id: editingCategory.id,
-        data: formData,
-      });
-    } else {
-      createMutation.mutate(formData);
-    }
-  };
-
   const handleEdit = (category: Category) => {
     setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      description: category.description || "",
-      color: category.color,
-      icon: category.icon,
-    });
     setShowModal(true);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("¿Estás seguro de eliminar esta categoría?")) return;
+  const handleDelete = async (id: number, name: string) => {
+    if (!confirm(`¿Eliminar la categoría "${name}"?`)) return;
     deleteMutation.mutate(id);
   };
 
-  const handleToggleActive = (id: number, currentState: boolean) => {
-    toggleActiveMutation.mutate({ id, isActive: !currentState });
-  };
-
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      description: "",
-      color: "#3b82f6",
-      icon: "Folder",
-    });
-    setEditingCategory(null);
-    setShowModal(false);
+  // CreateCategoryDto satisface UpdateCategoryDto sin necesidad de cast
+  const handleFormSubmit = (data: CreateCategoryDto) => {
+    if (editingCategory) {
+      updateMutation.mutate({ id: editingCategory.id, data });
+    } else {
+      createMutation.mutate(data);
+    }
   };
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-500">Error al cargar categorías</p>
-        </div>
+      <div className="p-8 text-center">
+        <p className="text-red-500">Error al cargar categorías</p>
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Gestión de Categorías</h1>
-        <p className="text-muted-foreground">
+    <div className="p-8 max-w-7xl mx-auto space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Gestión de Categorías</h1>
+        <p className="text-muted-foreground mt-1">
           Administra las categorías para organizar tus documentos
         </p>
       </div>
 
-      {/* Header con estadísticas */}
-      <div className="grid gap-4 md:grid-cols-3 mb-6">
+      {/* Stats — 4 cards */}
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Categorías
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total</CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{categories?.length || 0}</div>
+            <div className="text-2xl font-bold">{categories?.length ?? 0}</div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Activas</CardTitle>
             <Power className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {categories?.filter((c) => c.isActive).length || 0}
+            <div className="text-2xl font-bold text-green-600">
+              {categories?.filter((c) => c.isActive).length ?? 0}
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Inactivas</CardTitle>
             <PowerOff className="h-4 w-4 text-gray-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {categories?.filter((c) => !c.isActive).length || 0}
+            <div className="text-2xl font-bold text-gray-400">
+              {categories?.filter((c) => !c.isActive).length ?? 0}
             </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Documentos</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalDocs}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tabla de categorías */}
+      {/* Tabla con búsqueda */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Categorías</CardTitle>
               <CardDescription>
-                Lista de todas las categorías disponibles
+                {filteredCategories.length} de {categories?.length ?? 0} categorías
               </CardDescription>
             </div>
-            <Button onClick={() => setShowModal(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva Categoría
-            </Button>
+            <div className="flex gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar categorías..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 w-64"
+                />
+              </div>
+              <Button
+                onClick={() => {
+                  setEditingCategory(null);
+                  setShowModal(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva Categoría
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -263,60 +241,78 @@ export default function CategoriesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
+                  <TableHead>Sección</TableHead>
                   <TableHead>Descripción</TableHead>
-                  <TableHead>Color</TableHead>
+                  <TableHead>Req. Curso</TableHead>
+                  <TableHead>Docs</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {categories?.map((category) => (
+                {filteredCategories.map((category) => (
                   <TableRow key={category.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div
-                          className="w-3 h-3 rounded-full"
+                          className="w-3 h-3 rounded-full flex-shrink-0"
                           style={{ backgroundColor: category.color }}
                         />
                         <span className="font-medium">{category.name}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm text-muted-foreground">
-                        {category.description || "-"}
+                      {category.section ? (
+                        <Badge
+                          variant="outline"
+                          style={{
+                            borderColor: category.section.color,
+                            color: category.section.color,
+                          }}
+                        >
+                          {category.section.name}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-muted-foreground truncate max-w-[180px] block">
+                        {category.description || "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {category.requiresCourse ? (
+                        <Badge variant="secondary">Sí</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm tabular-nums">
+                        {category._count?.documents ?? 0}
                       </span>
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant="outline"
-                        style={{
-                          borderColor: category.color,
-                          color: category.color,
-                        }}
+                        variant={category.isActive ? "default" : "secondary"}
+                        className={category.isActive ? "bg-green-500" : ""}
                       >
-                        {category.color}
+                        {category.isActive ? "Activa" : "Inactiva"}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      {category.isActive ? (
-                        <Badge variant="default" className="bg-green-500">
-                          Activa
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">Inactiva</Badge>
-                      )}
-                    </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() =>
-                            handleToggleActive(category.id, category.isActive)
+                            toggleActiveMutation.mutate({
+                              id: category.id,
+                              isActive: !category.isActive,
+                            })
                           }
-                          title={
-                            category.isActive ? "Desactivar" : "Activar"
-                          }
+                          title={category.isActive ? "Desactivar" : "Activar"}
                         >
                           {category.isActive ? (
                             <PowerOff className="h-4 w-4" />
@@ -334,7 +330,7 @@ export default function CategoriesPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(category.id)}
+                          onClick={() => handleDelete(category.id, category.name)}
                         >
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
@@ -348,9 +344,17 @@ export default function CategoriesPage() {
         </CardContent>
       </Card>
 
-      {/* Modal Crear/Editar */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-md">
+      {/* Dialog unificado — crear y editar */}
+      <Dialog
+        open={showModal}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowModal(false);
+            setEditingCategory(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>
               {editingCategory ? "Editar Categoría" : "Nueva Categoría"}
@@ -361,102 +365,16 @@ export default function CategoriesPage() {
                 : "Crea una nueva categoría para organizar documentos"}
             </DialogDescription>
           </DialogHeader>
-
-          <form onSubmit={handleSubmit}>
-            <div className="space-y-4 py-4">
-              {/* Nombre */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nombre *</label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  placeholder="Ej: Legales, Financieros..."
-                  required
-                />
-              </div>
-
-              {/* Descripción */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Descripción</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  placeholder="Descripción de la categoría"
-                  rows={3}
-                />
-              </div>
-
-              {/* Color */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Color</label>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) =>
-                      setFormData({ ...formData, color: e.target.value })
-                    }
-                    className="w-20 h-10"
-                  />
-                  <Input
-                    type="text"
-                    value={formData.color}
-                    onChange={(e) =>
-                      setFormData({ ...formData, color: e.target.value })
-                    }
-                    placeholder="#3b82f6"
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-
-              {/* Icon */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Icono</label>
-                <Input
-                  value={formData.icon}
-                  onChange={(e) =>
-                    setFormData({ ...formData, icon: e.target.value })
-                  }
-                  placeholder="Nombre del icono (lucide-react)"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Ej: Folder, FileText, Scale, DollarSign
-                </p>
-              </div>
-            </div>
-
-            <Separator className="my-4" />
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetForm}
-                disabled={
-                  createMutation.isPending || updateMutation.isPending
-                }
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={
-                  createMutation.isPending || updateMutation.isPending
-                }
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? "Guardando..."
-                  : editingCategory
-                    ? "Actualizar"
-                    : "Crear"}
-              </Button>
-            </DialogFooter>
-          </form>
+          <CategoryForm
+            key={editingCategory?.id ?? "new"}
+            initialValues={editingCategory ?? undefined}
+            onSubmit={handleFormSubmit}
+            onCancel={() => {
+              setShowModal(false);
+              setEditingCategory(null);
+            }}
+            isPending={createMutation.isPending || updateMutation.isPending}
+          />
         </DialogContent>
       </Dialog>
     </div>

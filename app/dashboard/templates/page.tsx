@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
+import { categoriesService } from "@/lib/services/categories.service";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
@@ -17,6 +18,7 @@ import {
   PowerOff,
   FileSearch,
   ArrowUpDown,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +48,7 @@ export default function TemplatesPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("date");
   const [showCreateTemplateDialog, setShowCreateTemplateDialog] =
     useState(false);
@@ -60,19 +62,19 @@ export default function TemplatesPage() {
 
   // Queries
   const { data: templates, isLoading } = useQuery({
-    queryKey: ["templates", searchTerm, typeFilter],
+    queryKey: ["templates", searchTerm, categoryFilter],
     queryFn: () =>
       templatesService.getAll({
         search: searchTerm || undefined,
-        type: typeFilter !== "all" ? typeFilter : undefined,
+        categoryId: categoryFilter !== "all" ? Number(categoryFilter) : undefined,
         page: 1,
         limit: 50,
       }),
   });
 
-  const { data: types } = useQuery({
-    queryKey: ["template-types"],
-    queryFn: () => templatesService.getTypes(),
+  const { data: categories } = useQuery({
+    queryKey: ["categories", "active"],
+    queryFn: categoriesService.getActive,
   });
 
   // Load thumbnails — mismo patrón que documents page (useRef para cleanup en unmount)
@@ -193,12 +195,18 @@ export default function TemplatesPage() {
         </p>
       </div>
 
-      {/* Estadísticas de tipos */}
-      {types && types.length > 0 && (
+      {/* Categorías disponibles */}
+      {categories && categories.length > 0 && (
         <div className="flex gap-2 flex-wrap">
-          {types.map((type) => (
-            <Badge key={type.type} variant="outline">
-              {type.type}: {type.count} plantilla(s)
+          {categories.filter((c) => c.isActive).map((cat) => (
+            <Badge
+              key={cat.id}
+              variant="outline"
+              className="cursor-pointer"
+              style={categoryFilter === cat.id.toString() ? { borderColor: cat.color, color: cat.color } : {}}
+              onClick={() => setCategoryFilter(categoryFilter === cat.id.toString() ? "all" : cat.id.toString())}
+            >
+              {cat.name}
             </Badge>
           ))}
         </div>
@@ -219,16 +227,16 @@ export default function TemplatesPage() {
               />
             </div>
 
-            {/* Filtro por tipo */}
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            {/* Filtro por categoría */}
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
               <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Filtrar por tipo" />
+                <SelectValue placeholder="Filtrar por categoría" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los tipos</SelectItem>
-                {types?.map((type) => (
-                  <SelectItem key={type.type} value={type.type}>
-                    {type.type}
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                {categories?.filter((c) => c.isActive).map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id.toString()}>
+                    {cat.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -295,7 +303,7 @@ export default function TemplatesPage() {
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                     <FileType className="h-12 w-12 text-slate-400" />
-                    <span className="text-xs text-slate-400">{template.type}</span>
+                    <span className="text-xs text-slate-400">{template.category?.name ?? template.type}</span>
                   </div>
                 )}
 
@@ -326,9 +334,19 @@ export default function TemplatesPage() {
                       {template.name}
                     </CardTitle>
                     <CardDescription className="mt-1">
-                      <Badge variant="outline" className="mt-1">
-                        {template.type}
-                      </Badge>
+                      {template.category ? (
+                        <Badge
+                          variant="outline"
+                          className="mt-1"
+                          style={{ borderColor: template.category.color, color: template.category.color }}
+                        >
+                          {template.category.name}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="mt-1">
+                          {template.type}
+                        </Badge>
+                      )}
                     </CardDescription>
                   </div>
                 </div>
@@ -357,6 +375,15 @@ export default function TemplatesPage() {
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     Usar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/dashboard/templates/${template.id}/batch`)}
+                    disabled={!template.isActive}
+                    title="Generar en lote"
+                  >
+                    <Layers className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"

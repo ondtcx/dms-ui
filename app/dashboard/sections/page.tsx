@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sectionsService } from "@/lib/services/sections.service";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import toast from "react-hot-toast";
 import {
   FolderOpen,
@@ -13,6 +13,7 @@ import {
   Power,
   PowerOff,
   FileText,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,18 +26,13 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Section } from "@/lib/types";
+import { Section, UpdateSectionDto, SectionStats } from "@/lib/types";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -44,57 +40,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-// Iconos disponibles para secciones
-const AVAILABLE_ICONS = [
-  { value: "FolderOpen", label: "Carpeta Abierta" },
-  { value: "BookOpen", label: "Libro Abierto" },
-  { value: "Building2", label: "Edificio" },
-  { value: "GraduationCap", label: "Birrete" },
-  { value: "Users", label: "Usuarios" },
-  { value: "FileText", label: "Documento" },
-  { value: "ClipboardList", label: "Lista" },
-  { value: "Calendar", label: "Calendario" },
-];
-
-// Colores predefinidos
-const AVAILABLE_COLORS = [
-  { value: "#10b981", label: "Verde" },
-  { value: "#3b82f6", label: "Azul" },
-  { value: "#f59e0b", label: "Naranja" },
-  { value: "#8b5cf6", label: "Violeta" },
-  { value: "#ec4899", label: "Rosa" },
-  { value: "#14b8a6", label: "Turquesa" },
-  { value: "#f97316", label: "Naranja Intenso" },
-  { value: "#6366f1", label: "Índigo" },
-];
+import { SectionForm } from "@/components/sections/SectionForm";
 
 export default function SectionsPage() {
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [isActiveFilter, setIsActiveFilter] = useState<boolean | undefined>(undefined);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
 
-  // Form state
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    color: "#10b981",
-    icon: "FolderOpen",
-    isActive: true,
-  });
-
-  // Queries
-  const { data: sections, isLoading } = useQuery({
-    queryKey: ["sections", searchTerm],
+  // Query principal con filtros
+  const { data: sectionsResponse, isLoading, error } = useQuery({
+    queryKey: ["sections", searchTerm, isActiveFilter],
     queryFn: () =>
       sectionsService.getAll({
         search: searchTerm || undefined,
+        isActive: isActiveFilter,
         page: 1,
-        limit: 50,
+        limit: 100,
       }),
   });
+
+  // Query de stats para documentCount por sección
+  const { data: sectionStats } = useQuery({
+    queryKey: ["section-stats"],
+    queryFn: () => sectionsService.getStats(),
+  });
+
+  // Mapa memoizado para lookup O(1) en render
+  const statsMap = useMemo(
+    () => new Map<number, SectionStats>(sectionStats?.map((s) => [s.id, s]) ?? []),
+    [sectionStats]
+  );
 
   // Mutations
   const createMutation = useMutation({
@@ -104,25 +81,22 @@ export default function SectionsPage() {
       queryClient.invalidateQueries({ queryKey: ["section-stats"] });
       toast.success("Sección creada exitosamente");
       setShowCreateDialog(false);
-      resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: { response?: { data?: { message?: string } } }) => {
       toast.error(error.response?.data?.message || "Error al crear sección");
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) =>
+    mutationFn: ({ id, data }: { id: number; data: UpdateSectionDto }) =>
       sectionsService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sections"] });
       queryClient.invalidateQueries({ queryKey: ["section-stats"] });
       toast.success("Sección actualizada exitosamente");
-      setShowEditDialog(false);
       setEditingSection(null);
-      resetForm();
     },
-    onError: (error: any) => {
+    onError: (error: { response?: { data?: { message?: string } } }) => {
       toast.error(error.response?.data?.message || "Error al actualizar sección");
     },
   });
@@ -134,7 +108,7 @@ export default function SectionsPage() {
       queryClient.invalidateQueries({ queryKey: ["section-stats"] });
       toast.success("Sección eliminada exitosamente");
     },
-    onError: (error: any) => {
+    onError: (error: { response?: { data?: { message?: string } } }) => {
       toast.error(error.response?.data?.message || "Error al eliminar sección");
     },
   });
@@ -152,43 +126,8 @@ export default function SectionsPage() {
     },
   });
 
-  // Handlers
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      description: "",
-      color: "#10b981",
-      icon: "FolderOpen",
-      isActive: true,
-    });
-  };
-
-  const handleCreate = () => {
-    if (!formData.name.trim()) {
-      toast.error("El nombre es requerido");
-      return;
-    }
-    createMutation.mutate(formData);
-  };
-
   const handleEdit = (section: Section) => {
     setEditingSection(section);
-    setFormData({
-      name: section.name,
-      description: section.description || "",
-      color: section.color,
-      icon: section.icon,
-      isActive: section.isActive,
-    });
-    setShowEditDialog(true);
-  };
-
-  const handleUpdate = () => {
-    if (!formData.name.trim() || !editingSection) {
-      toast.error("El nombre es requerido");
-      return;
-    }
-    updateMutation.mutate({ id: editingSection.id, data: formData });
   };
 
   const handleDelete = async (id: number, name: string) => {
@@ -199,6 +138,18 @@ export default function SectionsPage() {
   const handleToggleActive = (id: number, isActive: boolean) => {
     toggleActiveMutation.mutate({ id, isActive: !isActive });
   };
+
+  if (error) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-64">
+        <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
+        <p className="text-lg font-medium">Error al cargar secciones</p>
+        <p className="text-sm text-muted-foreground">
+          Verifica la conexión con el servidor
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -225,6 +176,24 @@ export default function SectionsPage() {
               />
             </div>
 
+            {/* Filtro por estado */}
+            <Select
+              value={isActiveFilter === undefined ? "all" : String(isActiveFilter)}
+              onValueChange={(v) => {
+                setIsActiveFilter(v === "all" ? undefined : v === "true");
+                setSearchTerm("");
+              }}
+            >
+              <SelectTrigger className="w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="true">Activas</SelectItem>
+                <SelectItem value="false">Inactivas</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* Botón nueva sección */}
             <Button onClick={() => setShowCreateDialog(true)}>
               <Plus className="mr-2 h-4 w-4" />
@@ -238,9 +207,9 @@ export default function SectionsPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {isLoading ? (
           <div className="col-span-full flex justify-center py-12">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
           </div>
-        ) : sections?.data.length === 0 ? (
+        ) : sectionsResponse?.data.length === 0 ? (
           <div className="col-span-full flex flex-col items-center justify-center py-12">
             <FolderOpen className="h-16 w-16 text-muted-foreground mb-4" />
             <p className="text-lg font-medium">No hay secciones</p>
@@ -249,328 +218,129 @@ export default function SectionsPage() {
             </p>
           </div>
         ) : (
-          sections?.data.map((section) => (
-            <Card
-              key={section.id}
-              className="hover:shadow-lg transition-shadow"
-              style={{ borderLeft: `4px solid ${section.color}` }}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg truncate flex items-center gap-2">
-                      <span
-                        className="flex h-8 w-8 items-center justify-center rounded-lg"
-                        style={{ backgroundColor: `${section.color}20` }}
-                      >
-                        <FileText
-                          className="h-4 w-4"
-                          style={{ color: section.color }}
-                        />
-                      </span>
-                      {section.name}
-                    </CardTitle>
-                    <CardDescription className="mt-2">
-                      {section.description || "Sin descripción"}
-                    </CardDescription>
+          sectionsResponse?.data.map((section) => {
+            const stats = statsMap.get(section.id);
+            return (
+              <Card
+                key={section.id}
+                className="hover:shadow-lg transition-shadow"
+                style={{ borderLeft: `4px solid ${section.color}` }}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg truncate flex items-center gap-2">
+                        <span
+                          className="flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0"
+                          style={{ backgroundColor: `${section.color}20` }}
+                        >
+                          <FileText
+                            className="h-4 w-4"
+                            style={{ color: section.color }}
+                          />
+                        </span>
+                        {section.name}
+                      </CardTitle>
+                      <CardDescription className="mt-2">
+                        {section.description || "Sin descripción"}
+                      </CardDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleToggleActive(section.id, section.isActive)}
+                      title={section.isActive ? "Desactivar" : "Activar"}
+                    >
+                      {section.isActive ? (
+                        <Power className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <PowerOff className="h-4 w-4 text-gray-400" />
+                      )}
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleToggleActive(section.id, section.isActive)}
-                    title={section.isActive ? "Desactivar" : "Activar"}
-                  >
-                    {section.isActive ? (
-                      <Power className="h-4 w-4 text-green-600" />
-                    ) : (
-                      <PowerOff className="h-4 w-4 text-gray-400" />
-                    )}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Separator />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Separator />
 
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-3 w-3" />
-                    {section._count?.documents || 0} documento(s)
-                  </span>
-                  <Badge
-                    variant={section.isActive ? "default" : "secondary"}
-                    style={
-                      section.isActive
-                        ? { backgroundColor: section.color }
-                        : undefined
-                    }
-                  >
-                    {section.isActive ? "Activa" : "Inactiva"}
-                  </Badge>
-                </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <FolderOpen className="h-3 w-3" />
+                      {section._count?.categories ?? 0} categoría(s)
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      {stats?.documentCount ?? 0} documento(s)
+                    </span>
+                    <Badge
+                      variant={section.isActive ? "default" : "secondary"}
+                      style={
+                        section.isActive
+                          ? { backgroundColor: section.color }
+                          : undefined
+                      }
+                    >
+                      {section.isActive ? "Activa" : "Inactiva"}
+                    </Badge>
+                  </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleEdit(section)}
-                  >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Editar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(section.id, section.name)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleEdit(section)}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(section.id, section.name)}
+                      disabled={deleteMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
 
-      {/* Dialog Crear Sección */}
-      <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+      {/* Dialog unificado — crear y editar */}
+      <Dialog
+        open={showCreateDialog || editingSection !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowCreateDialog(false);
+            setEditingSection(null);
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Crear Nueva Sección</DialogTitle>
-            <DialogDescription>
-              Las secciones te ayudan a organizar tus documentos
-            </DialogDescription>
+            <DialogTitle>
+              {editingSection ? "Editar Sección" : "Nueva Sección"}
+            </DialogTitle>
           </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="Ej: Académico, Administrativo..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Descripción de la sección (opcional)"
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="color">Color</Label>
-                <Select
-                  value={formData.color}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, color: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AVAILABLE_COLORS.map((color) => (
-                      <SelectItem key={color.value} value={color.value}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-4 w-4 rounded"
-                            style={{ backgroundColor: color.value }}
-                          />
-                          {color.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="icon">Icono</Label>
-                <Select
-                  value={formData.icon}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, icon: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AVAILABLE_ICONS.map((icon) => (
-                      <SelectItem key={icon.value} value={icon.value}>
-                        {icon.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, isActive: checked as boolean })
-                }
-              />
-              <label htmlFor="isActive" className="text-sm font-medium">
-                Sección activa
-              </label>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowCreateDialog(false);
-                resetForm();
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending ? "Creando..." : "Crear Sección"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog Editar Sección */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Sección</DialogTitle>
-            <DialogDescription>
-              Modifica la información de la sección
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Nombre *</Label>
-              <Input
-                id="edit-name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="Ej: Académico, Administrativo..."
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-description">Descripción</Label>
-              <Textarea
-                id="edit-description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Descripción de la sección (opcional)"
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-color">Color</Label>
-                <Select
-                  value={formData.color}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, color: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AVAILABLE_COLORS.map((color) => (
-                      <SelectItem key={color.value} value={color.value}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="h-4 w-4 rounded"
-                            style={{ backgroundColor: color.value }}
-                          />
-                          {color.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-icon">Icono</Label>
-                <Select
-                  value={formData.icon}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, icon: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AVAILABLE_ICONS.map((icon) => (
-                      <SelectItem key={icon.value} value={icon.value}>
-                        {icon.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="edit-isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, isActive: checked as boolean })
-                }
-              />
-              <label htmlFor="edit-isActive" className="text-sm font-medium">
-                Sección activa
-              </label>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowEditDialog(false);
-                setEditingSection(null);
-                resetForm();
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleUpdate}
-              disabled={updateMutation.isPending}
-            >
-              {updateMutation.isPending ? "Actualizando..." : "Actualizar"}
-            </Button>
-          </DialogFooter>
+          <SectionForm
+            key={editingSection?.id ?? "new"}
+            initialValues={editingSection ?? undefined}
+            onSubmit={(data) => {
+              if (editingSection) {
+                updateMutation.mutate({ id: editingSection.id, data });
+              } else {
+                createMutation.mutate(data);
+              }
+            }}
+            onCancel={() => {
+              setShowCreateDialog(false);
+              setEditingSection(null);
+            }}
+            isPending={createMutation.isPending || updateMutation.isPending}
+          />
         </DialogContent>
       </Dialog>
     </div>

@@ -60,8 +60,8 @@ export function CreateDocumentFromTemplateDialog({
 
   // Query para categorías
   const { data: categories, isLoading: loadingCategories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => categoriesService.getAll(),
+    queryKey: ["categories", "active"],
+    queryFn: () => categoriesService.getActive(),
   });
 
   // Compilar la plantilla con los datos del formulario en tiempo real

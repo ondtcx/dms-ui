@@ -57,8 +57,8 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
   const [open, setOpen] = useState(false);
 
   const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => categoriesService.getAll(),
+    queryKey: ["categories", "active"],
+    queryFn: () => categoriesService.getActive(),
     staleTime: 5 * 60_000,
   });
 

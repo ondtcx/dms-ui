@@ -31,6 +31,7 @@ import {
   Settings,
   LogOut,
   FolderKanban,
+  Layers,
   Trash2,
   FileType,
   CheckCircle2,
@@ -127,6 +128,12 @@ export const adminMenuItems: MenuItem[] = [
     icon: Building2,
     url: "/dashboard/departments",
     requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR],
+  },
+  {
+    title: "Secciones",
+    icon: Layers,
+    url: "/dashboard/sections",
+    requiredRole: UserRole.ADMIN,
   },
   {
     title: "Categorias",

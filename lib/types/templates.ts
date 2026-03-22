@@ -25,6 +25,15 @@ export interface DocumentTemplate {
   pageSize: 'A4' | 'Letter' | 'Legal';
   orientation: 'portrait' | 'landscape';
   isActive: boolean;
+  categoryId: number | null;
+  category: {
+    id: number;
+    name: string;
+    color: string;
+    icon: string;
+    allowedRoles: string[];
+    section?: { id: number; name: string } | null;
+  } | null;
   createdById: string;
   createdBy: {
     id: string;
@@ -59,6 +68,7 @@ export interface CreateDocumentTemplateDto {
   pageSize?: 'A4' | 'Letter' | 'Legal';
   orientation?: 'portrait' | 'landscape';
   isActive?: boolean;
+  categoryId?: number;
 }
 
 export interface UpdateDocumentTemplateDto {
@@ -72,6 +82,7 @@ export interface UpdateDocumentTemplateDto {
   pageSize?: 'A4' | 'Letter' | 'Legal';
   orientation?: 'portrait' | 'landscape';
   isActive?: boolean;
+  categoryId?: number;
 }
 
 export interface CreateDocumentFromTemplateDto {
@@ -80,7 +91,6 @@ export interface CreateDocumentFromTemplateDto {
   filename?: string;
   description?: string;
   isPublic?: boolean;
-  categoryId?: number;
 }
 
 export interface TemplateType {

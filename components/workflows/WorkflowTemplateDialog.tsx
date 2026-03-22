@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import {
   Category,
-  CategoryContext,
   CreateWorkflowTemplateDto,
+  Section,
   StateDefinition,
   UserRole,
   WorkflowTemplate,
@@ -33,11 +33,6 @@ import {
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const DOCUMENT_TYPE_OPTIONS = [
-  { value: CategoryContext.ACADEMIC,       label: 'Académico',      description: 'Planificaciones, informes académicos' },
-  { value: CategoryContext.ADMINISTRATIVE, label: 'Administrativo', description: 'Actas, constancias, circulares' },
-  { value: CategoryContext.INSTITUTIONAL,  label: 'Institucional',  description: 'Legales, financieros, normativos' },
-];
 
 const INITIATOR_ROLE_OPTIONS = [
   { value: UserRole.DIRECTOR,    label: 'Director' },
@@ -58,8 +53,8 @@ const APPROVER_ROLE_LABELS: Record<string, string> = {
 const EMPTY_FORM: CreateWorkflowTemplateDto = {
   name: '',
   description: '',
-  documentType: '',
   categoryId: undefined,
+  sectionIds: [],
   stateDefinitions: [{ state: '', role: '', order: 0 }],
   autoAssign: true,
   requiresComment: false,
@@ -74,6 +69,7 @@ interface WorkflowTemplateDialogProps {
   onSubmit: (data: CreateWorkflowTemplateDto) => void;
   isSubmitting: boolean;
   categories: Category[];
+  sections: Section[];
 }
 
 export default function WorkflowTemplateDialog({
@@ -83,6 +79,7 @@ export default function WorkflowTemplateDialog({
   onSubmit,
   isSubmitting,
   categories,
+  sections,
 }: WorkflowTemplateDialogProps) {
   const [formData, setFormData] = useState<CreateWorkflowTemplateDto>(EMPTY_FORM);
 
@@ -92,8 +89,8 @@ export default function WorkflowTemplateDialog({
         setFormData({
           name: template.name,
           description: template.description || '',
-          documentType: template.documentType || '',
           categoryId: template.categoryId || undefined,
+          sectionIds: template.sections?.map(s => s.id) ?? [],
           stateDefinitions: template.stateDefinitions.length > 0
             ? template.stateDefinitions
             : [{ state: '', role: '', order: 0 }],
@@ -193,8 +190,8 @@ export default function WorkflowTemplateDialog({
     };
 
     if (formData.description?.trim()) payload.description = formData.description.trim();
-    if (formData.documentType?.trim()) payload.documentType = formData.documentType.trim();
     if (formData.categoryId) payload.categoryId = formData.categoryId;
+    if (formData.sectionIds && formData.sectionIds.length > 0) payload.sectionIds = formData.sectionIds;
 
     onSubmit(payload);
   };
@@ -248,32 +245,34 @@ export default function WorkflowTemplateDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="documentType">Contexto de documento</Label>
-                <Select
-                  value={formData.documentType || '__none__'}
-                  onValueChange={(val) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      documentType: val === '__none__' ? undefined : val,
-                      categoryId: val !== '__none__' ? undefined : prev.categoryId,
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sin restricción (aplica a todos)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Sin restricción</SelectItem>
-                    {DOCUMENT_TYPE_OPTIONS.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div>
-                          <p>{opt.label}</p>
-                          <p className="text-xs text-muted-foreground">{opt.description}</p>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Secciones que aplican</Label>
+                <p className="text-xs text-muted-foreground">
+                  Sin selección = disponible para cualquier documento. Si elige categoría específica, las secciones se ignoran.
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  {sections.map((sec) => (
+                    <div key={sec.id} className="flex items-center gap-2 rounded-md border px-3 py-2">
+                      <Checkbox
+                        id={`section-${sec.id}`}
+                        checked={(formData.sectionIds ?? []).includes(sec.id)}
+                        onCheckedChange={() => {
+                          setFormData((prev) => {
+                            const current = prev.sectionIds ?? [];
+                            return {
+                              ...prev,
+                              sectionIds: current.includes(sec.id)
+                                ? current.filter((id) => id !== sec.id)
+                                : [...current, sec.id],
+                            };
+                          });
+                        }}
+                      />
+                      <label htmlFor={`section-${sec.id}`} className="text-sm cursor-pointer">
+                        {sec.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -284,7 +283,6 @@ export default function WorkflowTemplateDialog({
                     setFormData((prev) => ({
                       ...prev,
                       categoryId: val === '__none__' ? undefined : Number(val),
-                      documentType: val !== '__none__' ? undefined : prev.documentType,
                     }))
                   }
                 >

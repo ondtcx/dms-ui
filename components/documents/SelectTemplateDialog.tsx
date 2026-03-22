@@ -24,11 +24,13 @@ import Link from "next/link";
 interface SelectTemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode?: 'create' | 'batch';
 }
 
 export function SelectTemplateDialog({
   open,
   onOpenChange,
+  mode = 'create',
 }: SelectTemplateDialogProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
@@ -49,7 +51,11 @@ export function SelectTemplateDialog({
 
   const handleSelectTemplate = (template: DocumentTemplate) => {
     onOpenChange(false); // Cerrar el dialog
-    router.push(`/dashboard/templates/${template.id}/create`);
+    if (mode === 'batch') {
+      router.push(`/dashboard/templates/${template.id}/batch`);
+    } else {
+      router.push(`/dashboard/templates/${template.id}/create`);
+    }
   };
 
   const handlePreviewTemplate = (template: DocumentTemplate, e: React.MouseEvent) => {
@@ -68,7 +74,9 @@ export function SelectTemplateDialog({
           <DialogHeader>
             <DialogTitle>Seleccionar Plantilla</DialogTitle>
             <DialogDescription>
-              Elige una plantilla para crear un nuevo documento
+              {mode === 'batch'
+                ? 'Elige una plantilla para generar documentos en lote'
+                : 'Elige una plantilla para crear un nuevo documento'}
             </DialogDescription>
           </DialogHeader>
 

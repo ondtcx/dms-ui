@@ -46,6 +46,9 @@ import { DocumentVersionHistory } from "@/components/documents/DocumentVersionHi
 import { ReplaceFileDialog } from "@/components/documents/ReplaceFileDialog";
 import { EditDocumentDialog } from "@/components/documents/EditDocumentDialog";
 import { BatchActionsBar } from "@/components/documents/batch-actions-bar";
+import { BatchListSection } from "@/components/documents/BatchListSection";
+import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
+import { Layers } from "lucide-react";
 
 // Shadcn imports
 import { Button } from "@/components/ui/button";
@@ -85,6 +88,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Helper para obtener el componente de icono desde el string
 
@@ -114,7 +118,6 @@ export default function DocumentsPage() {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [uploadData, setUploadData] = useState({
     categoryId: undefined as number | undefined,
-    sectionId: undefined as number | undefined,
     courseId: undefined as number | undefined,
     subjectId: undefined as number | undefined,
     description: "",
@@ -137,6 +140,10 @@ export default function DocumentsPage() {
   // Estados para batch actions
   const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([]);
 
+  // Tab principal: documentos individuales vs lotes
+  const [mainTab, setMainTab] = useState<'documents' | 'batches'>('documents');
+  const [showBatchSelectDialog, setShowBatchSelectDialog] = useState(false);
+
   // Queries
   const {
     data: documents,
@@ -151,6 +158,7 @@ export default function DocumentsPage() {
         categoryId: categoryFilter,
         sectionId: sectionFilter,
         onlyMine: onlyMine || undefined,
+        excludeBatched: true,
         page: 1,
         limit: 50,
       }),
@@ -162,8 +170,8 @@ export default function DocumentsPage() {
   });
 
   const { data: categories, isLoading: loadingCategories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => categoriesService.getAll(),
+    queryKey: ["categories", "active"],
+    queryFn: () => categoriesService.getActive(),
   });
 
   const { data: sectionStats, isLoading: loadingSections } = useQuery({
@@ -174,17 +182,6 @@ export default function DocumentsPage() {
   const selectedCategory = categories?.find((c) => c.id === uploadData.categoryId);
   const showCourseFields = selectedCategory?.requiresCourse ?? false;
 
-  const CONTEXT_SECTION: Record<string, string> = {
-    ACADEMIC:       'Gestión Académica',
-    ADMINISTRATIVE: 'Gestión Administrativa',
-    INSTITUTIONAL:  'Gestión Institucional',
-  };
-
-  const CONTEXT_LABEL: Record<string, { label: string; color: string }> = {
-    ACADEMIC:       { label: 'Académico',       color: 'text-blue-600 bg-blue-50 border-blue-200' },
-    ADMINISTRATIVE: { label: 'Administrativo',  color: 'text-amber-600 bg-amber-50 border-amber-200' },
-    INSTITUTIONAL:  { label: 'Institucional',   color: 'text-violet-600 bg-violet-50 border-violet-200' },
-  };
 
   const { data: allCourses, isLoading: loadingCourses } = useQuery({
     queryKey: ["courses-all"],
@@ -231,7 +228,6 @@ export default function DocumentsPage() {
       setSelectedFile(null);
       setUploadData({
         categoryId: undefined,
-        sectionId: undefined,
         courseId: undefined,
         subjectId: undefined,
         description: "",
@@ -266,7 +262,6 @@ export default function DocumentsPage() {
       setSelectedFiles([]);
       setUploadData({
         categoryId: undefined,
-        sectionId: undefined,
         courseId: undefined,
         subjectId: undefined,
         description: "",
@@ -525,13 +520,34 @@ export default function DocumentsPage() {
                   />
                 </div>
 
-                {/* Filtro de categorías */}
+                {/* Filtro de secciones */}
+                <Select
+                  value={sectionFilter?.toString() || "all"}
+                  onValueChange={(value) => {
+                    setSectionFilter(value === "all" ? undefined : parseInt(value));
+                    setCategoryFilter(undefined); // resetear categoría al cambiar sección
+                  }}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <FolderOpen className="mr-2 h-4 w-4" />
+                    <SelectValue placeholder="Sección" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {!loadingSections &&
+                      sectionStats?.map((section) => (
+                        <SelectItem key={section.id} value={section.id.toString()}>
+                          {section.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Filtro de categorías — limitado a las de la sección seleccionada */}
                 <Select
                   value={categoryFilter?.toString() || "all"}
                   onValueChange={(value) =>
-                    setCategoryFilter(
-                      value === "all" ? undefined : parseInt(value),
-                    )
+                    setCategoryFilter(value === "all" ? undefined : parseInt(value))
                   }
                 >
                   <SelectTrigger className="w-[180px]">
@@ -542,39 +558,15 @@ export default function DocumentsPage() {
                     <SelectItem value="all">Todas</SelectItem>
                     {!loadingCategories &&
                       categories
-                        ?.filter((cat) => cat.isActive)
+                        ?.filter((cat) =>
+                          cat.isActive &&
+                          (sectionFilter === undefined || cat.sectionId === sectionFilter)
+                        )
                         .map((cat) => (
                           <SelectItem key={cat.id} value={cat.id.toString()}>
                             {cat.name}
                           </SelectItem>
                         ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Filtro de secciones */}
-                <Select
-                  value={sectionFilter?.toString() || "all"}
-                  onValueChange={(value) =>
-                    setSectionFilter(
-                      value === "all" ? undefined : parseInt(value),
-                    )
-                  }
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <FolderOpen className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Sección" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {!loadingSections &&
-                      sectionStats?.map((section) => (
-                        <SelectItem
-                          key={section.id}
-                          value={section.id.toString()}
-                        >
-                          {section.name}
-                        </SelectItem>
-                      ))}
                   </SelectContent>
                 </Select>
 
@@ -585,11 +577,26 @@ export default function DocumentsPage() {
                 onUploadSingle={() => setShowUploadModal(true)}
                 onUploadMultiple={() => setShowUploadMultipleModal(true)}
                 onFromTemplate={() => router.push("/dashboard/templates")}
+                onBatchGenerate={() => setShowBatchSelectDialog(true)}
               />
             </div>
           </CardContent>
         </Card>
 
+        {/* Tabs: Documentos / Lotes */}
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'batches')}>
+          <TabsList>
+            <TabsTrigger value="documents">
+              <FileText className="mr-2 h-4 w-4" />
+              Documentos
+            </TabsTrigger>
+            <TabsTrigger value="batches">
+              <Layers className="mr-2 h-4 w-4" />
+              Lotes
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="documents" className="mt-4">
         {/* Lista de documentos */}
         <Card>
           <CardHeader>
@@ -808,18 +815,18 @@ export default function DocumentsPage() {
 
                           {/* Badges y metadata */}
                           <div className="flex flex-wrap items-center gap-2 mb-2">
-                            {doc.section && (
+                            {doc.category?.section && (
                               <Badge
                                 variant="outline"
                                 className="gap-1"
-                                style={{ borderColor: doc.section.color }}
+                                style={{ borderColor: doc.category.section.color }}
                               >
                                 <FolderOpen
                                   className="h-3 w-3"
-                                  style={{ color: doc.section.color }}
+                                  style={{ color: doc.category.section.color }}
                                 />
-                                <span style={{ color: doc.section.color }}>
-                                  {doc.section.name}
+                                <span style={{ color: doc.category.section.color }}>
+                                  {doc.category.section.name}
                                 </span>
                               </Badge>
                             )}
@@ -904,6 +911,12 @@ export default function DocumentsPage() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="batches" className="mt-4">
+            <BatchListSection />
+          </TabsContent>
+        </Tabs>
 
         {/* Modal de subir documento */}
         <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
@@ -975,16 +988,17 @@ export default function DocumentsPage() {
                       <p className="text-xs text-muted-foreground">{selectedCategory.description}</p>
                     )}
                     <div className="flex items-center gap-3 flex-wrap">
-                      {CONTEXT_LABEL[selectedCategory.context] && (
-                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${CONTEXT_LABEL[selectedCategory.context].color}`}>
-                          {CONTEXT_LABEL[selectedCategory.context].label}
+                      {selectedCategory.section && (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border"
+                          style={{ borderColor: selectedCategory.section.color, color: selectedCategory.section.color, backgroundColor: `${selectedCategory.section.color}15` }}>
+                          {selectedCategory.section.name}
                         </span>
                       )}
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <FolderOpen className="h-3 w-3" />
                         Se archivará en:{" "}
                         <span className="font-medium text-foreground">
-                          {CONTEXT_SECTION[selectedCategory.context] ?? "Sin sección"}
+                          {selectedCategory.section?.name ?? "Sin sección"}
                         </span>
                       </span>
                     </div>
@@ -1267,16 +1281,17 @@ export default function DocumentsPage() {
                       <p className="text-xs text-muted-foreground">{selectedCategory.description}</p>
                     )}
                     <div className="flex items-center gap-3 flex-wrap">
-                      {CONTEXT_LABEL[selectedCategory.context] && (
-                        <span className={`inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border ${CONTEXT_LABEL[selectedCategory.context].color}`}>
-                          {CONTEXT_LABEL[selectedCategory.context].label}
+                      {selectedCategory.section && (
+                        <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border"
+                          style={{ borderColor: selectedCategory.section.color, color: selectedCategory.section.color, backgroundColor: `${selectedCategory.section.color}15` }}>
+                          {selectedCategory.section.name}
                         </span>
                       )}
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <FolderOpen className="h-3 w-3" />
                         Se archivará en:{" "}
                         <span className="font-medium text-foreground">
-                          {CONTEXT_SECTION[selectedCategory.context] ?? "Sin sección"}
+                          {selectedCategory.section?.name ?? "Sin sección"}
                         </span>
                       </span>
                     </div>
@@ -1389,7 +1404,6 @@ export default function DocumentsPage() {
                   setSelectedFiles([]);
                   setUploadData({
                     categoryId: undefined,
-                    sectionId: undefined,
                     courseId: undefined,
                     subjectId: undefined,
                     description: "",
@@ -1425,6 +1439,13 @@ export default function DocumentsPage() {
           selectedDocuments={selectedDocuments}
           onClearSelection={handleClearSelection}
           onSuccess={handleBatchSuccess}
+        />
+
+        {/* Dialog para seleccionar plantilla en modo lote */}
+        <SelectTemplateDialog
+          open={showBatchSelectDialog}
+          onOpenChange={setShowBatchSelectDialog}
+          mode="batch"
         />
       </div>
     </div>

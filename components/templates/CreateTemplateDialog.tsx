@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
+import { categoriesService } from "@/lib/services/categories.service";
 import toast from "react-hot-toast";
 import {
   Dialog,
@@ -97,7 +98,13 @@ export function CreateTemplateDialog({
   const [type, setType] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
   const [fields, setFields] = useState<TemplateField[]>([]);
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories", "active"],
+    queryFn: categoriesService.getActive,
+  });
 
   // Nuevos campos
   const [htmlTemplate, setHtmlTemplate] = useState(DEFAULT_HTML_TEMPLATE);
@@ -113,6 +120,7 @@ export function CreateTemplateDialog({
       setType(template.type);
       setDescription(template.description || "");
       setIsActive(template.isActive);
+      setCategoryId(template.categoryId ?? undefined);
       setFields(template.fields.fields);
       setHtmlTemplate(template.htmlTemplate);
       setStyles(template.styles || DEFAULT_STYLES);
@@ -162,6 +170,7 @@ export function CreateTemplateDialog({
     setType("");
     setDescription("");
     setIsActive(true);
+    setCategoryId(undefined);
     setFields([]);
     setHtmlTemplate(DEFAULT_HTML_TEMPLATE);
     setStyles(DEFAULT_STYLES);
@@ -236,6 +245,7 @@ export function CreateTemplateDialog({
       pageSize,
       orientation,
       isActive,
+      categoryId,
     };
 
     if (isEditing && template) {
@@ -308,6 +318,34 @@ export function CreateTemplateDialog({
                 <p className="text-xs text-muted-foreground">
                   El tipo permite agrupar plantillas similares
                 </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="categoryId">Categoría</Label>
+                <Select
+                  value={categoryId?.toString() ?? "none"}
+                  onValueChange={(value) =>
+                    setCategoryId(value === "none" ? undefined : Number(value))
+                  }
+                >
+                  <SelectTrigger id="categoryId">
+                    <SelectValue placeholder="Sin categoría asignada" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin categoría</SelectItem>
+                    {categories?.filter((c) => c.isActive).map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id.toString()}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {categoryId && categories && (
+                  <p className="text-xs text-muted-foreground">
+                    Roles con acceso:{" "}
+                    {(categories.find((c) => c.id === categoryId)?.allowedRoles as string[] | undefined)?.join(", ") || "todos"}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">

@@ -59,15 +59,18 @@ export function TemplateDocumentForm({
   const [description, setDescription] = useState(initialMeta?.description ?? "");
   const [filename, setFilename] = useState(initialMeta?.filename ?? "");
   const [isPublic, setIsPublic] = useState(initialMeta?.isPublic ?? false);
+  // categoryId is derived from the template; only shown as editable if template has no categoryId
   const [categoryId, setCategoryId] = useState<number | undefined>(
-    initialMeta?.categoryId
+    template.categoryId ?? initialMeta?.categoryId
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPreview, setShowPreview] = useState(true);
 
+  // Only fetch categories when the template has no assigned category
   const { data: categories, isLoading: loadingCategories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => categoriesService.getAll(),
+    queryKey: ["categories", "active"],
+    queryFn: () => categoriesService.getActive(),
+    enabled: !template.categoryId,
   });
 
   const previewHtml = useMemo(() => {
@@ -417,29 +420,42 @@ export function TemplateDocumentForm({
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="category">Categoría</Label>
-                  <Select
-                    value={categoryId?.toString() || ""}
-                    onValueChange={(value) =>
-                      setCategoryId(value ? parseInt(value) : undefined)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una categoría (opcional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {!loadingCategories &&
-                        categories
-                          ?.filter((cat) => cat.isActive)
-                          .map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id.toString()}>
-                              {cat.name}
-                            </SelectItem>
-                          ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {template.category ? (
+                  <div className="space-y-1">
+                    <Label>Categoría</Label>
+                    <div className="flex items-center gap-2 p-2 rounded-md border bg-muted/50">
+                      <span
+                        className="w-3 h-3 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: template.category.color || "#6b7280" }}
+                      />
+                      <span className="text-sm font-medium">{template.category.name}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Categoría</Label>
+                    <Select
+                      value={categoryId?.toString() || ""}
+                      onValueChange={(value) =>
+                        setCategoryId(value ? parseInt(value) : undefined)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una categoría (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {!loadingCategories &&
+                          categories
+                            ?.filter((cat) => cat.isActive)
+                            .map((cat) => (
+                              <SelectItem key={cat.id} value={cat.id.toString()}>
+                                {cat.name}
+                              </SelectItem>
+                            ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="flex items-center space-x-2">
                   <Checkbox

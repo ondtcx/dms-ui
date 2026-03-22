@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
 import { categoriesService } from "@/lib/services/categories.service";
-import { sectionsService } from "@/lib/services/sections.service";
 import toast from "react-hot-toast";
 import {
   Dialog,
@@ -46,7 +45,6 @@ export function EditDocumentDialog({
     filename: document.filename,
     description: document.description || "",
     categoryId: document.categoryId,
-    sectionId: document.sectionId,
     isPublic: document.isPublic,
   });
 
@@ -56,21 +54,14 @@ export function EditDocumentDialog({
       filename: document.filename,
       description: document.description || "",
       categoryId: document.categoryId,
-      sectionId: document.sectionId,
       isPublic: document.isPublic,
     });
   }, [document]);
 
   // Query para categorías
   const { data: categories, isLoading: loadingCategories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: () => categoriesService.getAll(),
-  });
-
-  // Query para secciones
-  const { data: sections, isLoading: loadingSections } = useQuery({
-    queryKey: ["section-stats"],
-    queryFn: () => sectionsService.getStats(),
+    queryKey: ["categories", "active"],
+    queryFn: () => categoriesService.getActive(),
   });
 
   // Mutation para actualizar
@@ -79,7 +70,6 @@ export function EditDocumentDialog({
       documentsService.update(document.id, {
         description: formData.description || undefined,
         categoryId: formData.categoryId || undefined,
-        sectionId: formData.sectionId || undefined,
         isPublic: formData.isPublic,
       }),
     onSuccess: () => {
@@ -167,33 +157,6 @@ export function EditDocumentDialog({
                         {cat.name}
                       </SelectItem>
                     ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Sección */}
-          <div className="space-y-2">
-            <Label htmlFor="section">Sección</Label>
-            <Select
-              value={formData.sectionId?.toString() || "none"}
-              onValueChange={(value) =>
-                setFormData({
-                  ...formData,
-                  sectionId: value === "none" ? null : parseInt(value),
-                })
-              }
-            >
-              <SelectTrigger id="section">
-                <SelectValue placeholder="Sin sección" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin sección</SelectItem>
-                {!loadingSections &&
-                  sections?.map((section) => (
-                    <SelectItem key={section.id} value={section.id.toString()}>
-                      {section.name}
-                    </SelectItem>
-                  ))}
               </SelectContent>
             </Select>
           </div>

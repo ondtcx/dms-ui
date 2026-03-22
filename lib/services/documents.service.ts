@@ -16,6 +16,8 @@ export const documentsService = {
     limit?: number;
     includeDeleted?: boolean;
     onlyMine?: boolean;
+    excludeBatched?: boolean;
+    batchId?: string;
   }): Promise<DocumentsResponse> {
     const response = await api.get<DocumentsResponse>("/documents", { params });
     return response.data;
