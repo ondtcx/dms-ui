@@ -1,7 +1,7 @@
 // src/app/dashboard/documents/page.tsx
 "use client";
 
-import { formatMimeType } from "@/lib/utils";
+import { formatMimeType, formatRole } from "@/lib/utils";
 import Link from "next/link";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -897,6 +897,9 @@ export default function DocumentsPage() {
                             <span className="flex items-center gap-1">
                               <User className="h-3 w-3" />
                               {doc.uploadedBy.name}
+                              {doc.uploadedBy.role && (
+                                <span className="text-muted-foreground/60">· {formatRole(doc.uploadedBy.role)}</span>
+                              )}
                             </span>
                             <span className="flex items-center gap-1">
                               <Calendar className="h-3 w-3" />

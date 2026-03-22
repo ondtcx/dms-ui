@@ -7,10 +7,13 @@ import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { TemplateDocumentForm } from "@/components/templates/TemplateDocumentForm";
 import { useEffect } from "react";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import { UserRole } from "@/lib/types";
 
 export default function EditDocumentFormPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const documentId = parseInt(params.id as string);
 
   const { data: doc, isLoading: loadingDoc } = useQuery({
@@ -31,6 +34,18 @@ export default function EditDocumentFormPage() {
       router.replace(`/dashboard/documents/${documentId}/edit`);
     }
   }, [doc, documentId, router]);
+
+  // Redirigir si el usuario no tiene permiso para editar
+  useEffect(() => {
+    if (!doc || !user) return;
+    const canEdit =
+      user.role === UserRole.ADMIN ||
+      user.role === UserRole.DIRECTOR ||
+      doc.uploadedById === user.id;
+    if (!canEdit) {
+      router.replace(`/dashboard/documents/${documentId}`);
+    }
+  }, [doc, user, documentId, router]);
 
   if (loadingDoc || loadingTemplate) {
     return (

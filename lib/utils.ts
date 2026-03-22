@@ -60,3 +60,20 @@ export function formatMimeType(mimetype: string): string {
   }
   return cleaned.toUpperCase();
 }
+
+const ROLE_LABELS: Record<string, string> = {
+  director: "Director/a",
+  coordinador: "Coordinador/a",
+  profesor: "Profesor/a",
+  secretario: "Secretario/a",
+  padre: "Padre/Madre",
+  estudiante: "Estudiante",
+  moderador: "Moderador/a",
+  admin: "Administrador/a",
+  user: "Usuario",
+};
+
+export function formatRole(role?: string | null): string {
+  if (!role) return "";
+  return ROLE_LABELS[role] ?? role;
+}

@@ -170,6 +170,7 @@ export interface Document {
     id: string;
     name: string;
     email: string;
+    role?: string;
   };
   uploadedById: string;
   templateId: number | null;

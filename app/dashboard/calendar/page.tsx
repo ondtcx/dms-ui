@@ -1,6 +1,6 @@
 'use client';
 
-import { formatMimeType } from '@/lib/utils';
+import { formatMimeType, formatRole } from '@/lib/utils';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer, View } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
@@ -427,7 +427,14 @@ export default function CalendarioPage() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subido por:</span>
-                      <span>{selectedDocument.uploadedBy.name}</span>
+                      <span>
+                        {selectedDocument.uploadedBy.name}
+                        {selectedDocument.uploadedBy.role && (
+                          <span className="text-muted-foreground/70 text-xs ml-1">
+                            ({formatRole(selectedDocument.uploadedBy.role)})
+                          </span>
+                        )}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Fecha:</span>

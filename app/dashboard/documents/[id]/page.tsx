@@ -1,6 +1,6 @@
 'use client';
 
-import { formatMimeType } from '@/lib/utils';
+import { formatMimeType, formatRole } from '@/lib/utils';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { documentsService } from '@/lib/services/documents.service';
@@ -39,11 +39,14 @@ import {
 } from '@/components/ui/dropdown-menu';
 import DocumentWorkflowCard from '@/components/workflows/DocumentWorkflowCard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { UserRole } from '@/lib/types';
 
 export default function DocumentDetailPage() {
   const params = useParams();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const documentId = parseInt(params.id as string);
 
   // Estados
@@ -73,6 +76,13 @@ export default function DocumentDetailPage() {
       toast.error('Error al eliminar documento');
     },
   });
+
+  const canEdit =
+    !!user &&
+    !!doc &&
+    (user.role === UserRole.ADMIN ||
+      user.role === UserRole.DIRECTOR ||
+      doc.uploadedById === user.id);
 
   const isPreviewable = (mimetype: string): boolean => {
     if (mimetype === 'application/pdf') return true;
@@ -193,18 +203,20 @@ export default function DocumentDetailPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            onClick={() =>
-              router.push(
-                doc.templateId
-                  ? `/dashboard/documents/${doc.id}/edit-form`
-                  : `/dashboard/documents/${doc.id}/edit`,
-              )
-            }
-          >
-            <Pencil className="mr-2 h-4 w-4" />
-            Editar
-          </Button>
+          {canEdit && (
+            <Button
+              onClick={() =>
+                router.push(
+                  doc.templateId
+                    ? `/dashboard/documents/${doc.id}/edit-form`
+                    : `/dashboard/documents/${doc.id}/edit`,
+                )
+              }
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
+          )}
           <Button variant="outline" onClick={handleDownload}>
             <Download className="mr-2 h-4 w-4" />
             Descargar
@@ -216,14 +228,18 @@ export default function DocumentDetailPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar información
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowReplaceDialog(true)}>
-                <FileUp className="mr-2 h-4 w-4" />
-                Reemplazar archivo
-              </DropdownMenuItem>
+              {canEdit && (
+                <>
+                  <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar información
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowReplaceDialog(true)}>
+                    <FileUp className="mr-2 h-4 w-4" />
+                    Reemplazar archivo
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem onClick={() => setShowVersionHistory(true)}>
                 <History className="mr-2 h-4 w-4" />
                 Historial de versiones
@@ -309,6 +325,11 @@ export default function DocumentDetailPage() {
                   <div className="flex-1">
                     <p className="text-sm font-medium">Subido por</p>
                     <p className="text-sm text-muted-foreground">{doc.uploadedBy.name}</p>
+                    {doc.uploadedBy.role && (
+                      <p className="text-xs text-muted-foreground/70">
+                        {formatRole(doc.uploadedBy.role)}
+                      </p>
+                    )}
                   </div>
                 </div>
 
