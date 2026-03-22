@@ -51,6 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usersService } from "@/lib/services/users.service";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Iconos disponibles para departamentos
 const AVAILABLE_ICONS = [
@@ -87,6 +88,7 @@ export default function DepartmentsPage() {
   const [showUsersDialog, setShowUsersDialog] = useState(false);
   const [usersDepartment, setUsersDepartment] = useState<Department | null>(null);
   const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -266,10 +268,8 @@ export default function DepartmentsPage() {
     updateMutation.mutate({ id: editingDepartment.id, data: formData });
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`¿Estás seguro de eliminar el departamento "${name}"?`))
-      return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: number, name: string) => {
+    setDeleteConfirm({ id, name });
   };
 
   const handleToggleActive = (id: number, isActive: boolean) => {
@@ -920,6 +920,20 @@ export default function DepartmentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+        title="Eliminar departamento"
+        description={`¿Estás seguro de eliminar el departamento "${deleteConfirm?.name}"?`}
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirm) deleteMutation.mutate(deleteConfirm.id);
+          setDeleteConfirm(null);
+        }}
+      />
     </div>
   );
 }

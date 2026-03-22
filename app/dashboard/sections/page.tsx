@@ -33,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Select,
   SelectContent,
@@ -48,6 +49,7 @@ export default function SectionsPage() {
   const [isActiveFilter, setIsActiveFilter] = useState<boolean | undefined>(undefined);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
 
   // Query principal con filtros
   const { data: sectionsResponse, isLoading, error } = useQuery({
@@ -130,9 +132,8 @@ export default function SectionsPage() {
     setEditingSection(section);
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`¿Estás seguro de eliminar la sección "${name}"?`)) return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: number, name: string) => {
+    setDeleteConfirm({ id, name });
   };
 
   const handleToggleActive = (id: number, isActive: boolean) => {
@@ -343,6 +344,20 @@ export default function SectionsPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+        title="Eliminar sección"
+        description={`¿Estás seguro de eliminar la sección "${deleteConfirm?.name}"?`}
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirm) deleteMutation.mutate(deleteConfirm.id);
+          setDeleteConfirm(null);
+        }}
+      />
     </div>
   );
 }

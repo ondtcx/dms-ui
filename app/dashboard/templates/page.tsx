@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
 import { categoriesService } from "@/lib/services/categories.service";
 import { useState, useEffect, useRef, useMemo } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import {
@@ -59,6 +60,7 @@ export default function TemplatesPage() {
     useState<DocumentTemplate | null>(null);
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>({});
   const blobUrlsRef = useRef<string[]>([]);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
 
   // Queries
   const { data: templates, isLoading } = useQuery({
@@ -169,9 +171,8 @@ export default function TemplatesPage() {
     setShowPreviewDialog(true);
   };
 
-  const handleDeleteTemplate = async (id: number, name: string) => {
-    if (!confirm(`¿Estás seguro de eliminar la plantilla "${name}"?`)) return;
-    deleteMutation.mutate(id);
+  const handleDeleteTemplate = (id: number, name: string) => {
+    setDeleteConfirm({ id, name });
   };
 
   const handleToggleActive = (id: number, isActive: boolean) => {
@@ -436,6 +437,20 @@ export default function TemplatesPage() {
           onOpenChange={setShowPreviewDialog}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+        title="Eliminar plantilla"
+        description={`¿Estás seguro de eliminar la plantilla "${deleteConfirm?.name}"?`}
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirm) deleteMutation.mutate(deleteConfirm.id);
+          setDeleteConfirm(null);
+        }}
+      />
     </div>
   );
 }

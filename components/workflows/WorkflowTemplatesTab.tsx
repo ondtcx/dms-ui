@@ -41,6 +41,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export default function WorkflowTemplatesTab() {
   const queryClient = useQueryClient();
@@ -50,6 +51,7 @@ export default function WorkflowTemplatesTab() {
   const [search, setSearch] = useState('');
   const [showDialog, setShowDialog] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkflowTemplate | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<WorkflowTemplate | null>(null);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ['workflow-templates'],
@@ -137,8 +139,7 @@ export default function WorkflowTemplatesTab() {
   };
 
   const handleDelete = (template: WorkflowTemplate) => {
-    if (!confirm(`¿Eliminar la plantilla "${template.name}"?`)) return;
-    deleteMutation.mutate(template.id);
+    setDeleteConfirm(template);
   };
 
   const handleToggleActive = (template: WorkflowTemplate) => {
@@ -328,6 +329,20 @@ export default function WorkflowTemplatesTab() {
         isSubmitting={isSubmitting}
         categories={categories}
         sections={sections}
+      />
+
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+        title="Eliminar plantilla de workflow"
+        description={`¿Eliminar la plantilla "${deleteConfirm?.name}"?`}
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirm) deleteMutation.mutate(deleteConfirm.id);
+          setDeleteConfirm(null);
+        }}
       />
     </>
   );

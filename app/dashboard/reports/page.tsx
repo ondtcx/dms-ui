@@ -26,6 +26,21 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 
 export default function ReportsPage() {
   const [report, setReport] = useState<DashboardReport | null>(null);
@@ -165,33 +180,34 @@ export default function ReportsPage() {
             <CardDescription>Tendencia de documentos subidos</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {report.charts.recentUploads.slice(0, 7).map((upload) => (
-                <div key={upload.date} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {new Date(upload.date).toLocaleDateString('es-ES', {
-                      day: '2-digit',
-                      month: 'short',
-                    })}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-32 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full"
-                        style={{
-                          width: `${
-                            (upload.count /
-                              Math.max(...report.charts.recentUploads.map((u) => u.count))) *
-                            100
-                          }%`,
-                        }}
-                      />
-                    </div>
-                    <span className="font-medium w-8 text-right">{upload.count}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart
+                data={report.charts.recentUploads.map((u) => ({
+                  fecha: new Date(u.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }),
+                  count: u.count,
+                }))}
+                margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="colorUploads" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                <Tooltip />
+                <Area
+                  type="monotone"
+                  dataKey="count"
+                  name="Documentos"
+                  stroke="hsl(var(--primary))"
+                  fill="url(#colorUploads)"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
 
@@ -202,20 +218,30 @@ export default function ReportsPage() {
             <CardDescription>Documentos por categoría</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {report.charts.categoryDistribution.slice(0, 7).map((category) => (
-                <div key={category.categoryId || 'null'} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: category.color }}
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={report.charts.categoryDistribution.slice(0, 8)}
+                  dataKey="count"
+                  nameKey="categoryName"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={80}
+                  label={({ categoryName, percent }) =>
+                    percent > 0.05 ? `${categoryName} (${Math.round(percent * 100)}%)` : ''
+                  }
+                  labelLine={false}
+                >
+                  {report.charts.categoryDistribution.slice(0, 8).map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.color || `hsl(${index * 45}, 60%, 55%)`}
                     />
-                    <span>{category.categoryName}</span>
-                  </div>
-                  <Badge variant="outline">{category.count}</Badge>
-                </div>
-              ))}
-            </div>
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => [value, 'Documentos']} />
+              </PieChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
@@ -271,15 +297,22 @@ export default function ReportsPage() {
                 <span className="text-sm text-muted-foreground">Total workflows</span>
                 <span className="font-bold">{report.charts.workflowStats.total}</span>
               </div>
-              <div className="space-y-2">
-                {report.charts.workflowStats.byStatus.map((status) => (
-                  <div key={status.status} className="flex items-center justify-between text-sm">
-                    <span className="capitalize">{status.status.toLowerCase()}</span>
-                    <Badge variant="outline">{status.count}</Badge>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-4 border-t">
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart
+                  data={report.charts.workflowStats.byStatus.map((s) => ({
+                    estado: s.status.toLowerCase(),
+                    count: s.count,
+                  }))}
+                  margin={{ top: 0, right: 0, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="estado" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="count" name="Workflows" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="pt-2 border-t">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Tiempo promedio de finalización</span>
                   <span className="font-medium">

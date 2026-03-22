@@ -26,11 +26,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Plus, Pencil, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function GradesManager() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingGrade, setEditingGrade] = useState<Grade | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [selectedYearId, setSelectedYearId] = useState<number | undefined>();
   const [selectedLevelId, setSelectedLevelId] = useState<number | undefined>();
   const [formData, setFormData] = useState({
@@ -130,9 +132,7 @@ export function GradesManager() {
   };
 
   const handleDelete = (id: number) => {
-    if (confirm("¿Está seguro de eliminar este grado?")) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteConfirmId(id);
   };
 
   const getEducationalLevelLabel = (level: string) => {
@@ -404,6 +404,20 @@ export function GradesManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+        title="Eliminar grado"
+        description="¿Estás seguro de eliminar este grado?"
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirmId !== null) deleteMutation.mutate(deleteConfirmId);
+          setDeleteConfirmId(null);
+        }}
+      />
     </div>
   );
 }

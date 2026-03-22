@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import toast from 'react-hot-toast';
 import {
   Download,
@@ -36,6 +37,7 @@ export function BatchActionsBar({
   onSuccess,
 }: BatchActionsBarProps) {
   const [loading, setLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ permanent: boolean } | null>(null);
 
   if (selectedDocuments.length === 0) {
     return null;
@@ -44,14 +46,6 @@ export function BatchActionsBar({
   const selectedIds = selectedDocuments.map((d) => d.id);
 
   const handleBatchDelete = async (permanent: boolean = false) => {
-    if (!confirm(
-      permanent
-        ? `¿Estás seguro de eliminar permanentemente ${selectedDocuments.length} documento(s)?`
-        : `¿Estás seguro de eliminar ${selectedDocuments.length} documento(s)?`
-    )) {
-      return;
-    }
-
     setLoading(true);
     try {
       await batchService.delete({
@@ -171,7 +165,7 @@ export function BatchActionsBar({
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => handleBatchDelete(allDeleted)}
+              onClick={() => setDeleteConfirm({ permanent: allDeleted })}
               disabled={loading}
             >
               <Trash2 className="h-4 w-4 mr-2" />
@@ -181,6 +175,23 @@ export function BatchActionsBar({
         </div>
       </div>
 
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+        title={deleteConfirm?.permanent ? "Eliminar permanentemente" : "Eliminar documentos"}
+        description={
+          deleteConfirm?.permanent
+            ? `¿Estás seguro de eliminar permanentemente ${selectedDocuments.length} documento(s)? Esta acción no se puede deshacer.`
+            : `¿Estás seguro de eliminar ${selectedDocuments.length} documento(s)? Serán enviados a la papelera.`
+        }
+        confirmLabel={deleteConfirm?.permanent ? "Eliminar permanentemente" : "Eliminar"}
+        variant="destructive"
+        loading={loading}
+        onConfirm={() => {
+          handleBatchDelete(deleteConfirm?.permanent ?? false);
+          setDeleteConfirm(null);
+        }}
+      />
     </>
   );
 }

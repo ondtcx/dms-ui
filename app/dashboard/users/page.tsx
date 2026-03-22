@@ -2,16 +2,20 @@
 "use client";
 
 import ProtectedRoute from "@/guards/ProtectedRoute";
-import { UserRole } from "@/lib/types";
+import { UserRole, User } from "@/lib/types";
+import { EditUserDialog } from "@/components/users/EditUserDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersService } from "@/lib/services/users.service";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 function UsersManagementContent() {
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
     name: "",
     email: "",
@@ -54,9 +58,8 @@ function UsersManagementContent() {
     createMutation.mutate(newUser);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("¿Estás seguro de eliminar este usuario?")) return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: number) => {
+    setDeleteConfirmId(id);
   };
 
   const getRoleBadgeColor = (role: string) => {
@@ -202,19 +205,48 @@ function UsersManagementContent() {
                       {user.role.toUpperCase()}
                     </span>
                   </div>
-                  <button
-                    onClick={() => handleDelete(user.id)}
-                    disabled={deleteMutation.isPending}
-                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
-                  >
-                    Eliminar
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditingUser(user)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user.id)}
+                      disabled={deleteMutation.isPending}
+                      className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
               ))
             )}
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+        title="Eliminar usuario"
+        description="¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirmId !== null) deleteMutation.mutate(deleteConfirmId);
+          setDeleteConfirmId(null);
+        }}
+      />
+
+      {editingUser && (
+        <EditUserDialog
+          user={editingUser}
+          open={!!editingUser}
+          onOpenChange={(open) => !open && setEditingUser(null)}
+        />
+      )}
     </div>
   );
 }

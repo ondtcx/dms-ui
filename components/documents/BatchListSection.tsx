@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { batchService } from '@/lib/services/batch.service';
 import { useRouter } from 'next/navigation';
@@ -8,6 +9,7 @@ import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { Layers, Eye, Download, Trash2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -15,6 +17,7 @@ import { Separator } from '@/components/ui/separator';
 export function BatchListSection() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['document-batches'],
@@ -31,8 +34,7 @@ export function BatchListSection() {
   });
 
   const handleDelete = (id: string, name: string) => {
-    if (!confirm(`¿Eliminar el lote "${name}"? Los documentos serán enviados a la papelera.`)) return;
-    deleteMutation.mutate(id);
+    setDeleteConfirm({ id, name });
   };
 
   const handleDownload = async (id: string, name: string) => {
@@ -133,6 +135,20 @@ export function BatchListSection() {
           ))}
         </div>
       </CardContent>
+
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+        title="Eliminar lote"
+        description={`¿Eliminar el lote "${deleteConfirm?.name}"? Los documentos serán enviados a la papelera.`}
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirm) deleteMutation.mutate(deleteConfirm.id);
+          setDeleteConfirm(null);
+        }}
+      />
     </Card>
   );
 }

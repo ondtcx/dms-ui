@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import DocumentWorkflowCard from '@/components/workflows/DocumentWorkflowCard';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 export default function DocumentDetailPage() {
   const params = useParams();
@@ -51,6 +52,7 @@ export default function DocumentDetailPage() {
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showReplaceDialog, setShowReplaceDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Cargar documento
   const { data: doc, isLoading } = useQuery({
@@ -133,10 +135,9 @@ export default function DocumentDetailPage() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!doc) return;
-    if (!confirm('¿Estás seguro de eliminar este documento?')) return;
-    deleteMutation.mutate(doc.id);
+    setShowDeleteConfirm(true);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -435,6 +436,19 @@ export default function DocumentDetailPage() {
         />
       )}
 
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Eliminar documento"
+        description={`¿Estás seguro de eliminar "${doc.filename}"? El documento será enviado a la papelera.`}
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          deleteMutation.mutate(doc.id);
+          setShowDeleteConfirm(false);
+        }}
+      />
     </div>
   );
 }

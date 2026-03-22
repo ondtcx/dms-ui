@@ -33,6 +33,55 @@ import { es } from "date-fns/locale";
 import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 
+interface NotificationGroup {
+  key: string;
+  type: NotificationType;
+  notifications: Notification[];
+  isGroup: boolean;
+  hasUnread: boolean;
+  latest: Notification;
+}
+
+function groupNotifications(notifications: Notification[]): NotificationGroup[] {
+  const groups: NotificationGroup[] = [];
+  const seen = new Map<string, NotificationGroup>();
+
+  for (const n of notifications) {
+    // Only group if same type + same documentId (non-null) within 24h window
+    const groupable = n.documentId !== null;
+    const key = groupable ? `${n.type}__${n.documentId}` : `single__${n.id}`;
+
+    if (groupable && seen.has(key)) {
+      const group = seen.get(key)!;
+      const latestTime = new Date(group.latest.createdAt).getTime();
+      const thisTime = new Date(n.createdAt).getTime();
+      const within24h = Math.abs(latestTime - thisTime) < 24 * 60 * 60 * 1000;
+
+      if (within24h) {
+        group.notifications.push(n);
+        group.isGroup = group.notifications.length > 1;
+        if (n.status === "UNREAD") group.hasUnread = true;
+        if (thisTime > latestTime) group.latest = n;
+        continue;
+      }
+    }
+
+    const group: NotificationGroup = {
+      key: groupable ? key : `single__${n.id}`,
+      type: n.type,
+      notifications: [n],
+      isGroup: false,
+      hasUnread: n.status === "UNREAD",
+      latest: n,
+    };
+
+    groups.push(group);
+    if (groupable) seen.set(key, group);
+  }
+
+  return groups;
+}
+
 export function NotificationsDropdown() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -79,20 +128,6 @@ export function NotificationsDropdown() {
     }
   };
 
-  const handleMarkAsRead = async (
-    notificationId: number,
-    e: React.MouseEvent,
-  ) => {
-    e.stopPropagation();
-    try {
-      await notificationsService.markAsRead(notificationId);
-      loadNotifications();
-      loadUnreadCount();
-    } catch (error) {
-      toast.error("Error al marcar como leída");
-    }
-  };
-
   const handleMarkAllAsRead = async () => {
     try {
       await notificationsService.markAllAsRead();
@@ -111,7 +146,6 @@ export function NotificationsDropdown() {
     }
 
     if (notification.actionUrl) {
-      console.log("Navegando a:", notification.actionUrl);
       router.push("/dashboard" + notification.actionUrl);
       setOpen(false);
     }
@@ -194,55 +228,75 @@ export function NotificationsDropdown() {
         ) : (
           <ScrollArea className="h-96">
             <div className="space-y-1 p-2">
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`
-                    group relative rounded-md p-3 hover:bg-accent cursor-pointer transition-colors
-                    ${notification.status === "UNREAD" ? "bg-muted/50" : ""}
-                  `}
-                  onClick={() => handleNotificationClick(notification)}
-                >
-                  <div className="flex gap-3">
-                    <div
-                      className={`mt-0.5 ${getNotificationColor(notification.type)}`}
-                    >
-                      {getNotificationIcon(notification.type)}
-                    </div>
-                    <div className="flex-1 space-y-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium leading-none line-clamp-1">
-                          {notification.title}
-                        </p>
-                        {notification.status === "UNREAD" && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) =>
-                              handleMarkAsRead(notification.id, e)
-                            }
-                          >
-                            <Check className="h-3 w-3" />
-                          </Button>
-                        )}
+              {groupNotifications(notifications).slice(0, 10).map((group) => {
+                const n = group.latest;
+                const isGroup = group.isGroup;
+                const count = group.notifications.length;
+
+                const handleGroupMarkAsRead = async (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  for (const notif of group.notifications) {
+                    if (notif.status === "UNREAD") {
+                      await notificationsService.markAsRead(notif.id);
+                    }
+                  }
+                  loadNotifications();
+                  loadUnreadCount();
+                };
+
+                return (
+                  <div
+                    key={group.key}
+                    className={`
+                      group relative rounded-md p-3 hover:bg-accent cursor-pointer transition-colors
+                      ${group.hasUnread ? "bg-muted/50" : ""}
+                    `}
+                    onClick={() => handleNotificationClick(n)}
+                  >
+                    <div className="flex gap-3">
+                      <div className={`mt-0.5 ${getNotificationColor(n.type)}`}>
+                        {getNotificationIcon(n.type)}
                       </div>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(notification.createdAt), {
-                          addSuffix: true,
-                          locale: es,
-                        })}
-                      </p>
+                      <div className="flex-1 space-y-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium leading-none line-clamp-1">
+                            {isGroup ? `${count} ${n.title}` : n.title}
+                          </p>
+                          {group.hasUnread && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={handleGroupMarkAsRead}
+                            >
+                              <Check className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                        {!isGroup && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {n.message}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(n.createdAt), {
+                            addSuffix: true,
+                            locale: es,
+                          })}
+                        </p>
+                      </div>
+                      {isGroup && (
+                        <Badge variant="secondary" className="text-xs shrink-0 self-start mt-0.5">
+                          {count}
+                        </Badge>
+                      )}
                     </div>
+                    {group.hasUnread && (
+                      <div className="absolute top-3 right-3 h-2 w-2 bg-primary rounded-full" />
+                    )}
                   </div>
-                  {notification.status === "UNREAD" && (
-                    <div className="absolute top-3 right-3 h-2 w-2 bg-primary rounded-full" />
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         )}

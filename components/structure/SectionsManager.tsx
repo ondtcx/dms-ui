@@ -27,12 +27,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, Pencil, Trash2, UserPlus, UserMinus } from "lucide-react";
 import toast from "react-hot-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function SectionsManager() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showTeachersDialog, setShowTeachersDialog] = useState(false);
   const [editingSection, setEditingSection] = useState<AcademicSection | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [selectedYearId, setSelectedYearId] = useState<number | undefined>();
   const [selectedLevelId, setSelectedLevelId] = useState<number | undefined>();
   const [selectedGradeId, setSelectedGradeId] = useState<number | undefined>();
@@ -163,9 +165,7 @@ export function SectionsManager() {
   };
 
   const handleDelete = (id: number) => {
-    if (confirm("¿Está seguro de eliminar esta sección?")) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteConfirmId(id);
   };
 
   const handleManageTeachers = (section: AcademicSection) => {
@@ -551,6 +551,20 @@ export function SectionsManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+        title="Eliminar sección académica"
+        description="¿Estás seguro de eliminar esta sección?"
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirmId !== null) deleteMutation.mutate(deleteConfirmId);
+          setDeleteConfirmId(null);
+        }}
+      />
     </div>
   );
 }

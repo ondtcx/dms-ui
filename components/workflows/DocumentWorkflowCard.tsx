@@ -46,6 +46,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 interface Props {
   documentId: number;
@@ -87,6 +88,7 @@ export default function DocumentWorkflowCard({ documentId, categoryId, sectionId
 
   // Dialog: acción de aprobación
   const [showApproval, setShowApproval] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [approvalAction, setApprovalAction] = useState<ApprovalAction>(ApprovalAction.APPROVED);
   const [comment, setComment] = useState('');
 
@@ -199,8 +201,7 @@ export default function DocumentWorkflowCard({ documentId, categoryId, sectionId
 
   const handleCancel = () => {
     if (!workflow) return;
-    if (!confirm('¿Cancelar el workflow de este documento?')) return;
-    cancelMutation.mutate(workflow.id);
+    setShowCancelConfirm(true);
   };
 
   // Determinar si el usuario actual tiene una aprobación pendiente en la etapa actual
@@ -621,6 +622,20 @@ export default function DocumentWorkflowCard({ documentId, categoryId, sectionId
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={showCancelConfirm}
+        onOpenChange={setShowCancelConfirm}
+        title="Cancelar workflow"
+        description="¿Cancelar el workflow de este documento?"
+        confirmLabel="Cancelar workflow"
+        variant="destructive"
+        loading={cancelMutation.isPending}
+        onConfirm={() => {
+          if (workflow) cancelMutation.mutate(workflow.id);
+          setShowCancelConfirm(false);
+        }}
+      />
     </>
   );
 }

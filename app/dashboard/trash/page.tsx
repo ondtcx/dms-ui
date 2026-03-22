@@ -15,6 +15,7 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
+import { useState } from "react";
 import { Document } from "@/lib/types";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -35,11 +36,14 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export default function TrashPage() {
   const { user } = useAuth();
   const { isAdmin } = usePermissions();
   const queryClient = useQueryClient();
+  const [restoreConfirmId, setRestoreConfirmId] = useState<number | null>(null);
+  const [permanentDeleteConfirmId, setPermanentDeleteConfirmId] = useState<number | null>(null);
 
   // Query for deleted documents - using includeDeleted parameter
   const {
@@ -90,15 +94,12 @@ export default function TrashPage() {
     },
   });
 
-  const handleRestore = async (id: number) => {
-    if (!confirm("¿Deseas restaurar este documento?")) return;
-    restoreMutation.mutate(id);
+  const handleRestore = (id: number) => {
+    setRestoreConfirmId(id);
   };
 
-  const handlePermanentDelete = async (id: number) => {
-    if (!confirm("⚠️ ¿Estás seguro? Esta acción NO se puede deshacer.")) return;
-    if (!confirm("⚠️ ÚLTIMA CONFIRMACIÓN: El documento será eliminado permanentemente.")) return;
-    permanentDeleteMutation.mutate(id);
+  const handlePermanentDelete = (id: number) => {
+    setPermanentDeleteConfirmId(id);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -288,6 +289,33 @@ export default function TrashPage() {
           )}
         </CardContent>
       </Card>
+      <ConfirmDialog
+        open={restoreConfirmId !== null}
+        onOpenChange={(open) => !open && setRestoreConfirmId(null)}
+        title="Restaurar documento"
+        description="¿Deseas restaurar este documento? Volverá a estar disponible en tus documentos."
+        confirmLabel="Restaurar"
+        loading={restoreMutation.isPending}
+        onConfirm={() => {
+          if (restoreConfirmId !== null) restoreMutation.mutate(restoreConfirmId);
+          setRestoreConfirmId(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={permanentDeleteConfirmId !== null}
+        onOpenChange={(open) => !open && setPermanentDeleteConfirmId(null)}
+        title="Eliminar permanentemente"
+        description="Esta acción no se puede deshacer. El documento será eliminado para siempre y no podrá recuperarse."
+        confirmLabel="Eliminar permanentemente"
+        variant="destructive"
+        requireTyped="ELIMINAR"
+        loading={permanentDeleteMutation.isPending}
+        onConfirm={() => {
+          if (permanentDeleteConfirmId !== null) permanentDeleteMutation.mutate(permanentDeleteConfirmId);
+          setPermanentDeleteConfirmId(null);
+        }}
+      />
     </div>
   );
 }

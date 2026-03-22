@@ -33,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Table,
   TableBody,
@@ -47,6 +48,7 @@ export default function CategoriesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
 
   const { data: categories, isLoading, error } = useQuery({
     queryKey: ["categories"],
@@ -126,9 +128,8 @@ export default function CategoriesPage() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    if (!confirm(`¿Eliminar la categoría "${name}"?`)) return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: number, name: string) => {
+    setDeleteConfirm({ id, name });
   };
 
   // CreateCategoryDto satisface UpdateCategoryDto sin necesidad de cast
@@ -377,6 +378,20 @@ export default function CategoriesPage() {
           />
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        onOpenChange={(open) => !open && setDeleteConfirm(null)}
+        title="Eliminar categoría"
+        description={`¿Estás seguro de eliminar la categoría "${deleteConfirm?.name}"?`}
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirm) deleteMutation.mutate(deleteConfirm.id);
+          setDeleteConfirm(null);
+        }}
+      />
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 
 type StatusFilter = 'all' | 'active' | 'completed' | 'cancelled';
 
@@ -39,6 +40,7 @@ export default function MyInitiatedWorkflowsTab() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [page, setPage] = useState(1);
+  const [cancelConfirm, setCancelConfirm] = useState<DocumentWorkflow | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-initiated-workflows', statusFilter, page],
@@ -76,8 +78,7 @@ export default function MyInitiatedWorkflowsTab() {
   };
 
   const handleCancel = (workflow: DocumentWorkflow) => {
-    if (!confirm(`¿Cancelar el workflow de "${workflow.document?.filename ?? `Documento #${workflow.documentId}`}"?`)) return;
-    cancelMutation.mutate(workflow.id);
+    setCancelConfirm(workflow);
   };
 
   const getProgressLabel = (workflow: DocumentWorkflow): string => {
@@ -256,6 +257,20 @@ export default function MyInitiatedWorkflowsTab() {
           </>
         )}
       </CardContent>
+
+      <ConfirmDialog
+        open={cancelConfirm !== null}
+        onOpenChange={(open) => !open && setCancelConfirm(null)}
+        title="Cancelar workflow"
+        description={`¿Cancelar el workflow de "${cancelConfirm?.document?.filename ?? `Documento #${cancelConfirm?.documentId}`}"?`}
+        confirmLabel="Cancelar workflow"
+        variant="destructive"
+        loading={cancelMutation.isPending}
+        onConfirm={() => {
+          if (cancelConfirm) cancelMutation.mutate(cancelConfirm.id);
+          setCancelConfirm(null);
+        }}
+      />
     </Card>
   );
 }

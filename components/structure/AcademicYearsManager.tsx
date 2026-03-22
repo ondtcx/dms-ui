@@ -18,12 +18,14 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Plus, Check, Trash2, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Switch } from "@/components/ui/switch";
 
 export function AcademicYearsManager() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingYear, setEditingYear] = useState<AcademicYear | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [formData, setFormData] = useState({
     name: "",
     startDate: "",
@@ -125,9 +127,7 @@ export function AcademicYearsManager() {
   };
 
   const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to delete this academic year?")) {
-      deleteMutation.mutate(id);
-    }
+    setDeleteConfirmId(id);
   };
 
   if (isLoading) {
@@ -369,6 +369,20 @@ export function AcademicYearsManager() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirmId !== null}
+        onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+        title="Eliminar año académico"
+        description="¿Estás seguro de eliminar este año académico?"
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleteConfirmId !== null) deleteMutation.mutate(deleteConfirmId);
+          setDeleteConfirmId(null);
+        }}
+      />
     </div>
   );
 }

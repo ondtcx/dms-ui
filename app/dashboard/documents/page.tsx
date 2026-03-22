@@ -89,6 +89,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Helper para obtener el componente de icono desde el string
 
@@ -143,6 +144,7 @@ export default function DocumentsPage() {
   // Tab principal: documentos individuales vs lotes
   const [mainTab, setMainTab] = useState<'documents' | 'batches'>('documents');
   const [showBatchSelectDialog, setShowBatchSelectDialog] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   // Queries
   const {
@@ -298,9 +300,8 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("¿Estás seguro de eliminar este documento?")) return;
-    deleteMutation.mutate(id);
+  const handleDelete = (id: number) => {
+    setDeleteConfirmId(id);
   };
 
   const handlePreview = async (doc: Document) => {
@@ -1446,6 +1447,20 @@ export default function DocumentsPage() {
           open={showBatchSelectDialog}
           onOpenChange={setShowBatchSelectDialog}
           mode="batch"
+        />
+
+        <ConfirmDialog
+          open={deleteConfirmId !== null}
+          onOpenChange={(open) => !open && setDeleteConfirmId(null)}
+          title="Eliminar documento"
+          description="¿Estás seguro de eliminar este documento? Será enviado a la papelera."
+          confirmLabel="Eliminar"
+          variant="destructive"
+          loading={deleteMutation.isPending}
+          onConfirm={() => {
+            if (deleteConfirmId !== null) deleteMutation.mutate(deleteConfirmId);
+            setDeleteConfirmId(null);
+          }}
         />
       </div>
     </div>

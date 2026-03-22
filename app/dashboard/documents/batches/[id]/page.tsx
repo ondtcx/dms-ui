@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { batchService } from '@/lib/services/batch.service';
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatMimeType } from '@/lib/utils';
@@ -28,6 +30,7 @@ export default function BatchDetailPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const batchId = params.id as string;
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: batch, isLoading } = useQuery({
     queryKey: ['document-batch', batchId],
@@ -55,8 +58,7 @@ export default function BatchDetailPage() {
   };
 
   const handleDelete = () => {
-    if (!confirm(`¿Eliminar el lote "${batch?.name}"? Los documentos serán enviados a la papelera.`)) return;
-    deleteMutation.mutate();
+    setShowDeleteConfirm(true);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -193,6 +195,20 @@ export default function BatchDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Eliminar lote"
+        description={`¿Eliminar el lote "${batch?.name}"? Los documentos serán enviados a la papelera.`}
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleteMutation.isPending}
+        onConfirm={() => {
+          deleteMutation.mutate();
+          setShowDeleteConfirm(false);
+        }}
+      />
     </div>
   );
 }
