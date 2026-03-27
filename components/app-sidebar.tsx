@@ -45,6 +45,7 @@ import {
   Building2,
   Archive,
   Share2,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -73,6 +74,7 @@ export const mainMenuItems: MenuItem[] = [
     icon: FileText,
     url: "/dashboard/documents",
   },
+  // TODO: Transfers feature is not yet defined — keep disabled until requirements are confirmed
   /* {
     title: "Transferencias",
     icon: FolderKanban,
@@ -106,9 +108,36 @@ export const mainMenuItems: MenuItem[] = [
     url: "/dashboard/calendar",
   },
   {
+    // Hidden from PROFESOR — they use "Mis Solicitudes" instead for a simpler experience
     title: "Workflows",
     icon: CheckCircle2,
     url: "/dashboard/workflows",
+    requiredRoles: [
+      UserRole.ADMIN,
+      UserRole.DIRECTOR,
+      UserRole.COORDINADOR,
+      UserRole.SECRETARIO,
+      UserRole.MODERADOR,
+    ],
+  },
+  {
+    // Simplified requests section — visible only to PROFESOR and SECRETARIO
+    title: "Mis Solicitudes",
+    icon: ClipboardList,
+    url: "/dashboard/requests",
+    requiredRoles: [UserRole.PROFESOR, UserRole.SECRETARIO],
+    items: [
+      {
+        title: "Nueva Solicitud",
+        icon: PlusCircle,
+        url: "/dashboard/requests/new",
+      },
+      {
+        title: "Mis Solicitudes",
+        icon: FileText,
+        url: "/dashboard/requests",
+      },
+    ],
   },
   {
     title: "Papelera",
@@ -227,7 +256,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainMenuItems.map((item, index) =>
+              {mainMenuItems.filter(shouldShowMenuItem).map((item, index) =>
                 item.items?.length ? (
                   <Collapsible
                     key={item.title}
