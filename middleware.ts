@@ -18,11 +18,16 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Registro público deshabilitado: redirigir a login
+  if (pathname === "/auth/register") {
+    return NextResponse.redirect(new URL("/auth/login", request.url));
+  }
+
   // Rutas públicas
   const publicRoutes = [
     "/auth/login",
-    "/auth/register",
     "/auth/forgot-password",
+    "/landing",
   ];
   const isPublicRoute = publicRoutes.includes(pathname);
 

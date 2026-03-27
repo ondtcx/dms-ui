@@ -10,6 +10,7 @@ import { documentsService } from "@/lib/services/documents.service";
 import { categoriesService } from "@/lib/services/categories.service";
 import { sectionsService } from "@/lib/services/sections.service";
 import { coursesService } from "@/lib/services/courses.service";
+import { onlyofficeService } from "@/lib/services/onlyoffice.service";
 import { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import {
@@ -37,6 +38,7 @@ import {
   FileCode,
   File,
   GitBranch,
+  Share2,
 } from "lucide-react";
 import { Document, WorkflowStatus } from "@/lib/types";
 import { WORKFLOW_STATUS_CONFIG } from "@/lib/workflow-status-config";
@@ -48,6 +50,7 @@ import { EditDocumentDialog } from "@/components/documents/EditDocumentDialog";
 import { BatchActionsBar } from "@/components/documents/batch-actions-bar";
 import { BatchListSection } from "@/components/documents/BatchListSection";
 import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
+import { CreateShareDialog } from "@/components/shares/CreateShareDialog";
 import { Layers } from "lucide-react";
 
 // Shadcn imports
@@ -134,7 +137,8 @@ export default function DocumentsPage() {
     useState<Document | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
-  const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, string>>(
+  const [sharingDocument, setSharingDocument] = useState<Document | null>(null);
+  const [thumbnailUrls, setThumbnailUrls] = useState<Record<number, { url: string; updatedAt: string }>>(
     {},
   );
 
@@ -145,6 +149,15 @@ export default function DocumentsPage() {
   const [mainTab, setMainTab] = useState<'documents' | 'batches'>('documents');
   const [showBatchSelectDialog, setShowBatchSelectDialog] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+
+  // Create in editor dialog state
+  const [showCreateInEditorDialog, setShowCreateInEditorDialog] = useState(false);
+  const [createInEditorData, setCreateInEditorData] = useState<{
+    title: string;
+    fileType: "docx" | "xlsx" | "pptx";
+    categoryId?: number;
+  }>({ title: "", fileType: "docx" });
+  const [creatingInEditor, setCreatingInEditor] = useState(false);
 
   // Queries
   const {
@@ -214,6 +227,24 @@ export default function DocumentsPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleCreateInEditor = async () => {
+    if (!createInEditorData.title.trim()) {
+      toast.error("Ingresa un nombre para el documento");
+      return;
+    }
+    setCreatingInEditor(true);
+    try {
+      const doc = await onlyofficeService.createBlank(createInEditorData);
+      setShowCreateInEditorDialog(false);
+      setCreateInEditorData({ title: "", fileType: "docx" });
+      router.push(`/dashboard/documents/${doc.id}/edit`);
+    } catch {
+      toast.error("Error al crear el documento");
+    } finally {
+      setCreatingInEditor(false);
     }
   };
 
@@ -380,14 +411,14 @@ export default function DocumentsPage() {
           doc.mimetype.startsWith("image/") ||
           doc.mimetype === "application/pdf"
         ) {
-          // Si ya tenemos el thumbnail, no volver a cargarlo
-          if (thumbnailUrls[doc.id]) continue;
+          // Si ya tenemos el thumbnail actualizado, no volver a cargarlo
+          if (thumbnailUrls[doc.id]?.updatedAt === doc.updatedAt) continue;
 
           try {
             const blob = await documentsService.getThumbnail(doc.id, doc.updatedAt);
             const url = window.URL.createObjectURL(blob);
             blobUrlsRef.current.push(url);
-            setThumbnailUrls((prev) => ({ ...prev, [doc.id]: url }));
+            setThumbnailUrls((prev) => ({ ...prev, [doc.id]: { url, updatedAt: doc.updatedAt } }));
           } catch {
             // Si falla, no hacer nada (se mostrará el icono)
           }
@@ -579,6 +610,7 @@ export default function DocumentsPage() {
                 onUploadMultiple={() => setShowUploadMultipleModal(true)}
                 onFromTemplate={() => router.push("/dashboard/templates")}
                 onBatchGenerate={() => setShowBatchSelectDialog(true)}
+                onCreateInEditor={() => setShowCreateInEditorDialog(true)}
               />
             </div>
           </CardContent>
@@ -694,6 +726,14 @@ export default function DocumentsPage() {
                   const FileIcon = getFileIcon(doc.mimetype, !!doc.template);
                   const previewContent = getFilePreviewContent(doc);
 
+                  const isOwn = doc.uploadedById === user?.id;
+                  const ownerInitials = doc.uploadedBy.name
+                    .split(' ')
+                    .slice(0, 2)
+                    .map((n: string) => n[0])
+                    .join('')
+                    .toUpperCase();
+
                   return (
                     <div key={doc.id}>
                       {index > 0 && <Separator />}
@@ -713,12 +753,20 @@ export default function DocumentsPage() {
                           <div className="w-20 h-20 rounded-lg border-2 border-border bg-muted flex items-center justify-center overflow-hidden relative">
                             {thumbnailUrls[doc.id] ? (
                               <img
-                                src={thumbnailUrls[doc.id]}
+                                src={thumbnailUrls[doc.id].url}
                                 alt={doc.filename}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
                               <FileIcon className="h-10 w-10 text-muted-foreground" />
+                            )}
+                            {!isOwn && (
+                              <div
+                                className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-[9px] font-bold ring-2 ring-background"
+                                title={doc.uploadedBy.name}
+                              >
+                                {ownerInitials}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -775,6 +823,15 @@ export default function DocumentsPage() {
                                     <History className="mr-2 h-4 w-4" />
                                     Ver Versiones
                                   </DropdownMenuItem>
+
+                                  {doc.uploadedById === user?.id && (
+                                    <DropdownMenuItem
+                                      onClick={() => setSharingDocument(doc)}
+                                    >
+                                      <Share2 className="mr-2 h-4 w-4" />
+                                      Compartir
+                                    </DropdownMenuItem>
+                                  )}
 
                                   {canDelete(doc) && (
                                     <>
@@ -896,9 +953,15 @@ export default function DocumentsPage() {
                             </span>
                             <span className="flex items-center gap-1">
                               <User className="h-3 w-3" />
-                              {doc.uploadedBy.name}
-                              {doc.uploadedBy.role && (
-                                <span className="text-muted-foreground/60">· {formatRole(doc.uploadedBy.role)}</span>
+                              {isOwn ? (
+                                <span className="text-primary font-medium">Tú</span>
+                              ) : (
+                                <>
+                                  {doc.uploadedBy.name}
+                                  {doc.uploadedBy.role && (
+                                    <span className="text-muted-foreground/60">· {formatRole(doc.uploadedBy.role)}</span>
+                                  )}
+                                </>
                               )}
                             </span>
                             <span className="flex items-center gap-1">
@@ -1452,6 +1515,85 @@ export default function DocumentsPage() {
           mode="batch"
         />
 
+        {/* Create in editor dialog */}
+        <Dialog open={showCreateInEditorDialog} onOpenChange={setShowCreateInEditorDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Crear en Editor</DialogTitle>
+              <DialogDescription>
+                Se creará un documento en blanco y se abrirá en OnlyOffice.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Nombre del documento</label>
+                <Input
+                  placeholder="Ej. Notas de reunión"
+                  value={createInEditorData.title}
+                  onChange={(e) =>
+                    setCreateInEditorData((prev) => ({ ...prev, title: e.target.value }))
+                  }
+                  onKeyDown={(e) => e.key === "Enter" && handleCreateInEditor()}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Tipo de archivo</label>
+                <Select
+                  value={createInEditorData.fileType}
+                  onValueChange={(v) =>
+                    setCreateInEditorData((prev) => ({
+                      ...prev,
+                      fileType: v as "docx" | "xlsx" | "pptx",
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="docx">Documento Word (.docx)</SelectItem>
+                    <SelectItem value="xlsx">Hoja de cálculo (.xlsx)</SelectItem>
+                    <SelectItem value="pptx">Presentación (.pptx)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium">Categoría (opcional)</label>
+                <Select
+                  value={createInEditorData.categoryId?.toString() ?? "none"}
+                  onValueChange={(v) =>
+                    setCreateInEditorData((prev) => ({
+                      ...prev,
+                      categoryId: v === "none" ? undefined : parseInt(v),
+                    }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sin categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin categoría</SelectItem>
+                    {!loadingCategories &&
+                      categories?.map((cat: { id: number; name: string }) => (
+                        <SelectItem key={cat.id} value={cat.id.toString()}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowCreateInEditorDialog(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleCreateInEditor} disabled={creatingInEditor || !createInEditorData.title.trim()}>
+                {creatingInEditor ? "Creando..." : "Crear y Abrir"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <ConfirmDialog
           open={deleteConfirmId !== null}
           onOpenChange={(open) => !open && setDeleteConfirmId(null)}
@@ -1465,6 +1607,14 @@ export default function DocumentsPage() {
             setDeleteConfirmId(null);
           }}
         />
+
+        {sharingDocument && (
+          <CreateShareDialog
+            documentId={sharingDocument.id}
+            open={!!sharingDocument}
+            onOpenChange={(open) => { if (!open) setSharingDocument(null); }}
+          />
+        )}
       </div>
     </div>
   );

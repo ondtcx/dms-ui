@@ -1,8 +1,8 @@
 const stats = [
-  { value: "9", label: "roles de usuario configurables" },
-  { value: "100%", label: "auditoría de accesos y cambios" },
-  { value: "PDF", label: "generación automática desde plantillas" },
-  { value: "∞", label: "versiones por documento" },
+  { value: "20+", label: "plantillas institucionales listas para usar" },
+  { value: "100%", label: "trazabilidad: quién hizo qué y cuándo" },
+  { value: "0", label: "documentos perdidos con archivo digital centralizado" },
+  { value: "7", label: "categorías documentales para toda la institución" },
 ];
 
 export default function StatsSection() {
@@ -12,11 +12,11 @@ export default function StatsSection() {
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-white">
-            Una solución pensada para la escuela
+            Resultados concretos para su institución
           </h2>
           <p className="mt-4 text-lg text-slate-400 leading-relaxed">
-            Todas las funcionalidades que los equipos de gestión necesitan, sin
-            la complejidad de sistemas diseñados para empresas.
+            No es un sistema genérico adaptado. EduDocs fue construido
+            exclusivamente para la realidad de los colegios.
           </p>
         </div>
 

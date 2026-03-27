@@ -59,9 +59,9 @@ export function LoginForm({
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">Login to your account</CardTitle>
+          <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
           <CardDescription>
-            Enter your email below to login to your account
+            Ingresá tu email para acceder a tu cuenta
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -69,17 +69,17 @@ export function LoginForm({
             <div className="flex flex-col gap-6">
               {/* Email Field */}
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Correo electrónico</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="m@example.com"
+                  placeholder="usuario@colegio.edu"
                   disabled={loading}
                   {...register("email", {
-                    required: "Email is required",
+                    required: "El correo es obligatorio",
                     pattern: {
                       value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: "Invalid email address",
+                      message: "Dirección de correo inválida",
                     },
                   })}
                 />
@@ -91,25 +91,25 @@ export function LoginForm({
               {/* Password Field */}
               <div className="grid gap-2">
                 <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="password">Contraseña</Label>
                   <Link
                     href="/auth/forgot-password"
                     className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
                     tabIndex={-1}
                   >
-                    Forgot your password?
+                    ¿Olvidaste tu contraseña?
                   </Link>
                 </div>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder="Ingresá tu contraseña"
                   disabled={loading}
                   {...register("password", {
-                    required: "Password is required",
+                    required: "La contraseña es obligatoria",
                     minLength: {
                       value: 6,
-                      message: "Password must be at least 6 characters",
+                      message: "La contraseña debe tener al menos 6 caracteres",
                     },
                   })}
                 />
@@ -125,23 +125,12 @@ export function LoginForm({
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Logging in...
+                    Ingresando...
                   </>
                 ) : (
-                  "Login"
+                  "Ingresar"
                 )}
               </Button>
-            </div>
-
-            {/* Sign Up Link */}
-            <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <Link
-                href="/auth/register"
-                className="underline underline-offset-4 hover:text-primary"
-              >
-                Sign up
-              </Link>
             </div>
           </form>
         </CardContent>

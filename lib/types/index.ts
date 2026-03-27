@@ -704,4 +704,63 @@ export interface CreateBatchResult {
   errors: string[];
 }
 
+// ===== SHARES =====
+
+export interface DocumentShare {
+  id: number;
+  documentId: number;
+  document: {
+    id: number;
+    filename: string;
+    mimetype: string;
+    size: number;
+    createdAt: string;
+  };
+  // Destinatario (solo uno estará presente)
+  userId: string | null;
+  user: { id: string; name: string; email: string } | null;
+  role: string | null;
+  departmentId: number | null;
+  department: { id: number; name: string } | null;
+  courseId: number | null;
+  course: { id: number; name: string; code: string } | null;
+  // Permisos
+  canView: boolean;
+  canDownload: boolean;
+  canEdit: boolean;
+  canShare: boolean;
+  // Link público
+  isPublicLink: boolean;
+  shareToken: string;
+  requiresPassword: boolean;
+  // Límites
+  expiresAt: string | null;
+  maxViews: number | null;
+  viewCount: number;
+  // Auditoría
+  sharedBy: { id: string; name: string; email: string };
+  sharedById: string;
+  revokedAt: string | null;
+  revokedBy: { id: string; name: string; email: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateShareDto {
+  documentId: number;
+  userId?: string;
+  role?: string;
+  departmentId?: number;
+  courseId?: number;
+  canView?: boolean;
+  canDownload?: boolean;
+  canEdit?: boolean;
+  canShare?: boolean;
+  isPublicLink?: boolean;
+  requiresPassword?: boolean;
+  password?: string;
+  expiresAt?: string;
+  maxViews?: number;
+}
+
 export * from './templates';

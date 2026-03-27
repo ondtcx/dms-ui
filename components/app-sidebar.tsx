@@ -44,6 +44,7 @@ import {
   PlusCircle,
   Building2,
   Archive,
+  Share2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -94,6 +95,11 @@ export const mainMenuItems: MenuItem[] = [
       },
     ],
   }, */
+  {
+    title: "Compartidos",
+    icon: Share2,
+    url: "/dashboard/shares",
+  },
   {
     title: "Calendario",
     icon: Calendar,
@@ -287,33 +293,33 @@ export function AppSidebar() {
             UserRole.COORDINADOR,
           ],
         }) && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Administracion</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {adminMenuItems.map((item) => {
-                    if (!shouldShowMenuItem(item)) {
-                      return null;
-                    }
+          <SidebarGroup>
+            <SidebarGroupLabel>Administracion</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminMenuItems.map((item) => {
+                  if (!shouldShowMenuItem(item)) {
+                    return null;
+                  }
 
-                    return (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={pathname === item.url}
-                        >
-                          <Link href={item.url} className="flex items-center">
-                            <item.icon className="h-4 w-4 mr-2" />
-                            {item.title}
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    );
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          )}
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={pathname === item.url}
+                      >
+                        <Link href={item.url} className="flex items-center">
+                          <item.icon className="h-4 w-4 mr-2" />
+                          {item.title}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       {/* Footer - Informacion del usuario */}

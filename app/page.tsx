@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import LandingNav from "@/components/landing/LandingNav";
 import HeroSection from "@/components/landing/HeroSection";
+import ProblemSection from "@/components/landing/ProblemSection";
 import FeaturesSection from "@/components/landing/FeaturesSection";
 import RolesSection from "@/components/landing/RolesSection";
 import WorkflowSection from "@/components/landing/WorkflowSection";
@@ -18,6 +19,7 @@ export default function LandingPage() {
     <main className="min-h-screen">
       <LandingNav />
       <HeroSection />
+      <ProblemSection />
       <FeaturesSection />
       <RolesSection />
       <WorkflowSection />

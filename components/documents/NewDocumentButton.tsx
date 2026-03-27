@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, FileText, Upload, Scan, FolderInput, Layers } from "lucide-react";
+import { Plus, FileText, Upload, Scan, FolderInput, Layers, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,6 +16,7 @@ interface NewDocumentButtonProps {
   onUploadMultiple: () => void;
   onFromTemplate: () => void;
   onBatchGenerate?: () => void;
+  onCreateInEditor?: () => void;
 }
 
 export function NewDocumentButton({
@@ -23,6 +24,7 @@ export function NewDocumentButton({
   onUploadMultiple,
   onFromTemplate,
   onBatchGenerate,
+  onCreateInEditor,
 }: NewDocumentButtonProps) {
   return (
     <DropdownMenu>
@@ -39,6 +41,11 @@ export function NewDocumentButton({
         <DropdownMenuItem onClick={onFromTemplate}>
           <FileText className="mr-2 h-4 w-4" />
           <span>Desde Plantilla</span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onClick={onCreateInEditor}>
+          <PenLine className="mr-2 h-4 w-4" />
+          <span>Crear en Editor</span>
         </DropdownMenuItem>
 
         <DropdownMenuItem onClick={onBatchGenerate}>

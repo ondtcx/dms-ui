@@ -101,7 +101,7 @@ export function DashboardBreadcrumb() {
     path += `/${seg}`;
 
     const label = seg === "dashboard" ? "Dashboard" : resolveSegmentLabel(seg, i);
-    const href = seg === "dashboard" ? "/dashboard/home" : path;
+    const href = path;
 
     items.push({ label, href });
   }
