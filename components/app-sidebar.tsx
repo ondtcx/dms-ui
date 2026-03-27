@@ -115,6 +115,7 @@ export const mainMenuItems: MenuItem[] = [
     requiredRoles: [
       UserRole.ADMIN,
       UserRole.DIRECTOR,
+      UserRole.VICERRECTOR,
       UserRole.COORDINADOR,
       UserRole.SECRETARIO,
       UserRole.MODERADOR,
@@ -162,7 +163,7 @@ export const adminMenuItems: MenuItem[] = [
     title: "Departamentos",
     icon: Building2,
     url: "/dashboard/departments",
-    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR],
+    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.VICERRECTOR],
   },
   {
     title: "Secciones",
@@ -186,7 +187,7 @@ export const adminMenuItems: MenuItem[] = [
     title: "Reportes",
     icon: BarChart3,
     url: "/dashboard/reports",
-    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.COORDINADOR],
+    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.VICERRECTOR, UserRole.COORDINADOR],
   },
   {
     title: "Configuracion",
@@ -319,6 +320,7 @@ export function AppSidebar() {
           requiredRoles: [
             UserRole.ADMIN,
             UserRole.DIRECTOR,
+            UserRole.VICERRECTOR,
             UserRole.COORDINADOR,
           ],
         }) && (

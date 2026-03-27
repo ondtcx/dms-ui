@@ -36,6 +36,7 @@ import toast from 'react-hot-toast';
 
 const INITIATOR_ROLE_OPTIONS = [
   { value: UserRole.DIRECTOR,    label: 'Director' },
+  { value: UserRole.VICERRECTOR, label: 'Vicerrector' },
   { value: UserRole.COORDINADOR, label: 'Coordinador' },
   { value: UserRole.PROFESOR,    label: 'Profesor' },
   { value: UserRole.SECRETARIO,  label: 'Secretario' },
@@ -43,6 +44,7 @@ const INITIATOR_ROLE_OPTIONS = [
 
 const APPROVER_ROLE_LABELS: Record<string, string> = {
   [UserRole.DIRECTOR]:    'Director',
+  [UserRole.VICERRECTOR]: 'Vicerrector',
   [UserRole.COORDINADOR]: 'Coordinador',
   [UserRole.PROFESOR]:    'Profesor',
   [UserRole.SECRETARIO]:  'Secretario',

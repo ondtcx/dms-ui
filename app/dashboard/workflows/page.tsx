@@ -8,10 +8,10 @@ import PendingApprovalsTab from '@/components/workflows/PendingApprovalsTab';
 import WorkflowTemplatesTab from '@/components/workflows/WorkflowTemplatesTab';
 import MyInitiatedWorkflowsTab from '@/components/workflows/MyInitiatedWorkflowsTab';
 
-const TEMPLATE_MANAGER_ROLES = [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.COORDINADOR];
+const TEMPLATE_MANAGER_ROLES = [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.VICERRECTOR, UserRole.COORDINADOR];
 const INITIATOR_ROLES = [
-  UserRole.ADMIN, UserRole.DIRECTOR, UserRole.COORDINADOR,
-  UserRole.PROFESOR, UserRole.SECRETARIO,
+  UserRole.ADMIN, UserRole.DIRECTOR, UserRole.VICERRECTOR,
+  UserRole.COORDINADOR, UserRole.PROFESOR, UserRole.SECRETARIO,
 ];
 
 export default function WorkflowsPage() {

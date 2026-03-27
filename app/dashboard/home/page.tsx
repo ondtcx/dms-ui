@@ -41,6 +41,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 const PRIVILEGED_ROLES: UserRole[] = [
   UserRole.ADMIN,
   UserRole.DIRECTOR,
+  UserRole.VICERRECTOR,
   UserRole.COORDINADOR,
 ];
 
@@ -55,6 +56,7 @@ function roleLabel(role: string): string {
   const labels: Record<string, string> = {
     admin: "Administrador",
     director: "Director",
+    vicerrector: "Vicerrector",
     coordinador: "Coordinador",
     profesor: "Profesor",
     secretario: "Secretario",
@@ -69,7 +71,7 @@ function roleLabel(role: string): string {
 function roleBadgeVariant(
   role: string
 ): "default" | "secondary" | "destructive" | "outline" {
-  if (role === "admin" || role === "director") return "destructive";
+  if (role === "admin" || role === "director" || role === "vicerrector") return "destructive";
   if (role === "coordinador" || role === "moderador") return "default";
   return "secondary";
 }

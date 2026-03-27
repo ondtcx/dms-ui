@@ -26,6 +26,7 @@ import {
 
 const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.DIRECTOR]: "Director",
+  [UserRole.VICERRECTOR]: "Vicerrector",
   [UserRole.COORDINADOR]: "Coordinador",
   [UserRole.PROFESOR]: "Profesor",
   [UserRole.SECRETARIO]: "Secretario",
