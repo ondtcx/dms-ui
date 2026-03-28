@@ -104,6 +104,19 @@ export function EditDocumentDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Número institucional (solo lectura) */}
+          {document.documentNumber && (
+            <div className="space-y-2">
+              <Label>Número de Documento</Label>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted border text-sm font-mono">
+                {document.documentNumber}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Código institucional asignado automáticamente
+              </p>
+            </div>
+          )}
+
           {/* Nombre del archivo (solo lectura) */}
           <div className="space-y-2">
             <Label htmlFor="filename">Nombre del Archivo</Label>

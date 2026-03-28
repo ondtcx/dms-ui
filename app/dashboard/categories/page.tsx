@@ -15,6 +15,7 @@ import {
   FileText,
 } from "lucide-react";
 import { Category, CreateCategoryDto, UpdateCategoryDto } from "@/lib/types";
+import { derivePrefix } from "@/lib/utils/document-numbering";
 import { CategoryForm } from "@/components/categories/CategoryForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -243,6 +244,7 @@ export default function CategoriesPage() {
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Sección</TableHead>
+                  <TableHead>Prefijo</TableHead>
                   <TableHead>Descripción</TableHead>
                   <TableHead>Req. Curso</TableHead>
                   <TableHead>Docs</TableHead>
@@ -275,6 +277,18 @@ export default function CategoriesPage() {
                         </Badge>
                       ) : (
                         <span className="text-muted-foreground text-sm">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {category.prefix ? (
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {category.prefix}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="font-mono text-xs" title="Derivado automáticamente del nombre">
+                          {derivePrefix(category.name) || "—"}
+                          <span className="ml-1 opacity-60 text-[10px]">auto</span>
+                        </Badge>
                       )}
                     </TableCell>
                     <TableCell>

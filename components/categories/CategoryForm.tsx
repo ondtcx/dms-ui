@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { sectionsService } from "@/lib/services/sections.service";
 import { Category, CreateCategoryDto } from "@/lib/types";
 import { UI_COLORS, CATEGORY_ICONS, CATEGORY_ROLES } from "@/lib/constants/ui";
+import { derivePrefix } from "@/lib/utils/document-numbering";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,7 +43,10 @@ export function CategoryForm({
     sectionId:      initialValues?.sectionId ?? null as number | null,
     requiresCourse: initialValues?.requiresCourse ?? false,
     allowedRoles:   initialValues?.allowedRoles ?? [] as string[],
+    prefix:         initialValues?.prefix ?? "",
   });
+
+  const autoPrefix = derivePrefix(values.name);
 
   // Misma queryKey que el resto de la app → comparte caché sin fetch redundante
   const { data: sectionsResponse } = useQuery({
@@ -71,6 +75,7 @@ export function CategoryForm({
       requiresCourse: values.requiresCourse,
       // array vacío → undefined para que el backend interprete "sin restricción"
       allowedRoles:   values.allowedRoles.length > 0 ? values.allowedRoles : undefined,
+      prefix:         values.prefix.trim() || undefined,
     });
   };
 
@@ -199,6 +204,39 @@ export function CategoryForm({
           />
           <Label htmlFor="cat-active">Activa</Label>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="cat-prefix">Prefijo de numeración</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="cat-prefix"
+            value={values.prefix}
+            onChange={(e) =>
+              setValues({
+                ...values,
+                prefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").substring(0, 6),
+              })
+            }
+            placeholder={autoPrefix || "Ej: PLN"}
+            maxLength={6}
+            className="w-32 font-mono"
+          />
+          {autoPrefix && !values.prefix && (
+            <span className="text-xs text-muted-foreground">
+              Se usará <span className="font-mono font-medium">{autoPrefix}</span> automáticamente
+            </span>
+          )}
+          {values.prefix && (
+            <span className="text-xs text-muted-foreground">
+              Números como{" "}
+              <span className="font-mono font-medium">SEC-{values.prefix}-{new Date().getFullYear()}-0001</span>
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Máx. 6 caracteres. Deja vacío para derivar del nombre automáticamente.
+        </p>
       </div>
 
       <div className="space-y-2">

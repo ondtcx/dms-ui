@@ -775,11 +775,18 @@ export default function DocumentsPage() {
                         <div className="flex-1 min-w-0">
                           {/* Header con título y acciones */}
                           <div className="flex items-start justify-between gap-4 mb-2">
-                            <h3 className="font-medium text-lg leading-tight">
-                              <Link href={`/dashboard/documents/${doc.id}`} className="hover:underline">
-                                {doc.filename}
-                              </Link>
-                            </h3>
+                            <div className="flex-1 min-w-0">
+                              {doc.documentNumber && (
+                                <span className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded mb-1 inline-block">
+                                  {doc.documentNumber}
+                                </span>
+                              )}
+                              <h3 className="font-medium text-lg leading-tight">
+                                <Link href={`/dashboard/documents/${doc.id}`} className="hover:underline">
+                                  {doc.filename}
+                                </Link>
+                              </h3>
+                            </div>
                             {/* Botones de acción compactos */}
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <Button

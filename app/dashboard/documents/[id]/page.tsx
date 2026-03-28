@@ -22,6 +22,7 @@ import {
   History,
   FileUp,
   MoreVertical,
+  Hash,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -194,7 +195,12 @@ export default function DocumentDetailPage() {
           <div>
             <div className="flex items-center gap-3">
               <FileText className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold">{doc.filename}</h1>
+              <div>
+                {doc.documentNumber && (
+                  <p className="font-mono text-sm text-muted-foreground mb-0.5">{doc.documentNumber}</p>
+                )}
+                <h1 className="text-3xl font-bold">{doc.filename}</h1>
+              </div>
             </div>
             <p className="text-muted-foreground mt-1">
               {doc.description || 'Sin descripción'}
@@ -300,6 +306,20 @@ export default function DocumentDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <Hash className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Número de documento</p>
+                    {doc.documentNumber ? (
+                      <p className="text-sm font-mono text-foreground">{doc.documentNumber}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Sin asignar</p>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
                 <div className="flex items-start gap-3">
                   <FileType className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">

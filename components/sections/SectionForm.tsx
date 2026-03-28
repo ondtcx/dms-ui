@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CreateSectionDto, Section } from "@/lib/types";
 import { UI_COLORS, SECTION_ICONS } from "@/lib/constants/ui";
+import { derivePrefix } from "@/lib/utils/document-numbering";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,7 +37,10 @@ export function SectionForm({
     color:       initialValues?.color ?? "#10b981",
     icon:        initialValues?.icon ?? "FolderOpen",
     isActive:    initialValues?.isActive ?? true,
+    prefix:      initialValues?.prefix ?? "",
   });
+
+  const autoPrefix = derivePrefix(values.name);
 
   const handleSubmit = () => {
     if (!values.name.trim()) return;
@@ -46,6 +50,7 @@ export function SectionForm({
       color:       values.color,
       icon:        values.icon,
       isActive:    values.isActive,
+      prefix:      values.prefix.trim() || undefined,
     });
   };
 
@@ -116,6 +121,41 @@ export function SectionForm({
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="section-prefix">
+          Prefijo de numeración
+        </Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id="section-prefix"
+            value={values.prefix}
+            onChange={(e) =>
+              setValues({
+                ...values,
+                prefix: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").substring(0, 6),
+              })
+            }
+            placeholder={autoPrefix || "Ej: GA"}
+            maxLength={6}
+            className="w-32 font-mono"
+          />
+          {autoPrefix && !values.prefix && (
+            <span className="text-xs text-muted-foreground">
+              Se usará <span className="font-mono font-medium">{autoPrefix}</span> automáticamente
+            </span>
+          )}
+          {values.prefix && (
+            <span className="text-xs text-muted-foreground">
+              Los documentos se numerarán como{" "}
+              <span className="font-mono font-medium">{values.prefix}-CAT-{new Date().getFullYear()}-0001</span>
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Máx. 6 caracteres (mayúsculas y números). Deja vacío para derivar del nombre automáticamente.
+        </p>
       </div>
 
       <div className="flex items-center space-x-2">

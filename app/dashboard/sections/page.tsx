@@ -27,6 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Section, UpdateSectionDto, SectionStats } from "@/lib/types";
+import { derivePrefix } from "@/lib/utils/document-numbering";
 import {
   Dialog,
   DialogContent,
@@ -282,6 +283,20 @@ export default function SectionsPage() {
                     >
                       {section.isActive ? "Activa" : "Inactiva"}
                     </Badge>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">Prefijo:</span>
+                    {section.prefix ? (
+                      <Badge variant="outline" className="font-mono text-xs px-2">
+                        {section.prefix}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="font-mono text-xs px-2" title="Derivado automáticamente del nombre">
+                        {derivePrefix(section.name) || "—"}
+                        <span className="ml-1 opacity-60 text-[10px]">auto</span>
+                      </Badge>
+                    )}
                   </div>
 
                   <div className="flex gap-2">

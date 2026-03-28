@@ -43,6 +43,7 @@ export interface Category {
   color: string;
   icon: string;
   isActive: boolean;
+  prefix: string | null;
   sectionId: number | null;
   section?: { id: number; name: string; color: string; icon: string } | null;
   requiresCourse: boolean;
@@ -61,6 +62,7 @@ export interface Section {
   color: string;
   icon: string;
   isActive: boolean;
+  prefix: string | null;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -93,6 +95,7 @@ export interface CreateSectionDto {
   color?: string;
   icon?: string;
   isActive?: boolean;
+  prefix?: string;
 }
 
 export interface UpdateSectionDto {
@@ -101,6 +104,7 @@ export interface UpdateSectionDto {
   color?: string;
   icon?: string;
   isActive?: boolean;
+  prefix?: string | null;
 }
 
 export interface CreateCategoryDto {
@@ -112,9 +116,20 @@ export interface CreateCategoryDto {
   sectionId?: number | null;
   requiresCourse?: boolean;
   allowedRoles?: string[];
+  prefix?: string;
 }
 
-export type UpdateCategoryDto = Partial<CreateCategoryDto>;
+export interface UpdateCategoryDto {
+  name?: string;
+  description?: string;
+  color?: string;
+  icon?: string;
+  isActive?: boolean;
+  sectionId?: number | null;
+  requiresCourse?: boolean;
+  allowedRoles?: string[];
+  prefix?: string | null;
+}
 
 export interface DocumentVersion {
   id: number;
@@ -199,6 +214,7 @@ export interface Document {
   } | null;
   deletedById: string | null;
   archivedAt: string | null;
+  documentNumber: string | null;
   accesses?: DocumentAccess[];
   createdAt: string;
   updatedAt: string;
