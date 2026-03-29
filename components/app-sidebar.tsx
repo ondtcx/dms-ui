@@ -46,11 +46,13 @@ import {
   Archive,
   Share2,
   ClipboardList,
+  GraduationCap,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@/lib/types";
 import { LucideIcon } from "lucide-react";
+import { AcademicYearSelector } from "@/components/structure/AcademicYearSelector";
 
 export interface MenuItem {
   title: string;
@@ -182,6 +184,12 @@ export const adminMenuItems: MenuItem[] = [
     icon: FileType,
     url: "/dashboard/templates",
     requiredRole: UserRole.ADMIN,
+  },
+  {
+    title: "Años Lectivos",
+    icon: GraduationCap,
+    url: "/dashboard/academic-years",
+    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR],
   },
   {
     title: "Reportes",
@@ -353,8 +361,11 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      {/* Footer - Informacion del usuario */}
+      {/* Footer - Selector de año lectivo + informacion del usuario */}
       <SidebarFooter className="border-t p-4">
+        <div className="pb-2">
+          <AcademicYearSelector />
+        </div>
         <div className="flex flex-col gap-2">
           <div className="text-sm">
             <div className="font-medium">{user?.name}</div>

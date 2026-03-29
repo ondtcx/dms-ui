@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { Category, Section, UploadDocumentDto } from "@/lib/types";
+import { AcademicYear, Category, Section, UploadDocumentDto } from "@/lib/types";
 
 interface DocumentUploadDialogProps {
   open: boolean;
@@ -31,6 +31,7 @@ interface DocumentUploadDialogProps {
   selectedFile: File | null;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   categories: Category[] | undefined;
+  academicYears?: AcademicYear[];
   loadingCategories: boolean;
   loadingSections: boolean;
   uploading: boolean;
@@ -46,8 +47,8 @@ export function DocumentUploadDialog({
   selectedFile,
   onFileChange,
   categories,
+  academicYears,
   loadingCategories,
-
   loadingSections,
   uploading,
   onUpload,
@@ -112,6 +113,39 @@ export function DocumentUploadDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Año Lectivo */}
+          {academicYears && academicYears.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Año Lectivo</label>
+              <Select
+                value={uploadData.academicYearId?.toString() || "auto"}
+                onValueChange={(value) =>
+                  updateUploadData({
+                    academicYearId: value === "auto" ? undefined : parseInt(value),
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Año activo (por defecto)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Año activo (por defecto)</SelectItem>
+                  {academicYears
+                    .filter((y) => y.isActive)
+                    .map((year) => (
+                      <SelectItem key={year.id} value={year.id.toString()}>
+                        {year.name}
+                        {year.isCurrent ? " (Actual)" : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Para documentos de años anteriores, selecciona el año correspondiente.
+              </p>
+            </div>
+          )}
 
           {/* Descripción */}
           <div className="space-y-2">

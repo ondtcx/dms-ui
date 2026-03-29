@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
+import { academicYearsService } from "@/lib/services/academic-years.service";
 import { categoriesService } from "@/lib/services/categories.service";
 import { sectionsService } from "@/lib/services/sections.service";
 import { coursesService } from "@/lib/services/courses.service";
@@ -51,6 +52,7 @@ import { BatchActionsBar } from "@/components/documents/batch-actions-bar";
 import { BatchListSection } from "@/components/documents/BatchListSection";
 import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
 import { CreateShareDialog } from "@/components/shares/CreateShareDialog";
+import { useAcademicYearStore } from "@/components/structure/AcademicYearSelector";
 import { Layers } from "lucide-react";
 
 // Shadcn imports
@@ -99,6 +101,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 export default function DocumentsPage() {
   const { user } = useAuth();
   const { isAdmin } = usePermissions();
+  const { currentYearId } = useAcademicYearStore();
   const queryClient = useQueryClient();
   const router = useRouter();
 
@@ -124,6 +127,7 @@ export default function DocumentsPage() {
     categoryId: undefined as number | undefined,
     courseId: undefined as number | undefined,
     subjectId: undefined as number | undefined,
+    academicYearId: undefined as number | undefined,
     description: "",
     isPublic: false,
   });
@@ -166,13 +170,14 @@ export default function DocumentsPage() {
     error: documentsError,
     refetch: refetchDocuments,
   } = useQuery({
-    queryKey: ["documents", searchTerm, categoryFilter, sectionFilter, onlyMine],
+    queryKey: ["documents", searchTerm, categoryFilter, sectionFilter, onlyMine, currentYearId],
     queryFn: () =>
       documentsService.getAll({
         search: searchTerm || undefined,
         categoryId: categoryFilter,
         sectionId: sectionFilter,
         onlyMine: onlyMine || undefined,
+        academicYearId: currentYearId ?? undefined,
         excludeBatched: true,
         page: 1,
         limit: 50,
@@ -187,6 +192,11 @@ export default function DocumentsPage() {
   const { data: categories, isLoading: loadingCategories } = useQuery({
     queryKey: ["categories", "active"],
     queryFn: () => categoriesService.getActive(),
+  });
+
+  const { data: academicYearsData } = useQuery({
+    queryKey: ["academic-years"],
+    queryFn: () => academicYearsService.getAll(),
   });
 
   const { data: sectionStats, isLoading: loadingSections } = useQuery({
@@ -1136,6 +1146,39 @@ export default function DocumentsPage() {
                     </div>
                   )}
                 </>
+              )}
+
+              {/* Año Lectivo */}
+              {academicYearsData && academicYearsData.data.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Año Lectivo</label>
+                  <Select
+                    value={uploadData.academicYearId?.toString() || "auto"}
+                    onValueChange={(value) =>
+                      setUploadData({
+                        ...uploadData,
+                        academicYearId: value === "auto" ? undefined : parseInt(value),
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Año activo (por defecto)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Año activo (por defecto)</SelectItem>
+                      {academicYearsData.data
+                        .filter((y) => y.isActive)
+                        .map((year) => (
+                          <SelectItem key={year.id} value={year.id.toString()}>
+                            {year.name}{year.isCurrent ? " (Actual)" : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Para documentos de años anteriores, selecciona el año correspondiente.
+                  </p>
+                </div>
               )}
 
               {/* Descripción */}

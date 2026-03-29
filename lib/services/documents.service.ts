@@ -19,6 +19,7 @@ export const documentsService = {
     onlyMine?: boolean;
     excludeBatched?: boolean;
     batchId?: string;
+    academicYearId?: number;
   }): Promise<DocumentsResponse> {
     const response = await api.get<DocumentsResponse>("/documents", { params });
     return response.data;
@@ -36,6 +37,9 @@ export const documentsService = {
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
     if (data.sectionId) formData.append("sectionId", String(data.sectionId));
+    if (data.courseId) formData.append("courseId", String(data.courseId));
+    if (data.subjectId) formData.append("subjectId", String(data.subjectId));
+    if (data.academicYearId) formData.append("academicYearId", String(data.academicYearId));
 
     if (data.isPublic !== undefined) {
       formData.append("isPublic", String(data.isPublic));

@@ -48,6 +48,7 @@ export interface Category {
   section?: { id: number; name: string; color: string; icon: string } | null;
   requiresCourse: boolean;
   allowedRoles: string[];
+  bypassAcademicYear: boolean;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -237,6 +238,7 @@ export interface UploadDocumentDto {
   courseId?: number;
   subjectId?: number;
   isPublic?: boolean;
+  academicYearId?: number;
 }
 
 export interface CategoryCount {
@@ -781,3 +783,25 @@ export interface CreateShareDto {
 }
 
 export * from './templates';
+
+// ─── Año Lectivo ──────────────────────────────────────────────────────────────
+
+export interface AcademicYear {
+  id: number;
+  name: string;       // "2025-2026"
+  startDate: string;  // ISO string
+  endDate: string;    // ISO string
+  isCurrent: boolean;
+  isActive: boolean;
+  _count?: {
+    levels: number;   // Cursos cuyo campo academicYear coincide con este name
+    documents: number;
+  };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AcademicYearListResponse {
+  data: AcademicYear[];
+  total: number;
+}
