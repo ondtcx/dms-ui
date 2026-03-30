@@ -926,6 +926,12 @@ export default function DocumentsPage() {
                                 {doc.template.documentType?.name ?? doc.template.name}
                               </Badge>
                             )}
+                            {doc.isComposite && (
+                              <Badge variant="secondary" className="gap-1">
+                                <Layers className="h-3 w-3" />
+                                Informe Compuesto
+                              </Badge>
+                            )}
                             {doc.workflow && (
                               <Badge
                                 variant={WORKFLOW_STATUS_CONFIG[doc.workflow.status].variant}

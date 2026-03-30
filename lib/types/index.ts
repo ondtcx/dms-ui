@@ -220,6 +220,7 @@ export interface Document {
   archivedAt: string | null;
   documentNumber: string | null;
   accesses?: DocumentAccess[];
+  isComposite?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -808,4 +809,37 @@ export interface AcademicYear {
 export interface AcademicYearListResponse {
   data: AcademicYear[];
   total: number;
+}
+
+// ============ COMPOSICIÓN DE DOCUMENTOS ============
+
+export interface CompositionChild {
+  id: number;
+  filename: string;
+  mimetype: string;
+  templateId: number | null;
+  documentNumber: string | null;
+  category: { id: number; name: string; color: string } | null;
+}
+
+export interface DocumentCompositionItem {
+  id: number;
+  parentId: number;
+  childId: number;
+  child: CompositionChild;
+  order: number;
+  label: string | null;
+  insertAfterPage: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentComposition {
+  id: number;
+  isComposite: boolean;
+  components: DocumentCompositionItem[];
+  partOf: {
+    id: number;
+    parent: { id: number; filename: string; documentNumber: string | null };
+  }[];
 }

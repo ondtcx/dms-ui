@@ -23,6 +23,7 @@ import {
   FileUp,
   MoreVertical,
   Hash,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import DocumentWorkflowCard from '@/components/workflows/DocumentWorkflowCard';
+import { DocumentCompositionCard } from '@/components/documents/DocumentCompositionCard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { UserRole } from '@/lib/types';
@@ -200,6 +202,12 @@ export default function DocumentDetailPage() {
                   <p className="font-mono text-sm text-muted-foreground mb-0.5">{doc.documentNumber}</p>
                 )}
                 <h1 className="text-3xl font-bold">{doc.filename}</h1>
+                {doc.isComposite && (
+                  <Badge variant="secondary" className="gap-1 mt-1 w-fit">
+                    <Layers className="h-3 w-3" />
+                    Informe Compuesto
+                  </Badge>
+                )}
               </div>
             </div>
             <p className="text-muted-foreground mt-1">
@@ -414,6 +422,9 @@ export default function DocumentDetailPage() {
 
           {/* Workflow */}
           <DocumentWorkflowCard documentId={documentId} categoryId={doc?.categoryId} sectionId={doc?.category?.section?.id} />
+
+          {/* Composición */}
+          <DocumentCompositionCard documentId={documentId} />
 
           {/* Acciones rápidas */}
           <Card>

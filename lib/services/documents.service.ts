@@ -20,6 +20,7 @@ export const documentsService = {
     excludeBatched?: boolean;
     batchId?: string;
     academicYearId?: number;
+    excludeComposites?: boolean;
   }): Promise<DocumentsResponse> {
     const response = await api.get<DocumentsResponse>("/documents", { params });
     return response.data;
