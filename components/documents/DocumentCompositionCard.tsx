@@ -167,9 +167,6 @@ export function DocumentCompositionCard({ documentId }: Props) {
   if (isLoading || !data) return null;
 
   const { components, partOf } = data;
-  const hasContent = components.length > 0 || partOf.length > 0;
-
-  if (!hasContent && !data.isComposite) return null;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -321,17 +318,22 @@ export function DocumentCompositionCard({ documentId }: Props) {
             </>
           )}
 
-          {/* Si solo hay el flag isComposite pero no components aún */}
-          {data.isComposite && components.length === 0 && partOf.length === 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => setShowPicker(true)}
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Agregar primer documento
-            </Button>
+          {/* Estado vacío: sin componentes y sin relación partOf */}
+          {components.length === 0 && partOf.length === 0 && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Este documento puede agrupar otros documentos (actas, anexos, reportes).
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setShowPicker(true)}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Agregar documento
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

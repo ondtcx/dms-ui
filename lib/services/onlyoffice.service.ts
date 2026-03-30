@@ -7,6 +7,7 @@ export const onlyofficeService = {
     fileType: "docx" | "xlsx" | "pptx";
     categoryId?: number;
     courseId?: number;
+    documentTypeId?: number;
   }): Promise<Document> {
     const response = await api.post<Document>("/onlyoffice/create-blank", data);
     return response.data;

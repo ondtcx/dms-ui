@@ -12,6 +12,7 @@ import { categoriesService } from "@/lib/services/categories.service";
 import { sectionsService } from "@/lib/services/sections.service";
 import { coursesService } from "@/lib/services/courses.service";
 import { onlyofficeService } from "@/lib/services/onlyoffice.service";
+import { documentTypesService } from "@/lib/services/document-types.service";
 import { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import {
@@ -160,6 +161,7 @@ export default function DocumentsPage() {
     title: string;
     fileType: "docx" | "xlsx" | "pptx";
     categoryId?: number;
+    documentTypeId?: number;
   }>({ title: "", fileType: "docx" });
   const [creatingInEditor, setCreatingInEditor] = useState(false);
 
@@ -206,6 +208,18 @@ export default function DocumentsPage() {
 
   const selectedCategory = categories?.find((c) => c.id === uploadData.categoryId);
   const showCourseFields = selectedCategory?.requiresCourse ?? false;
+
+  const { data: uploadDocumentTypes } = useQuery({
+    queryKey: ["document-types", "active", uploadData.categoryId],
+    queryFn: () => documentTypesService.getActive(uploadData.categoryId),
+    enabled: !!uploadData.categoryId,
+  });
+
+  const { data: editorDocumentTypes } = useQuery({
+    queryKey: ["document-types", "active", createInEditorData.categoryId],
+    queryFn: () => documentTypesService.getActive(createInEditorData.categoryId),
+    enabled: !!createInEditorData.categoryId,
+  });
 
 
   const { data: allCourses, isLoading: loadingCourses } = useQuery({
@@ -1184,6 +1198,34 @@ export default function DocumentsPage() {
                   <p className="text-xs text-muted-foreground">
                     Para documentos de años anteriores, selecciona el año correspondiente.
                   </p>
+                </div>
+              )}
+
+              {/* Subtipo de documento */}
+              {uploadData.categoryId && uploadDocumentTypes && uploadDocumentTypes.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Subtipo de documento</label>
+                  <Select
+                    value={uploadData.documentTypeId?.toString() ?? "none"}
+                    onValueChange={(value) =>
+                      setUploadData({
+                        ...uploadData,
+                        documentTypeId: value === "none" ? undefined : parseInt(value),
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin subtipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin subtipo</SelectItem>
+                      {uploadDocumentTypes.map((dt) => (
+                        <SelectItem key={dt.id} value={dt.id.toString()}>
+                          {dt.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
