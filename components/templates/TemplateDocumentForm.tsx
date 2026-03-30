@@ -375,7 +375,7 @@ export function TemplateDocumentForm({
               {/* Información de la plantilla */}
               <Card>
                 <CardContent className="pt-6">
-                  <p className="text-sm font-medium">Tipo: {template.type}</p>
+                  {template.documentType && <p className="text-sm font-medium">Tipo: {template.documentType.name}</p>}
                   {template.description && (
                     <p className="text-sm text-muted-foreground mt-2">
                       {template.description}
@@ -402,7 +402,7 @@ export function TemplateDocumentForm({
                     id="filename"
                     value={filename}
                     onChange={(e) => setFilename(e.target.value)}
-                    placeholder={`${template.type}-${new Date().toISOString().split("T")[0]}.pdf`}
+                    placeholder={`${template.documentType?.name ?? template.name}-${new Date().toISOString().split("T")[0]}.pdf`}
                   />
                   <p className="text-xs text-muted-foreground">
                     Si no especificas un nombre, se generará automáticamente

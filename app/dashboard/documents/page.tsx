@@ -487,7 +487,7 @@ export default function DocumentsPage() {
 
     // Si es un documento generado desde plantilla
     if (doc.template) {
-      return `Documento generado desde plantilla "${doc.template.name}" • Tipo: ${doc.template.type}`;
+      return `Documento generado desde plantilla "${doc.template.name}"${doc.template.documentType ? ` • Tipo: ${doc.template.documentType.name}` : ''}`;
     }
 
     // Información basada en el tipo de archivo
@@ -923,7 +923,7 @@ export default function DocumentsPage() {
                             {doc.template && (
                               <Badge variant="default" className="gap-1">
                                 <FileType className="h-3 w-3" />
-                                {doc.template.type}
+                                {doc.template.documentType?.name ?? doc.template.name}
                               </Badge>
                             )}
                             {doc.workflow && (

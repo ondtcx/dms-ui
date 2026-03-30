@@ -13,10 +13,37 @@ export interface TemplateFields {
   fields: TemplateField[];
 }
 
+export interface DocumentType {
+  id: number;
+  name: string;
+  description: string | null;
+  categoryId: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  category?: { id: number; name: string; color: string; icon: string } | null;
+  _count?: { documents: number; documentTemplates: number };
+}
+
+export interface CreateDocumentTypeDto {
+  name: string;
+  description?: string;
+  categoryId: number;
+  isActive?: boolean;
+}
+
+export interface UpdateDocumentTypeDto {
+  name?: string;
+  description?: string;
+  categoryId?: number;
+  isActive?: boolean;
+}
+
 export interface DocumentTemplate {
   id: number;
   name: string;
-  type: string;
+  documentTypeId: number | null;
+  documentType: { id: number; name: string } | null;
   description: string | null;
   fields: TemplateFields;
   htmlTemplate: string;
@@ -59,7 +86,7 @@ export interface DocumentTemplatesResponse {
 
 export interface CreateDocumentTemplateDto {
   name: string;
-  type: string;
+  documentTypeId?: number;
   description?: string;
   fields: TemplateFields;
   htmlTemplate: string;
@@ -73,7 +100,7 @@ export interface CreateDocumentTemplateDto {
 
 export interface UpdateDocumentTemplateDto {
   name?: string;
-  type?: string;
+  documentTypeId?: number | null;
   description?: string;
   fields?: TemplateFields;
   htmlTemplate?: string;
@@ -91,9 +118,4 @@ export interface CreateDocumentFromTemplateDto {
   filename?: string;
   description?: string;
   isPublic?: boolean;
-}
-
-export interface TemplateType {
-  type: string;
-  count: number;
 }

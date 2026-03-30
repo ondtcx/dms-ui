@@ -114,7 +114,7 @@ export function SelectTemplateDialog({
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <CardTitle className="text-lg">{template.name}</CardTitle>
-                      <Badge variant="outline">{template.type}</Badge>
+                      {template.documentType && <Badge variant="outline">{template.documentType.name}</Badge>}
                     </div>
                     {template.description && (
                       <CardDescription>{template.description}</CardDescription>

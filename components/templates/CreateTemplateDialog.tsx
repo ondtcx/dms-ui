@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
 import { categoriesService } from "@/lib/services/categories.service";
+import { documentTypesService } from "@/lib/services/document-types.service";
 import toast from "react-hot-toast";
 import {
   Dialog,
@@ -95,7 +96,7 @@ export function CreateTemplateDialog({
   const isEditing = !!template;
 
   const [name, setName] = useState("");
-  const [type, setType] = useState("");
+  const [documentTypeId, setDocumentTypeId] = useState<number | undefined>(undefined);
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
@@ -104,6 +105,12 @@ export function CreateTemplateDialog({
   const { data: categories } = useQuery({
     queryKey: ["categories", "active"],
     queryFn: categoriesService.getActive,
+  });
+
+  const { data: documentTypes } = useQuery({
+    queryKey: ["document-types", "active", categoryId],
+    queryFn: () => documentTypesService.getActive(categoryId),
+    enabled: !!categoryId,
   });
 
   // Nuevos campos
@@ -117,7 +124,7 @@ export function CreateTemplateDialog({
   useEffect(() => {
     if (template) {
       setName(template.name);
-      setType(template.type);
+      setDocumentTypeId(template.documentTypeId ?? undefined);
       setDescription(template.description || "");
       setIsActive(template.isActive);
       setCategoryId(template.categoryId ?? undefined);
@@ -167,7 +174,7 @@ export function CreateTemplateDialog({
 
   const resetForm = () => {
     setName("");
-    setType("");
+    setDocumentTypeId(undefined);
     setDescription("");
     setIsActive(true);
     setCategoryId(undefined);
@@ -212,11 +219,6 @@ export function CreateTemplateDialog({
       return;
     }
 
-    if (!type.trim()) {
-      toast.error("El tipo es requerido");
-      return;
-    }
-
     if (fields.length === 0) {
       toast.error("Debes agregar al menos un campo");
       return;
@@ -236,7 +238,7 @@ export function CreateTemplateDialog({
 
     const templateData = {
       name: name.trim(),
-      type: type.trim(),
+      documentTypeId,
       description: description.trim() || undefined,
       fields: { fields },
       htmlTemplate: htmlTemplate.trim(),
@@ -306,27 +308,13 @@ export function CreateTemplateDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="type">
-                  Tipo <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="type"
-                  value={type}
-                  onChange={(e) => setType(e.target.value)}
-                  placeholder="Ej: acta, certificado, informe"
-                />
-                <p className="text-xs text-muted-foreground">
-                  El tipo permite agrupar plantillas similares
-                </p>
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="categoryId">Categoría</Label>
                 <Select
                   value={categoryId?.toString() ?? "none"}
-                  onValueChange={(value) =>
-                    setCategoryId(value === "none" ? undefined : Number(value))
-                  }
+                  onValueChange={(value) => {
+                    setCategoryId(value === "none" ? undefined : Number(value));
+                    setDocumentTypeId(undefined);
+                  }}
                 >
                   <SelectTrigger id="categoryId">
                     <SelectValue placeholder="Sin categoría asignada" />
@@ -344,6 +332,34 @@ export function CreateTemplateDialog({
                   <p className="text-xs text-muted-foreground">
                     Roles con acceso:{" "}
                     {(categories.find((c) => c.id === categoryId)?.allowedRoles as string[] | undefined)?.join(", ") || "todos"}
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="documentTypeId">Subtipo de documento</Label>
+                <Select
+                  value={documentTypeId?.toString() ?? "none"}
+                  onValueChange={(value) =>
+                    setDocumentTypeId(value === "none" ? undefined : Number(value))
+                  }
+                  disabled={!categoryId}
+                >
+                  <SelectTrigger id="documentTypeId">
+                    <SelectValue placeholder={categoryId ? "Sin subtipo asignado" : "Selecciona una categoría primero"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin subtipo</SelectItem>
+                    {documentTypes?.map((dt) => (
+                      <SelectItem key={dt.id} value={dt.id.toString()}>
+                        {dt.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!categoryId && (
+                  <p className="text-xs text-muted-foreground">
+                    Selecciona una categoría para ver los subtipos disponibles
                   </p>
                 )}
               </div>

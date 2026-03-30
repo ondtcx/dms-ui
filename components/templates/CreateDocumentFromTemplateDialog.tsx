@@ -313,7 +313,7 @@ export function CreateDocumentFromTemplateDialog({
           <div className={`${showPreview ? 'overflow-y-auto pr-4' : ''} space-y-6`}>
             {/* Información de la plantilla */}
             <div className="bg-muted p-4 rounded-lg space-y-2">
-              <p className="text-sm font-medium">Tipo: {template.type}</p>
+              {template.documentType && <p className="text-sm font-medium">Tipo: {template.documentType.name}</p>}
               {template.description && (
                 <p className="text-sm text-muted-foreground">
                   {template.description}
@@ -341,7 +341,7 @@ export function CreateDocumentFromTemplateDialog({
                   id="filename"
                   value={filename}
                   onChange={(e) => setFilename(e.target.value)}
-                  placeholder={`${template.type}-${new Date().toISOString().split("T")[0]}.json`}
+                  placeholder={`${template.documentType?.name ?? template.name}-${new Date().toISOString().split("T")[0]}.json`}
                 />
                 <p className="text-xs text-muted-foreground">
                   Si no especificas un nombre, se generará automáticamente

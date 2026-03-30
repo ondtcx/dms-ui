@@ -53,6 +53,7 @@ export interface Category {
   updatedAt: string;
   _count?: {
     documents: number;
+    documentTypes: number;
   };
 }
 
@@ -182,6 +183,8 @@ export interface Document {
   description: string | null;
   categoryId: number | null;
   category: (Category & { section?: { id: number; name: string; color: string; icon: string } | null }) | null;
+  documentTypeId?: number | null;
+  documentType?: { id: number; name: string } | null;
   isPublic: boolean;
   uploadedBy: {
     id: string;
@@ -194,7 +197,7 @@ export interface Document {
   template?: {
     id: number;
     name: string;
-    type: string;
+    documentType?: { id: number; name: string } | null;
   };
   formData: Record<string, unknown> | null;
   currentVersion: number;
@@ -234,6 +237,7 @@ export interface DocumentsResponse {
 export interface UploadDocumentDto {
   description?: string;
   categoryId?: number;
+  documentTypeId?: number;
   sectionId?: number;
   courseId?: number;
   subjectId?: number;

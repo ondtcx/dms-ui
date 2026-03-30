@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
 import { categoriesService } from "@/lib/services/categories.service";
+import { documentTypesService } from "@/lib/services/document-types.service";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRouter } from "next/navigation";
@@ -50,6 +51,7 @@ export default function TemplatesPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [documentTypeFilter, setDocumentTypeFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortOption>("date");
   const [showCreateTemplateDialog, setShowCreateTemplateDialog] =
     useState(false);
@@ -64,11 +66,12 @@ export default function TemplatesPage() {
 
   // Queries
   const { data: templates, isLoading } = useQuery({
-    queryKey: ["templates", searchTerm, categoryFilter],
+    queryKey: ["templates", searchTerm, categoryFilter, documentTypeFilter],
     queryFn: () =>
       templatesService.getAll({
         search: searchTerm || undefined,
         categoryId: categoryFilter !== "all" ? Number(categoryFilter) : undefined,
+        documentTypeId: documentTypeFilter !== "all" ? Number(documentTypeFilter) : undefined,
         page: 1,
         limit: 50,
       }),
@@ -77,6 +80,12 @@ export default function TemplatesPage() {
   const { data: categories } = useQuery({
     queryKey: ["categories", "active"],
     queryFn: categoriesService.getActive,
+  });
+
+  const { data: documentTypes } = useQuery({
+    queryKey: ["document-types", "active", categoryFilter],
+    queryFn: () => documentTypesService.getActive(categoryFilter !== "all" ? Number(categoryFilter) : undefined),
+    enabled: categoryFilter !== "all",
   });
 
   // Load thumbnails — mismo patrón que documents page (useRef para cleanup en unmount)
@@ -229,7 +238,13 @@ export default function TemplatesPage() {
             </div>
 
             {/* Filtro por categoría */}
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select
+              value={categoryFilter}
+              onValueChange={(value) => {
+                setCategoryFilter(value);
+                setDocumentTypeFilter("all");
+              }}
+            >
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Filtrar por categoría" />
               </SelectTrigger>
@@ -238,6 +253,25 @@ export default function TemplatesPage() {
                 {categories?.filter((c) => c.isActive).map((cat) => (
                   <SelectItem key={cat.id} value={cat.id.toString()}>
                     {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Filtro por subtipo */}
+            <Select
+              value={documentTypeFilter}
+              onValueChange={setDocumentTypeFilter}
+              disabled={categoryFilter === "all"}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filtrar por subtipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los subtipos</SelectItem>
+                {documentTypes?.map((dt) => (
+                  <SelectItem key={dt.id} value={dt.id.toString()}>
+                    {dt.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -304,7 +338,7 @@ export default function TemplatesPage() {
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center gap-2">
                     <FileType className="h-12 w-12 text-slate-400" />
-                    <span className="text-xs text-slate-400">{template.category?.name ?? template.type}</span>
+                    <span className="text-xs text-slate-400">{template.category?.name ?? template.documentType?.name ?? '—'}</span>
                   </div>
                 )}
 
@@ -345,7 +379,7 @@ export default function TemplatesPage() {
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="mt-1">
-                          {template.type}
+                          {template.documentType?.name ?? '—'}
                         </Badge>
                       )}
                     </CardDescription>

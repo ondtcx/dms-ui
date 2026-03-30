@@ -7,7 +7,6 @@ import {
   CreateDocumentFromTemplateDto,
   CreateBatchFromTemplateDto,
   CreateBatchResult,
-  TemplateType,
   Document,
 } from "@/lib/types";
 
@@ -17,7 +16,7 @@ export const templatesService = {
    */
   async getAll(params?: {
     search?: string;
-    type?: string;
+    documentTypeId?: number;
     categoryId?: number;
     isActive?: boolean;
     page?: number;
@@ -36,16 +35,6 @@ export const templatesService = {
   async getOne(id: number): Promise<DocumentTemplate> {
     const response = await api.get<DocumentTemplate>(
       `/document-templates/${id}`
-    );
-    return response.data;
-  },
-
-  /**
-   * Obtener tipos de plantillas disponibles
-   */
-  async getTypes(): Promise<TemplateType[]> {
-    const response = await api.get<TemplateType[]>(
-      "/document-templates/types"
     );
     return response.data;
   },

@@ -47,6 +47,7 @@ import {
   Share2,
   ClipboardList,
   GraduationCap,
+  Tags,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -177,6 +178,12 @@ export const adminMenuItems: MenuItem[] = [
     title: "Categorias",
     icon: FolderKanban,
     url: "/dashboard/categories",
+    requiredRole: UserRole.ADMIN,
+  },
+  {
+    title: "Subtipos de Documento",
+    icon: Tags,
+    url: "/dashboard/document-types",
     requiredRole: UserRole.ADMIN,
   },
   {
