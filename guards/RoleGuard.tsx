@@ -47,7 +47,7 @@ export function ModeratorOnly({
   fallback?: React.ReactNode;
 }) {
   return (
-    <RoleGuard roles={[UserRole.MODERATOR]} fallback={fallback}>
+    <RoleGuard roles={[UserRole.MODERADOR]} fallback={fallback}>
       {children}
     </RoleGuard>
   );
@@ -61,7 +61,7 @@ export function AdminOrModerator({
   fallback?: React.ReactNode;
 }) {
   return (
-    <RoleGuard roles={[UserRole.ADMIN, UserRole.MODERATOR]} fallback={fallback}>
+    <RoleGuard roles={[UserRole.ADMIN, UserRole.MODERADOR]} fallback={fallback}>
       {children}
     </RoleGuard>
   );

@@ -18,7 +18,7 @@ export function usePermissions() {
   };
 
   const isModerator = (): boolean => {
-    return user?.role === UserRole.MODERATOR;
+    return user?.role === UserRole.MODERADOR;
   };
 
   const isUser = (): boolean => {
@@ -30,7 +30,7 @@ export function usePermissions() {
     const routePermissions: { [key: string]: UserRole[] } = {
       "/dashboard/users": [UserRole.ADMIN],
       "/dashboard/settings": [UserRole.ADMIN],
-      "/dashboard/moderation": [UserRole.ADMIN, UserRole.MODERATOR],
+      "/dashboard/moderation": [UserRole.ADMIN, UserRole.MODERADOR],
     };
 
     const requiredRoles = routePermissions[route];

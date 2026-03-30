@@ -60,6 +60,12 @@ const ACTION_CONFIG = {
     description: 'Se notificará al creador que debe realizar cambios.',
     variant: 'outline' as const,
   },
+  [ApprovalAction.COMMENTED]: {
+    label: 'Comentar',
+    confirmLabel: 'Añadir comentario',
+    description: 'Se dejará un comentario sin cambiar de estado.',
+    variant: 'secondary' as const,
+  },
 };
 
 export default function PendingApprovalsTab() {

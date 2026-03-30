@@ -76,6 +76,13 @@ const APPROVAL_ACTION_CONFIG = {
     variant: 'outline' as const,
     icon: MessageSquare,
   },
+  [ApprovalAction.COMMENTED]: {
+    label: 'Comentar',
+    confirmLabel: 'Añadir comentario',
+    description: 'Se dejará un comentario sin cambiar de estado.',
+    variant: 'secondary' as const,
+    icon: MessageSquare,
+  },
 };
 
 export default function DocumentWorkflowCard({ documentId, categoryId, sectionId }: Props) {

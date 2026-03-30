@@ -117,5 +117,8 @@ export interface CreateDocumentFromTemplateDto {
   formData: Record<string, unknown>;
   filename?: string;
   description?: string;
+  categoryId?: number;
+  sectionId?: number;
+  academicYearId?: number;
   isPublic?: boolean;
 }

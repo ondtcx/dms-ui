@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { academicYearsService, AcademicYear } from "@/lib/services/academic-years.service";
+import { academicYearsService } from "@/lib/services/academic-years.service";
+import { AcademicYear } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -81,7 +82,7 @@ export function AcademicYearsManager() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: academicYearsService.delete,
+    mutationFn: academicYearsService.deactivate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["academic-years"] });
       toast.success("Academic year deleted successfully");

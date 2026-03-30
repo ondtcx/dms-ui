@@ -15,9 +15,8 @@ export const batchService = {
     return response.data;
   },
 
-  // Eliminación masiva de documentos
   async delete(data: BatchDeleteDto): Promise<BatchResponse> {
-    const response = await api.delete('/batch/delete', { data });
+    const response = await api.post('/batch/delete', data);
     return response.data;
   },
 

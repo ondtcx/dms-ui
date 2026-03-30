@@ -129,6 +129,7 @@ export default function DocumentsPage() {
     courseId: undefined as number | undefined,
     subjectId: undefined as number | undefined,
     academicYearId: undefined as number | undefined,
+    documentTypeId: undefined as number | undefined,
     description: "",
     isPublic: false,
   });
@@ -287,6 +288,8 @@ export default function DocumentsPage() {
         categoryId: undefined,
         courseId: undefined,
         subjectId: undefined,
+        academicYearId: undefined,
+        documentTypeId: undefined,
         description: "",
         isPublic: false,
       });
@@ -321,6 +324,8 @@ export default function DocumentsPage() {
         categoryId: undefined,
         courseId: undefined,
         subjectId: undefined,
+        academicYearId: undefined,
+        documentTypeId: undefined,
         description: "",
         isPublic: false,
       });
@@ -1571,6 +1576,8 @@ export default function DocumentsPage() {
                     categoryId: undefined,
                     courseId: undefined,
                     subjectId: undefined,
+                    academicYearId: undefined,
+                    documentTypeId: undefined,
                     description: "",
                     isPublic: false,
                   });

@@ -2,19 +2,36 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+function decodeJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(function (c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch (error) {
+    console.error('Error decoding JWT in middleware:', error);
+    return null;
+  }
+}
+
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("token");
-  const userCookie = request.cookies.get("user");
   const { pathname } = request.nextUrl;
 
-  // Obtener rol del usuario
+  // Obtener rol del usuario desde el JWT (Seguro)
   let userRole = null;
-  if (userCookie) {
-    try {
-      const user = JSON.parse(userCookie.value);
-      userRole = user.role;
-    } catch (error) {
-      console.error("Error parsing user cookie:", error);
+  if (token) {
+    const decoded = decodeJwt(token.value);
+    if (decoded && decoded.role) {
+      userRole = decoded.role;
     }
   }
 
