@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.DIRECTOR]: "Director",
+  [UserRole.RECTOR]: "Rector",
   [UserRole.VICERRECTOR]: "Vicerrector",
   [UserRole.COORDINADOR]: "Coordinador",
   [UserRole.PROFESOR]: "Profesor",

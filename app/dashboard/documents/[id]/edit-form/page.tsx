@@ -40,7 +40,7 @@ export default function EditDocumentFormPage() {
     if (!doc || !user) return;
     const canEdit =
       user.role === UserRole.ADMIN ||
-      user.role === UserRole.DIRECTOR ||
+      user.role === UserRole.RECTOR ||
       doc.uploadedById === user.id;
     if (!canEdit) {
       router.replace(`/dashboard/documents/${documentId}`);

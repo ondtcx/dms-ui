@@ -47,7 +47,7 @@ export default function WorkflowTemplatesTab() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   // ADMIN y DIRECTOR pueden gestionar plantillas — ADMIN por rol global, DIRECTOR por diseño institucional
-  const canManage = user?.role === 'admin' || user?.role === 'director';
+  const canManage = user?.role === 'admin' || user?.role === 'rector';
   const [search, setSearch] = useState('');
   const [showDialog, setShowDialog] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkflowTemplate | null>(null);

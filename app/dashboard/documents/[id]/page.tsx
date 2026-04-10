@@ -24,6 +24,7 @@ import {
   MoreVertical,
   Hash,
   Layers,
+  ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,7 @@ import { Separator } from '@/components/ui/separator';
 import { EditDocumentDialog } from '@/components/documents/EditDocumentDialog';
 import { DocumentVersionHistory } from '@/components/documents/DocumentVersionHistory';
 import { ReplaceFileDialog } from '@/components/documents/ReplaceFileDialog';
+import { ExplainPermissionsDialog } from '@/components/documents/ExplainPermissionsDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +61,7 @@ export default function DocumentDetailPage() {
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [showReplaceDialog, setShowReplaceDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showExplainDialog, setShowExplainDialog] = useState(false);
 
   // Cargar documento
   const { data: doc, isLoading } = useQuery({
@@ -84,8 +87,14 @@ export default function DocumentDetailPage() {
     !!user &&
     !!doc &&
     (user.role === UserRole.ADMIN ||
-      user.role === UserRole.DIRECTOR ||
+      user.role === UserRole.RECTOR ||
       doc.uploadedById === user.id);
+
+  const canExplainPermissions =
+    !!user &&
+    (user.role === UserRole.ADMIN ||
+      user.role === UserRole.RECTOR ||
+      user.role === UserRole.COORDINADOR);
 
   const isPreviewable = (mimetype: string): boolean => {
     if (mimetype === 'application/pdf') return true;
@@ -242,6 +251,15 @@ export default function DocumentDetailPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {canExplainPermissions && (
+                <>
+                  <DropdownMenuItem onClick={() => setShowExplainDialog(true)}>
+                    <ShieldAlert className="mr-2 h-4 w-4" />
+                    Auditar Accesos
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               {canEdit && (
                 <>
                   <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
@@ -500,6 +518,12 @@ export default function DocumentDetailPage() {
           deleteMutation.mutate(doc.id);
           setShowDeleteConfirm(false);
         }}
+      />
+
+      <ExplainPermissionsDialog
+        documentId={doc.id}
+        open={showExplainDialog}
+        onOpenChange={setShowExplainDialog}
       />
     </div>
   );

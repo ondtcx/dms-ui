@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useSettings } from "@/lib/contexts/SettingsContext";
+import { usePendingApprovalsCount } from "@/hooks/use-pending-approvals-count";
 import {
   Collapsible,
   CollapsibleContent,
@@ -112,12 +113,12 @@ export const mainMenuItems: MenuItem[] = [
   },
   {
     // Hidden from PROFESOR — they use "Mis Solicitudes" instead for a simpler experience
-    title: "Workflows",
+    title: "Aprobaciones",
     icon: CheckCircle2,
     url: "/dashboard/workflows",
     requiredRoles: [
       UserRole.ADMIN,
-      UserRole.DIRECTOR,
+      UserRole.RECTOR,
       UserRole.VICERRECTOR,
       UserRole.COORDINADOR,
       UserRole.SECRETARIO,
@@ -166,7 +167,7 @@ export const adminMenuItems: MenuItem[] = [
     title: "Departamentos",
     icon: Building2,
     url: "/dashboard/departments",
-    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.VICERRECTOR],
+    requiredRoles: [UserRole.ADMIN, UserRole.RECTOR, UserRole.VICERRECTOR],
   },
   {
     title: "Secciones",
@@ -196,13 +197,18 @@ export const adminMenuItems: MenuItem[] = [
     title: "Años Lectivos",
     icon: GraduationCap,
     url: "/dashboard/academic-years",
-    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR],
+    requiredRoles: [UserRole.ADMIN, UserRole.RECTOR],
   },
   {
     title: "Reportes",
     icon: BarChart3,
     url: "/dashboard/reports",
-    requiredRoles: [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.VICERRECTOR, UserRole.COORDINADOR],
+    requiredRoles: [
+      UserRole.ADMIN,
+      UserRole.RECTOR,
+      UserRole.VICERRECTOR,
+      UserRole.COORDINADOR,
+    ],
   },
   {
     title: "Configuracion",
@@ -228,6 +234,7 @@ export function AppSidebar() {
   const { hasRole, hasAnyRole } = usePermissions();
   const pathname = usePathname();
   const { settings } = useSettings();
+  const pendingApprovalsCount = usePendingApprovalsCount();
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ?? "";
   const logoUrl = settings?.institution?.logoPath
@@ -315,9 +322,20 @@ export function AppSidebar() {
                 ) : (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={pathname === item.url}>
-                      <Link href={item.url} className="flex items-center">
-                        <item.icon className="h-4 w-4 mr-2" />
-                        {item.title}
+                      <Link
+                        href={item.url}
+                        className="flex items-center w-full"
+                      >
+                        <item.icon className="h-4 w-4 mr-2 shrink-0" />
+                        <span className="flex-1 truncate">{item.title}</span>
+                        {item.url === "/dashboard/workflows" &&
+                          pendingApprovalsCount > 0 && (
+                            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                              {pendingApprovalsCount > 99
+                                ? "99+"
+                                : pendingApprovalsCount}
+                            </span>
+                          )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -334,7 +352,7 @@ export function AppSidebar() {
           url: "",
           requiredRoles: [
             UserRole.ADMIN,
-            UserRole.DIRECTOR,
+            UserRole.RECTOR,
             UserRole.VICERRECTOR,
             UserRole.COORDINADOR,
           ],
@@ -370,9 +388,9 @@ export function AppSidebar() {
 
       {/* Footer - Selector de año lectivo + informacion del usuario */}
       <SidebarFooter className="border-t p-4">
-        <div className="pb-2">
+        {/* <div className="pb-2">
           <AcademicYearSelector />
-        </div>
+        </div> */}
         <div className="flex flex-col gap-2">
           <div className="text-sm">
             <div className="font-medium">{user?.name}</div>

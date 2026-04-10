@@ -24,6 +24,7 @@ import {
   GitBranch,
   CalendarDays,
   AlertCircle,
+  ClipboardList,
 } from "lucide-react";
 
 import {
@@ -40,7 +41,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 const PRIVILEGED_ROLES: UserRole[] = [
   UserRole.ADMIN,
-  UserRole.DIRECTOR,
+  UserRole.RECTOR,
   UserRole.VICERRECTOR,
   UserRole.COORDINADOR,
 ];
@@ -55,7 +56,7 @@ function getGreeting() {
 function roleLabel(role: string): string {
   const labels: Record<string, string> = {
     admin: "Administrador",
-    director: "Director",
+    rector: "Rector",
     vicerrector: "Vicerrector",
     coordinador: "Coordinador",
     profesor: "Profesor",
@@ -71,7 +72,7 @@ function roleLabel(role: string): string {
 function roleBadgeVariant(
   role: string
 ): "default" | "secondary" | "destructive" | "outline" {
-  if (role === "admin" || role === "director" || role === "vicerrector") return "destructive";
+  if (role === "admin" || role === "rector" || role === "vicerrector") return "destructive";
   if (role === "coordinador" || role === "moderador") return "default";
   return "secondary";
 }
@@ -485,11 +486,20 @@ export default function DashboardHomePage() {
             title="Calendario"
             desc="Vista por fecha"
           />
+          <RoleGuard roles={[UserRole.SECRETARIO, UserRole.PROFESOR]}>
+            <QuickLink
+              href="/dashboard/requests/new"
+              icon={<ClipboardList className="h-5 w-5 text-rose-600 dark:text-rose-400" />}
+              iconBg="bg-rose-100 dark:bg-rose-900"
+              title="Nueva Solicitud"
+              desc="Iniciar trámite"
+            />
+          </RoleGuard>
         </div>
       </div>
 
       {/* ── Panel Admin ── */}
-      <RoleGuard roles={[UserRole.ADMIN, UserRole.DIRECTOR]}>
+      <RoleGuard roles={[UserRole.ADMIN, UserRole.RECTOR]}>
         <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
           <CardContent className="pt-5 pb-5">
             <div className="flex items-start gap-4">

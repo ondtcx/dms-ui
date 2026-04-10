@@ -45,7 +45,7 @@ import {
 import { Users, UserPlus, Pencil, Trash2 } from "lucide-react";
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.DIRECTOR]: "Director",
+  [UserRole.RECTOR]: "Rector",
   [UserRole.VICERRECTOR]: "Vicerrector",
   [UserRole.COORDINADOR]: "Coordinador",
   [UserRole.PROFESOR]: "Profesor",
@@ -62,7 +62,7 @@ const ROLE_BADGE_VARIANT: Record<
   "default" | "secondary" | "destructive" | "outline"
 > = {
   admin: "destructive",
-  director: "destructive",
+  rector: "destructive",
   vicerrector: "destructive",
   coordinador: "default",
   moderador: "default",

@@ -1,5 +1,5 @@
 export enum UserRole {
-  DIRECTOR    = "director",
+  RECTOR    = "rector",
   VICERRECTOR = "vicerrector",
   COORDINADOR = "coordinador",
   PROFESOR = "profesor",
@@ -843,3 +843,25 @@ export interface DocumentComposition {
     parent: { id: number; filename: string; documentNumber: string | null };
   }[];
 }
+
+// ─── Upload Metadata ──────────────────────────────────────────────────────────
+
+export interface UploadMetadata {
+  categoryId: number | undefined;
+  courseId: number | undefined;
+  subjectId: number | undefined;
+  academicYearId: number | undefined;
+  documentTypeId: number | undefined;
+  description: string;
+  isPublic: boolean;
+}
+
+export const EMPTY_UPLOAD_METADATA: UploadMetadata = {
+  categoryId: undefined,
+  courseId: undefined,
+  subjectId: undefined,
+  academicYearId: undefined,
+  documentTypeId: undefined,
+  description: "",
+  isPublic: false,
+};

@@ -31,7 +31,7 @@ import { UserRole } from "@/lib/types";
 type ShareTarget = "usuario" | "rol" | "departamento" | "curso" | "link";
 
 const ROLE_LABELS: Record<string, string> = {
-  director: "Director",
+  rector: "Rector",
   coordinador: "Coordinador",
   profesor: "Profesor",
   secretario: "Secretario",

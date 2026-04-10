@@ -24,7 +24,7 @@ function AcademicYearsContent() {
 
 export default function AcademicYearsPage() {
   return (
-    <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.DIRECTOR]}>
+    <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.RECTOR]}>
       <AcademicYearsContent />
     </ProtectedRoute>
   );

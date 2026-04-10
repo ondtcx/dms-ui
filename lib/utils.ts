@@ -62,7 +62,7 @@ export function formatMimeType(mimetype: string): string {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  director: "Director/a",
+  rector: "Rector/a",
   coordinador: "Coordinador/a",
   profesor: "Profesor/a",
   secretario: "Secretario/a",
@@ -76,4 +76,12 @@ const ROLE_LABELS: Record<string, string> = {
 export function formatRole(role?: string | null): string {
   if (!role) return "";
   return ROLE_LABELS[role] ?? role;
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
 }

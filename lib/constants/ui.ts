@@ -33,7 +33,7 @@ export const CATEGORY_ICONS = [
 
 // Roles válidos para restricción de categorías (excluye admin y user legacy)
 export const CATEGORY_ROLES = [
-  { value: "director",    label: "Director" },
+  { value: "rector",    label: "Rector" },
   { value: "coordinador", label: "Coordinador" },
   { value: "profesor",    label: "Profesor" },
   { value: "secretario",  label: "Secretario" },

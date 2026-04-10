@@ -84,7 +84,8 @@ export const templatesService = {
   ): Promise<Document> {
     const response = await api.post<Document>(
       "/documents/from-template",
-      data
+      data,
+      { timeout: 120000 } // PDF generation via Puppeteer can take time
     );
     return response.data;
   },

@@ -20,7 +20,7 @@ const features = [
     color: "bg-indigo-50 text-indigo-700",
     title: "Flujos de aprobación",
     description:
-      "Configure circuitos de revisión multi-paso: el docente crea, el coordinador revisa, el director aprueba. Cada paso queda registrado con fecha, hora y responsable.",
+      "Configure circuitos de revisión multi-paso: el docente crea, el coordinador revisa, el rector aprueba. Cada paso queda registrado con fecha, hora y responsable.",
   },
   {
     icon: Shield,

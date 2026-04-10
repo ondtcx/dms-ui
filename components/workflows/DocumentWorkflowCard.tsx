@@ -222,7 +222,7 @@ export default function DocumentWorkflowCard({ documentId, categoryId, sectionId
   };
 
   const INITIATOR_ROLES = [
-    UserRole.ADMIN, UserRole.DIRECTOR, UserRole.COORDINADOR,
+    UserRole.ADMIN, UserRole.RECTOR, UserRole.COORDINADOR,
     UserRole.PROFESOR, UserRole.SECRETARIO,
   ];
   const canInitiate = user ? INITIATOR_ROLES.includes(user.role as UserRole) : false;

@@ -8,9 +8,9 @@ import PendingApprovalsTab from '@/components/workflows/PendingApprovalsTab';
 import WorkflowTemplatesTab from '@/components/workflows/WorkflowTemplatesTab';
 import MyInitiatedWorkflowsTab from '@/components/workflows/MyInitiatedWorkflowsTab';
 
-const TEMPLATE_MANAGER_ROLES = [UserRole.ADMIN, UserRole.DIRECTOR, UserRole.VICERRECTOR, UserRole.COORDINADOR];
+const TEMPLATE_MANAGER_ROLES = [UserRole.ADMIN, UserRole.RECTOR, UserRole.VICERRECTOR, UserRole.COORDINADOR];
 const INITIATOR_ROLES = [
-  UserRole.ADMIN, UserRole.DIRECTOR, UserRole.VICERRECTOR,
+  UserRole.ADMIN, UserRole.RECTOR, UserRole.VICERRECTOR,
   UserRole.COORDINADOR, UserRole.PROFESOR, UserRole.SECRETARIO,
 ];
 
@@ -25,7 +25,7 @@ export default function WorkflowsPage() {
       <div className="flex items-center gap-3">
         <CheckCircle2 className="h-8 w-8 text-primary" />
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Workflows</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Aprobaciones</h1>
           <p className="text-muted-foreground">
             Gestiona aprobaciones de documentos y plantillas de flujo
           </p>

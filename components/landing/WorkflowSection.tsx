@@ -18,7 +18,7 @@ const steps = [
   {
     icon: CheckCircle2,
     color: "bg-emerald-100 border-emerald-300 text-emerald-700",
-    title: "El director aprueba",
+    title: "El rector aprueba",
     description:
       "Da el visto bueno final. El documento queda aprobado y registrado oficialmente en el sistema con sello de aprobación.",
   },
