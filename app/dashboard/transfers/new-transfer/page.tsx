@@ -40,7 +40,6 @@ import type {
   Document,
   CreateTransferDto,
   User as UserType,
-  Department,
 } from "@/lib/types";
 
 function formatFileSize(bytes: number): string {
@@ -268,14 +267,14 @@ export default function NewTransferPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="truncate font-medium text-foreground">
-                                  {doc.filename}
+                                  {((doc?.versions?.[0]?.filename) ?? '')}
                                 </p>
                                 <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                                   <span>
                                     {doc.category?.name || "Sin categoría"}
                                   </span>
                                   <span>•</span>
-                                  <span>{formatFileSize(doc.size)}</span>
+                                  <span>{formatFileSize(((doc?.versions?.[0]?.size) ?? 0))}</span>
                                   <span>•</span>
                                   <span>
                                     {new Date(doc.createdAt).toLocaleDateString(
@@ -321,7 +320,7 @@ export default function NewTransferPage() {
                         className="flex items-center justify-between rounded bg-secondary/50 px-3 py-2 text-sm"
                       >
                         <span className="truncate text-foreground">
-                          {doc.filename}
+                          {((doc?.versions?.[0]?.filename) ?? '')}
                         </span>
                         <button
                           type="button"

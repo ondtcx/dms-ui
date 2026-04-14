@@ -107,7 +107,7 @@ export default function DocumentDetailPage() {
 
   // Cargar vista previa
   useEffect(() => {
-    if (doc && isPreviewable(doc.mimetype)) {
+    if (doc && isPreviewable(((doc?.versions?.[0]?.mimetype) ?? ''))) {
       loadPreview();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -119,7 +119,7 @@ export default function DocumentDetailPage() {
     setLoadingPreview(true);
     try {
       const blob = await documentsService.view(doc.id);
-      const typedBlob = new Blob([blob], { type: doc.mimetype });
+      const typedBlob = new Blob([blob], { type: ((doc?.versions?.[0]?.mimetype) ?? '') });
       const url = window.URL.createObjectURL(typedBlob);
       setPreviewUrl(url);
     } catch {
@@ -146,7 +146,7 @@ export default function DocumentDetailPage() {
       const url = window.URL.createObjectURL(blob);
       const a = window.document.createElement('a');
       a.href = url;
-      a.download = doc.filename;
+      a.download = ((doc?.versions?.[0]?.filename) ?? '');
       window.document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -210,7 +210,7 @@ export default function DocumentDetailPage() {
                 {doc.documentNumber && (
                   <p className="font-mono text-sm text-muted-foreground mb-0.5">{doc.documentNumber}</p>
                 )}
-                <h1 className="text-3xl font-bold">{doc.filename}</h1>
+                <h1 className="text-3xl font-bold">{((doc?.versions?.[0]?.filename) ?? '')}</h1>
                 {doc.isComposite && (
                   <Badge variant="secondary" className="gap-1 mt-1 w-fit">
                     <Layers className="h-3 w-3" />
@@ -306,13 +306,13 @@ export default function DocumentDetailPage() {
                 <iframe
                   src={previewUrl}
                   className="w-full h-[600px] border rounded-md"
-                  title={doc.filename}
+                  title={((doc?.versions?.[0]?.filename) ?? '')}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground">
                   <FileText className="h-16 w-16 mb-4" />
                   <p>Vista previa no disponible para este tipo de archivo</p>
-                  <p className="text-sm mt-1">{formatMimeType(doc.mimetype)}</p>
+                  <p className="text-sm mt-1">{formatMimeType(((doc?.versions?.[0]?.mimetype) ?? ''))}</p>
                   <Button variant="outline" className="mt-4" onClick={handleDownload}>
                     <Download className="mr-2 h-4 w-4" />
                     Descargar para ver
@@ -350,7 +350,7 @@ export default function DocumentDetailPage() {
                   <FileType className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">Tipo de archivo</p>
-                    <p className="text-sm text-muted-foreground">{formatMimeType(doc.mimetype)}</p>
+                    <p className="text-sm text-muted-foreground">{formatMimeType(((doc?.versions?.[0]?.mimetype) ?? ''))}</p>
                   </div>
                 </div>
 
@@ -360,7 +360,7 @@ export default function DocumentDetailPage() {
                   <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">Tamaño</p>
-                    <p className="text-sm text-muted-foreground">{formatFileSize(doc.size)}</p>
+                    <p className="text-sm text-muted-foreground">{formatFileSize(((doc?.versions?.[0]?.size) ?? 0))}</p>
                   </div>
                 </div>
 
@@ -431,12 +431,65 @@ export default function DocumentDetailPage() {
                   </div>
                 )}
 
+                {doc.academic?.course && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Curso / Grado</p>
+                    <Badge variant="secondary">
+                      {doc.academic.course.name}
+                    </Badge>
+                  </div>
+                )}
+
+                {doc.academic?.subject && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Materia</p>
+                    <Badge variant="secondary">
+                      {doc.academic.subject.name}
+                    </Badge>
+                  </div>
+                )}
+
                 {!doc.category && (
                   <p className="text-sm text-muted-foreground">Sin clasificación</p>
                 )}
               </div>
             </CardContent>
           </Card>
+
+          {/* Plantilla */}
+          {doc.template && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Plantilla</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-medium mb-1">Plantilla original</p>
+                    <Badge variant="outline">{doc.template.name}</Badge>
+                  </div>
+                  {doc.templateData && doc.templateData.formData && Object.keys(doc.templateData.formData).length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium mb-2 mt-4">Datos extraídos</p>
+                      <div className="space-y-2 text-sm text-muted-foreground border rounded-md p-3 bg-muted/50">
+                        {Object.entries(doc.templateData.formData).slice(0, 5).map(([key, value]) => (
+                          <div key={key} className="flex justify-between gap-4">
+                            <span className="font-medium truncate">{key}:</span>
+                            <span className="truncate">{String(value)}</span>
+                          </div>
+                        ))}
+                        {Object.keys(doc.templateData.formData).length > 5 && (
+                          <p className="text-xs text-center mt-2 pt-2 border-t">
+                            + {Object.keys(doc.templateData.formData).length - 5} campos más
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Workflow */}
           <DocumentWorkflowCard documentId={documentId} categoryId={doc?.categoryId} sectionId={doc?.category?.section?.id} />
@@ -500,7 +553,7 @@ export default function DocumentDetailPage() {
       {showReplaceDialog && (
         <ReplaceFileDialog
           documentId={doc.id}
-          documentName={doc.filename}
+          documentName={((doc?.versions?.[0]?.filename) ?? '')}
           open={showReplaceDialog}
           onOpenChange={setShowReplaceDialog}
         />
@@ -510,7 +563,7 @@ export default function DocumentDetailPage() {
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
         title="Eliminar documento"
-        description={`¿Estás seguro de eliminar "${doc.filename}"? El documento será enviado a la papelera.`}
+        description={`¿Estás seguro de eliminar "${((doc?.versions?.[0]?.filename) ?? '')}"? El documento será enviado a la papelera.`}
         confirmLabel="Eliminar"
         variant="destructive"
         loading={deleteMutation.isPending}

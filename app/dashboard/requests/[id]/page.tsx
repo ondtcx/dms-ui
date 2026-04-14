@@ -12,17 +12,7 @@ import { RequestStatusBadge } from "@/components/requests/RequestStatusBadge";
 import { RequestTimeline } from "@/components/requests/RequestTimeline";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   ArrowLeft,
   Download,
@@ -85,7 +75,7 @@ export default function RequestDetailPage({ params }: PageProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = workflow?.document?.filename ?? `documento-${documentId}`;
+      a.download = (workflow?.document?.versions?.[0]?.filename ?? '') || `documento-${documentId}`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -117,6 +107,8 @@ export default function RequestDetailPage({ params }: PageProps) {
     );
   }
 
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   const isCancellable = CANCELLABLE_STATUSES.includes(workflow.status);
   const isChangesRequested = workflow.status === WorkflowStatus.CHANGES_REQUESTED;
   const doc = workflow.document;
@@ -135,7 +127,7 @@ export default function RequestDetailPage({ params }: PageProps) {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="space-y-1">
           <h1 className="text-xl font-semibold">
-            {doc?.filename ?? `Solicitud #${workflow.id}`}
+            {((doc?.versions?.[0]?.filename) ?? '') ?? `Solicitud #${workflow.id}`}
           </h1>
           {workflow.template && (
             <p className="text-sm text-muted-foreground">{workflow.template.name}</p>
@@ -223,32 +215,25 @@ export default function RequestDetailPage({ params }: PageProps) {
           )}
 
           {isCancellable && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="text-destructive hover:text-destructive">
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Cancelar solicitud
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>¿Cancelar la solicitud?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta acción no se puede deshacer. La solicitud quedará cancelada y
-                    deberás crear una nueva si deseas continuar.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>No, mantener</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => cancelMutation.mutate(workflow.id)}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Sí, cancelar
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <>
+              <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setShowCancelConfirm(true)}>
+                <XCircle className="h-4 w-4 mr-2" />
+                Cancelar solicitud
+              </Button>
+              <ConfirmDialog
+                open={showCancelConfirm}
+                onOpenChange={setShowCancelConfirm}
+                title="¿Cancelar la solicitud?"
+                description="Esta acción no se puede deshacer. La solicitud quedará cancelada y deberás crear una nueva si deseas continuar."
+                confirmLabel="Sí, cancelar"
+                variant="destructive"
+                loading={cancelMutation.isPending}
+                onConfirm={() => {
+                  cancelMutation.mutate(workflow.id);
+                  setShowCancelConfirm(false);
+                }}
+              />
+            </>
           )}
         </div>
       )}

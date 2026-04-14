@@ -131,7 +131,7 @@ export default function SentPage() {
     const recipientName = t.toUser?.name || t.toDepartment?.name || "";
     const matchesSearch =
       searchQuery === "" ||
-      t.document.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ((t.document?.versions?.[0]?.filename) ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       recipientName.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === "all" || t.status === statusFilter;
@@ -225,7 +225,7 @@ export default function SentPage() {
                 </div>
               ) : (
                 filteredTransfers.map((transfer) => {
-                  const DocIcon = getDocIcon(transfer.document.mimetype);
+                  const DocIcon = getDocIcon(((transfer.document?.versions?.[0]?.mimetype) ?? ''));
                   const isPending = transfer.status === "PENDING";
                   const isCanceled = transfer.status === "CANCELED";
 
@@ -247,7 +247,7 @@ export default function SentPage() {
                               href={`/dashboard/documents/${transfer.document.id}`}
                               className="font-medium text-foreground hover:underline"
                             >
-                              {transfer.document.filename}
+                              {((transfer.document?.versions?.[0]?.filename) ?? '')}
                             </Link>
                             <Badge
                               variant="outline"
@@ -368,14 +368,14 @@ export default function SentPage() {
                 <div className="flex items-center gap-2 rounded bg-secondary/50 px-3 py-2">
                   {(() => {
                     const DocIcon = getDocIcon(
-                      selectedTransfer.document.mimetype,
+                      ((selectedTransfer.document?.versions?.[0]?.mimetype) ?? ''),
                     );
                     return (
                       <DocIcon className="h-4 w-4 text-muted-foreground" />
                     );
                   })()}
                   <span className="text-sm text-foreground">
-                    {selectedTransfer.document.filename}
+                    {((selectedTransfer.document?.versions?.[0]?.filename) ?? '')}
                   </span>
                 </div>
               </div>

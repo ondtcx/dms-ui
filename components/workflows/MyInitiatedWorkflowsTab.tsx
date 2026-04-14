@@ -158,7 +158,7 @@ export default function MyInitiatedWorkflowsTab() {
                               router.push(`/dashboard/documents/${workflow.documentId}`)
                             }
                           >
-                            {workflow.document?.filename ?? `Documento #${workflow.documentId}`}
+                            {((workflow.document?.versions?.[0]?.filename) ?? '') ?? `Documento #${workflow.documentId}`}
                             <ExternalLink className="h-3 w-3 text-muted-foreground" />
                           </button>
                         </div>
@@ -262,7 +262,7 @@ export default function MyInitiatedWorkflowsTab() {
         open={cancelConfirm !== null}
         onOpenChange={(open) => !open && setCancelConfirm(null)}
         title="Cancelar workflow"
-        description={`¿Cancelar el workflow de "${cancelConfirm?.document?.filename ?? `Documento #${cancelConfirm?.documentId}`}"?`}
+        description={`¿Cancelar el workflow de "${(cancelConfirm?.document?.versions?.[0]?.filename ?? '') || `Documento #${cancelConfirm?.documentId}`}"?`}
         confirmLabel="Cancelar workflow"
         variant="destructive"
         loading={cancelMutation.isPending}

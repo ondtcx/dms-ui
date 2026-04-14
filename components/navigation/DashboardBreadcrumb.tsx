@@ -82,7 +82,7 @@ export function DashboardBreadcrumb() {
     const prevSeg = segments[idx - 1];
 
     if (isNumeric) {
-      if (prevSeg === "documents") return doc?.filename ?? "...";
+      if (prevSeg === "documents") return ((doc?.versions?.[0]?.filename) ?? '') ?? "...";
       return seg;
     }
 

@@ -124,7 +124,7 @@ function ReceivedTab() {
   const filtered = useMemo(
     () =>
       shares.filter((s) =>
-        s.document.filename.toLowerCase().includes(search.toLowerCase()) ||
+        ((s.document?.versions?.[0]?.filename) ?? '').toLowerCase().includes(search.toLowerCase()) ||
         s.sharedBy.name.toLowerCase().includes(search.toLowerCase()),
       ),
     [shares, search],
@@ -155,7 +155,7 @@ function ReceivedTab() {
             >
               <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{share.document.filename}</p>
+                <p className="truncate text-sm font-medium">{((share.document?.versions?.[0]?.filename) ?? '')}</p>
                 <p className="text-xs text-muted-foreground">
                   Compartido por <span className="font-medium">{share.sharedBy.name}</span>
                   {" · "}
@@ -230,7 +230,7 @@ function SentTab() {
   const filtered = useMemo(() => {
     return shares.filter((s) => {
       const matchesSearch =
-        s.document.filename.toLowerCase().includes(search.toLowerCase());
+        ((s.document?.versions?.[0]?.filename) ?? '').toLowerCase().includes(search.toLowerCase());
       const matchesStatus =
         statusFilter === "todos" || getShareStatus(s) === statusFilter;
       return matchesSearch && matchesStatus;
@@ -282,7 +282,7 @@ function SentTab() {
               >
                 <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{share.document.filename}</p>
+                  <p className="truncate text-sm font-medium">{((share.document?.versions?.[0]?.filename) ?? '')}</p>
                   <div className="mt-0.5">
                     <RecipientCell share={share} />
                   </div>
@@ -385,7 +385,7 @@ function PublicLinksTab() {
       allSent
         .filter((s) => s.isPublicLink)
         .filter((s) =>
-          s.document.filename.toLowerCase().includes(search.toLowerCase()),
+          ((s.document?.versions?.[0]?.filename) ?? '').toLowerCase().includes(search.toLowerCase()),
         ),
     [allSent, search],
   );
@@ -423,7 +423,7 @@ function PublicLinksTab() {
               >
                 <Link2 className="h-5 w-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{share.document.filename}</p>
+                  <p className="truncate text-sm font-medium">{((share.document?.versions?.[0]?.filename) ?? '')}</p>
                   <div className="mt-1 flex items-center gap-2">
                     <span className="font-mono text-xs text-muted-foreground">
                       {share.shareToken.slice(0, 16)}…

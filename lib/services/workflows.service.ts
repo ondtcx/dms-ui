@@ -55,7 +55,7 @@ export const workflowsService = {
     try {
       const response = await api.get(`/workflows/documents/${documentId}`, {
         silentErrors: [404],
-      });
+      } as any);
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {

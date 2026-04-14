@@ -116,7 +116,7 @@ export default function ArchivePage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = doc.filename;
+      a.download = ((doc?.versions?.[0]?.filename) ?? '');
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -279,7 +279,7 @@ export default function ArchivePage() {
                         <div className="flex-1 min-w-0 space-y-1.5">
                           <div className="flex items-center gap-2 flex-wrap">
                             <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                            <span className="font-medium truncate">{doc.filename}</span>
+                            <span className="font-medium truncate">{((doc?.versions?.[0]?.filename) ?? '')}</span>
                             {doc.category && (
                               <Badge
                                 variant="outline"
@@ -296,7 +296,7 @@ export default function ArchivePage() {
                           <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <FileText className="h-3 w-3" />
-                              {formatFileSize(doc.size)}
+                              {formatFileSize(((doc?.versions?.[0]?.size) ?? 0))}
                             </span>
                             <span className="flex items-center gap-1">
                               <User className="h-3 w-3" />

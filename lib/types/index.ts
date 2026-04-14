@@ -137,6 +137,8 @@ export interface DocumentVersion {
   id: number;
   documentId: number;
   version: number;
+  filename: string;
+  mimetype: string;
   storedName: string;
   path: string;
   size: number;
@@ -173,13 +175,39 @@ export interface DocumentAccess {
   createdAt: string;
 }
 
+export interface DocumentAcademic {
+  id: number;
+  documentId: number;
+  courseId: number | null;
+  course?: { id: number; name: string; code: string } | null;
+  subjectId: number | null;
+  subject?: { id: number; name: string; code: string } | null;
+  academicYearId: number | null;
+  academicYear?: { id: number; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentSearch {
+  id: number;
+  documentId: number;
+  content: string | null;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocumentTemplateData {
+  id: number;
+  documentId: number;
+  formData: Record<string, unknown> | null;
+  generatedHtml: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Document {
   id: number;
-  filename: string;
-  storedName: string;
-  mimetype: string;
-  size: number;
-  path: string;
   description: string | null;
   categoryId: number | null;
   category: (Category & { section?: { id: number; name: string; color: string; icon: string } | null }) | null;
@@ -199,10 +227,8 @@ export interface Document {
     name: string;
     documentType?: { id: number; name: string } | null;
   };
-  formData: Record<string, unknown> | null;
   currentVersion: number;
   versions?: DocumentVersion[];
-  checksumSHA256: string | null;
   workflow?: {
     id: number;
     status: WorkflowStatus;
@@ -221,6 +247,9 @@ export interface Document {
   documentNumber: string | null;
   accesses?: DocumentAccess[];
   isComposite?: boolean;
+  academic?: DocumentAcademic | null;
+  search?: DocumentSearch | null;
+  templateData?: DocumentTemplateData | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -643,9 +672,7 @@ export interface TransferHistory {
   documentId: number;
   document: {
     id: number;
-    filename: string;
-    mimetype: string;
-    size: number;
+    versions?: { filename: string; mimetype: string; size: number }[];
     description: string | null;
     category: { id: number; name: string; color: string } | null;
     section: { id: number; name: string; color: string } | null;
@@ -735,9 +762,7 @@ export interface DocumentShare {
   documentId: number;
   document: {
     id: number;
-    filename: string;
-    mimetype: string;
-    size: number;
+    versions?: { filename: string; mimetype: string; size: number }[];
     createdAt: string;
   };
   // Destinatario (solo uno estará presente)
@@ -815,8 +840,7 @@ export interface AcademicYearListResponse {
 
 export interface CompositionChild {
   id: number;
-  filename: string;
-  mimetype: string;
+  versions?: { filename: string; mimetype: string }[];
   templateId: number | null;
   documentNumber: string | null;
   category: { id: number; name: string; color: string } | null;
@@ -840,7 +864,7 @@ export interface DocumentComposition {
   components: DocumentCompositionItem[];
   partOf: {
     id: number;
-    parent: { id: number; filename: string; documentNumber: string | null };
+    parent: { id: number; versions?: { filename: string }[]; documentNumber: string | null };
   }[];
 }
 

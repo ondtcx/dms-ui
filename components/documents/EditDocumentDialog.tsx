@@ -42,7 +42,7 @@ export function EditDocumentDialog({
   const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
-    filename: document.filename,
+    filename: ((document?.versions?.[0]?.filename) ?? ''),
     description: document.description || "",
     categoryId: document.categoryId,
     isPublic: document.isPublic,
@@ -51,7 +51,7 @@ export function EditDocumentDialog({
   // Actualizar form cuando cambia el documento
   useEffect(() => {
     setFormData({
-      filename: document.filename,
+      filename: ((document?.versions?.[0]?.filename) ?? ''),
       description: document.description || "",
       categoryId: document.categoryId,
       isPublic: document.isPublic,

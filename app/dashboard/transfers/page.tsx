@@ -186,7 +186,7 @@ export default function TransfersPage() {
                         </div>
                         <div>
                           <p className="font-medium text-foreground">
-                            {transfer.document.filename}
+                            {((transfer.document?.versions?.[0]?.filename) ?? '')}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             Para: {transfer.toUser?.name || transfer.toDepartment?.name || "Departamento"}
@@ -247,7 +247,7 @@ export default function TransfersPage() {
                         </div>
                         <div>
                           <p className="font-medium text-foreground">
-                            {transfer.document.filename}
+                            {((transfer.document?.versions?.[0]?.filename) ?? '')}
                           </p>
                           <p className="text-sm text-muted-foreground">
                             De: {transfer.fromUser.name}

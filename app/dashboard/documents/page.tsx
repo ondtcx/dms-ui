@@ -739,7 +739,7 @@ export default function DocumentsPage() {
           <DialogContent className="sm:max-w-[90vw] sm:max-h-[90vh] h-[90vh]">
             <DialogHeader>
               <DialogTitle>
-                Vista Previa: {previewDocument?.filename}
+                Vista Previa: {((previewDocument?.versions?.[0]?.filename) ?? '')}
               </DialogTitle>
               <DialogDescription>
                 {previewDocument?.description ||
@@ -759,7 +759,7 @@ export default function DocumentsPage() {
                 <iframe
                   src={previewUrl}
                   className="w-full h-full border rounded-md"
-                  title={previewDocument?.filename}
+                  title={((previewDocument?.versions?.[0]?.filename) ?? '')}
                 />
               ) : null}
             </div>
@@ -774,7 +774,7 @@ export default function DocumentsPage() {
               {previewDocument && (
                 <Button
                   onClick={() =>
-                    handleDownload(previewDocument.id, previewDocument.filename)
+                    handleDownload(previewDocument.id, ((previewDocument?.versions?.[0]?.filename) ?? ''))
                   }
                   disabled={loadingPreview}
                 >
@@ -800,7 +800,7 @@ export default function DocumentsPage() {
         {replaceFileDocument && (
           <ReplaceFileDialog
             documentId={replaceFileDocument.id}
-            documentName={replaceFileDocument.filename}
+            documentName={replaceFileDocument.versions?.[0]?.filename ?? ''}
             open={showReplaceFile}
             onOpenChange={setShowReplaceFile}
           />

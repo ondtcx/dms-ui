@@ -355,7 +355,7 @@ export default function DashboardHomePage() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
-                        {doc.filename}
+                        {((doc?.versions?.[0]?.filename) ?? '')}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {doc.uploadedBy.name}
@@ -422,7 +422,7 @@ export default function DashboardHomePage() {
                 {(pendingApprovals ?? []).slice(0, 4).map((wf) => (
                   <div key={wf.id} className="px-4 py-3 space-y-1">
                     <p className="text-sm font-medium truncate">
-                      {wf.document?.filename ?? `Documento #${wf.documentId}`}
+                      {((wf.document?.versions?.[0]?.filename) ?? '') ?? `Documento #${wf.documentId}`}
                     </p>
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs text-muted-foreground truncate">

@@ -142,7 +142,7 @@ export function SearchBar() {
                     <TrendingUp className="mr-2 h-4 w-4 text-muted-foreground" />
                     <span className="flex-1">{p.query}</span>
                     <span className="text-xs text-muted-foreground">
-                      {p.count}×
+                      {(p as any).count ?? p.resultCount}×
                     </span>
                   </CommandItem>
                 ))}

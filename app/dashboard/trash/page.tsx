@@ -208,7 +208,7 @@ export default function TrashPage() {
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center gap-3 flex-wrap">
                         <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        <h3 className="font-medium truncate">{doc.filename}</h3>
+                        <h3 className="font-medium truncate">{((doc?.versions?.[0]?.filename) ?? '')}</h3>
                         {doc.deletedAt && daysInTrash(doc.deletedAt) >= 25 && (
                           <Badge variant="destructive">
                             Eliminación automática en {30 - daysInTrash(doc.deletedAt)} días
@@ -219,7 +219,7 @@ export default function TrashPage() {
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <FileText className="h-3 w-3" />
-                          {formatFileSize(doc.size)}
+                          {formatFileSize(((doc?.versions?.[0]?.size) ?? 0))}
                         </span>
 
                         <span className="flex items-center gap-1">

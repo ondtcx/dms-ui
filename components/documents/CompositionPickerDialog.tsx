@@ -98,8 +98,8 @@ export function CompositionPickerDialog({ parentId, alreadyAddedIds, open, onOpe
           ) : (
             <div className="space-y-1 pr-2">
               {filtered.map((doc: any) => {
-                const mime = getMimeLabel(doc.mimetype);
-                const isNonPdf = doc.mimetype !== 'application/pdf' && !doc.templateId;
+                const mime = getMimeLabel(((doc?.versions?.[0]?.mimetype) ?? ''));
+                const isNonPdf = ((doc?.versions?.[0]?.mimetype) ?? '') !== 'application/pdf' && !doc.templateId;
                 const isAdding = addMutation.isPending && addMutation.variables === doc.id;
 
                 return (
@@ -109,7 +109,7 @@ export function CompositionPickerDialog({ parentId, alreadyAddedIds, open, onOpe
                   >
                     <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{doc.filename}</p>
+                      <p className="text-sm font-medium truncate">{((doc?.versions?.[0]?.filename) ?? '')}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         {doc.documentNumber && (
                           <span className="text-xs font-mono text-muted-foreground">{doc.documentNumber}</span>

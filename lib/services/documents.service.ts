@@ -38,9 +38,15 @@ export const documentsService = {
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
     if (data.sectionId) formData.append("sectionId", String(data.sectionId));
-    if (data.courseId) formData.append("courseId", String(data.courseId));
-    if (data.subjectId) formData.append("subjectId", String(data.subjectId));
-    if (data.academicYearId) formData.append("academicYearId", String(data.academicYearId));
+    
+    // Group academic fields into a nested object and stringify it
+    if (data.courseId || data.subjectId || data.academicYearId) {
+      formData.append("academic", JSON.stringify({
+        ...(data.courseId && { courseId: data.courseId }),
+        ...(data.subjectId && { subjectId: data.subjectId }),
+        ...(data.academicYearId && { academicYearId: data.academicYearId }),
+      }));
+    }
 
     if (data.isPublic !== undefined) {
       formData.append("isPublic", String(data.isPublic));
@@ -70,6 +76,14 @@ export const documentsService = {
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
     if (data.sectionId) formData.append("sectionId", String(data.sectionId));
 
+    if (data.courseId || data.subjectId || data.academicYearId) {
+      formData.append("academic", JSON.stringify({
+        ...(data.courseId && { courseId: data.courseId }),
+        ...(data.subjectId && { subjectId: data.subjectId }),
+        ...(data.academicYearId && { academicYearId: data.academicYearId }),
+      }));
+    }
+
     if (data.isPublic !== undefined) {
       formData.append("isPublic", String(data.isPublic));
     }
@@ -91,7 +105,20 @@ export const documentsService = {
     id: number,
     data: Partial<UploadDocumentDto>,
   ): Promise<Document> {
-    const response = await api.patch<Document>(`/documents/${id}`, data);
+    const payload: any = { ...data };
+    
+    if (data.courseId !== undefined || data.subjectId !== undefined || data.academicYearId !== undefined) {
+      payload.academic = {
+        ...(data.courseId !== undefined && { courseId: data.courseId }),
+        ...(data.subjectId !== undefined && { subjectId: data.subjectId }),
+        ...(data.academicYearId !== undefined && { academicYearId: data.academicYearId }),
+      };
+      delete payload.courseId;
+      delete payload.subjectId;
+      delete payload.academicYearId;
+    }
+
+    const response = await api.patch<Document>(`/documents/${id}`, payload);
     return response.data;
   },
 

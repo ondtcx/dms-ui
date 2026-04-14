@@ -227,8 +227,8 @@ export default function ReportsPage() {
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label={({ categoryName, percent }) =>
-                    percent > 0.05 ? `${categoryName} (${Math.round(percent * 100)}%)` : ''
+                  label={({ name, percent }) =>
+                    (percent ?? 0) > 0.05 ? `${name} (${Math.round((percent ?? 0) * 100)}%)` : ''
                   }
                   labelLine={false}
                 >
@@ -239,7 +239,7 @@ export default function ReportsPage() {
                     />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [value, 'Documentos']} />
+                <Tooltip formatter={(value: any) => [value, 'Documentos']} />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>

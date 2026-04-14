@@ -21,7 +21,7 @@ export function useDocumentThumbnails(documents: Document[] | undefined) {
       if (!documents) return;
 
       for (const doc of documents) {
-        if (!doc.mimetype.startsWith("image/") && doc.mimetype !== "application/pdf") continue;
+        if (!((doc?.versions?.[0]?.mimetype) ?? '').startsWith("image/") && ((doc?.versions?.[0]?.mimetype) ?? '') !== "application/pdf") continue;
         if (thumbnailUrls[doc.id]?.updatedAt === doc.updatedAt) continue;
 
         try {

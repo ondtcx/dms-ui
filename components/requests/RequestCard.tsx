@@ -49,7 +49,7 @@ export function RequestCard({ workflow }: RequestCardProps) {
           <div className="flex-1 min-w-0 space-y-1">
             {/* Document name */}
             <p className="text-sm font-medium truncate">
-              {workflow.document?.filename ?? `Solicitud #${workflow.id}`}
+              {((workflow.document?.versions?.[0]?.filename) ?? '') ?? `Solicitud #${workflow.id}`}
             </p>
 
             {/* Workflow type */}

@@ -161,16 +161,16 @@ export default function BatchDetailPage() {
                           href={`/dashboard/documents/${doc.id}`}
                           className="font-medium hover:underline truncate block"
                         >
-                          {doc.filename}
+                          {((doc?.versions?.[0]?.filename) ?? '')}
                         </Link>
                         <div className="flex flex-wrap items-center gap-2 mt-0.5">
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <FileType className="h-3 w-3" />
-                            {formatMimeType(doc.mimetype)}
+                            {formatMimeType(((doc?.versions?.[0]?.mimetype) ?? ''))}
                           </span>
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <FileText className="h-3 w-3" />
-                            {formatFileSize(doc.size)}
+                            {formatFileSize(((doc?.versions?.[0]?.size) ?? 0))}
                           </span>
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <User className="h-3 w-3" />

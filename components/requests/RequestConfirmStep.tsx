@@ -35,7 +35,7 @@ export function RequestConfirmStep({ workflow, onNewRequest }: RequestConfirmSte
           <div>
             <p className="text-xs text-muted-foreground">Documento</p>
             <p className="text-sm font-medium truncate">
-              {workflow.document?.filename ?? "—"}
+              {((workflow.document?.versions?.[0]?.filename) ?? '') ?? "—"}
             </p>
           </div>
         </div>

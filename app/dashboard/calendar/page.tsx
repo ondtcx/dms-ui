@@ -122,7 +122,7 @@ export default function CalendarioPage() {
       // Convertir documentos a eventos del calendario
       const calendarEvents: CalendarEvent[] = data.documents.map((doc) => ({
         id: doc.id,
-        title: doc.filename,
+        title: ((doc?.versions?.[0]?.filename) ?? ''),
         start: new Date(doc.createdAt),
         end: new Date(doc.createdAt),
         resource: doc,
@@ -166,7 +166,7 @@ export default function CalendarioPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = doc.filename;
+      a.download = ((doc?.versions?.[0]?.filename) ?? '');
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -404,7 +404,7 @@ export default function CalendarioPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              {selectedDocument?.filename}
+              {((selectedDocument?.versions?.[0]?.filename) ?? '')}
             </DialogTitle>
             <DialogDescription>
               Detalles del documento
@@ -419,11 +419,11 @@ export default function CalendarioPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Tamaño:</span>
-                      <span>{formatFileSize(selectedDocument.size)}</span>
+                      <span>{formatFileSize(((selectedDocument?.versions?.[0]?.size) ?? 0))}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Tipo:</span>
-                      <span>{formatMimeType(selectedDocument.mimetype)}</span>
+                      <span>{formatMimeType(((selectedDocument?.versions?.[0]?.mimetype) ?? ''))}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subido por:</span>
@@ -486,7 +486,7 @@ export default function CalendarioPage() {
       <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
         <DialogContent className="max-w-[90vw] max-h-[90vh] h-[90vh]">
           <DialogHeader>
-            <DialogTitle>Vista Previa: {previewDocument?.filename}</DialogTitle>
+            <DialogTitle>Vista Previa: {((previewDocument?.versions?.[0]?.filename) ?? '')}</DialogTitle>
             <DialogDescription>
               {previewDocument?.description || 'Previsualización del documento'}
             </DialogDescription>
@@ -504,7 +504,7 @@ export default function CalendarioPage() {
               <iframe
                 src={previewUrl}
                 className="w-full h-full border rounded-md"
-                title={previewDocument?.filename}
+                title={((previewDocument?.versions?.[0]?.filename) ?? '')}
               />
             ) : null}
           </div>

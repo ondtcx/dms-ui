@@ -76,7 +76,7 @@ const ROLE_BADGE_VARIANT: Record<
 function UsersManagementContent() {
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
     name: "",

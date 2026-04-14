@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import {
@@ -52,7 +53,7 @@ function formatDate(dateStr: string) {
   });
 }
 
-export default function SearchPage() {
+function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -139,7 +140,7 @@ export default function SearchPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = doc.filename;
+      a.download = ((doc?.versions?.[0]?.filename) ?? '');
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -211,7 +212,7 @@ export default function SearchPage() {
                       {p.query}
                     </span>
                     <Badge variant="secondary" className="text-xs">
-                      {p.count}×
+                      {(p as any).count ?? p.resultCount}×
                     </Badge>
                   </button>
                 ))}
@@ -286,12 +287,12 @@ export default function SearchPage() {
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <div className="mt-0.5 shrink-0">
-                    {getFileIcon(doc.mimetype)}
+                    {getFileIcon(((doc?.versions?.[0]?.mimetype) ?? ''))}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-sm truncate">{doc.filename}</p>
+                      <p className="font-medium text-sm truncate">{((doc?.versions?.[0]?.filename) ?? '')}</p>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button
                           variant="ghost"
@@ -331,7 +332,7 @@ export default function SearchPage() {
                         {formatDate(doc.createdAt)}
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        {formatBytes(doc.size)}
+                        {formatBytes(((doc?.versions?.[0]?.size) ?? 0))}
                       </span>
                     </div>
                   </div>
@@ -371,5 +372,14 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  );
+}
+
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="p-8 flex justify-center"><Skeleton className="h-8 w-64" /></div>}>
+      <SearchContent />
+    </Suspense>
   );
 }

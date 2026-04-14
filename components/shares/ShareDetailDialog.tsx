@@ -128,8 +128,8 @@ export function ShareDetailDialog({ share, open, onOpenChange }: Props) {
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">{share.document.filename}</p>
-                <p className="text-xs text-muted-foreground">{formatBytes(share.document.size)}</p>
+                <p className="text-sm font-medium">{((share.document?.versions?.[0]?.filename) ?? '')}</p>
+                <p className="text-xs text-muted-foreground">{formatBytes(((share.document?.versions?.[0]?.size) ?? 0))}</p>
               </div>
             </div>
           </div>

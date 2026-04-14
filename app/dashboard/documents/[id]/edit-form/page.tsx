@@ -75,9 +75,9 @@ export default function EditDocumentFormPage() {
       mode="edit"
       template={template}
       documentId={documentId}
-      initialFormData={(doc.formData as Record<string, unknown>) ?? {}}
+      initialFormData={(doc?.templateData?.formData as Record<string, unknown>) ?? {}}
       initialMeta={{
-        filename: doc.filename,
+        filename: ((doc?.versions?.[0]?.filename) ?? ''),
         description: doc.description ?? "",
         categoryId: doc.categoryId ?? undefined,
         isPublic: doc.isPublic,

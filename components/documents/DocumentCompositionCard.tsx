@@ -65,8 +65,8 @@ function SortableItem({ item, onRemove, isRemoving }: SortableItemProps) {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const mime = getMimeLabel(item.child.mimetype);
-  const isNonPdf = item.child.mimetype !== 'application/pdf' && !item.child.templateId;
+  const mime = getMimeLabel(item.child.versions?.[0]?.mimetype || '');
+  const isNonPdf = item.child.versions?.[0]?.mimetype !== 'application/pdf' && !item.child.templateId;
 
   return (
     <div
@@ -89,7 +89,7 @@ function SortableItem({ item, onRemove, isRemoving }: SortableItemProps) {
           href={`/dashboard/documents/${item.childId}`}
           className="text-sm font-medium truncate hover:underline block"
         >
-          {item.label || item.child.filename}
+          {item.label || item.child.versions?.[0]?.filename}
         </Link>
         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
           {item.child.documentNumber && (
@@ -260,7 +260,7 @@ export function DocumentCompositionCard({ documentId }: Props) {
                 Agregar documento
               </Button>
 
-              {components.some((c) => c.child.mimetype !== 'application/pdf' && !c.child.templateId) && (
+              {components.some((c) => c.child.versions?.[0]?.mimetype !== 'application/pdf' && !c.child.templateId) && (
                 <p className="text-xs text-amber-600 flex items-center gap-1">
                   <AlertTriangle className="h-3 w-3" />
                   Los archivos con ⚠ no se incluyen en el PDF combinado
@@ -306,7 +306,7 @@ export function DocumentCompositionCard({ documentId }: Props) {
                     >
                       <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-sm truncate">{rel.parent.filename}</p>
+                        <p className="text-sm truncate">{rel.parent.versions?.[0]?.filename}</p>
                         {rel.parent.documentNumber && (
                           <p className="text-xs font-mono text-muted-foreground">{rel.parent.documentNumber}</p>
                         )}

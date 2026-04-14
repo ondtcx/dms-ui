@@ -180,7 +180,7 @@ export default function PendingApprovalsTab() {
                                 router.push(`/dashboard/documents/${workflow.documentId}`)
                               }
                             >
-                              {workflow.document?.filename ?? `Documento #${workflow.documentId}`}
+                              {((workflow.document?.versions?.[0]?.filename) ?? '') ?? `Documento #${workflow.documentId}`}
                               <ExternalLink className="h-3 w-3 text-muted-foreground" />
                             </button>
                             {workflow.document?.description && (
@@ -266,9 +266,9 @@ export default function PendingApprovalsTab() {
           <DialogHeader>
             <DialogTitle>{ACTION_CONFIG[approvalAction].confirmLabel}</DialogTitle>
             <DialogDescription>
-              {selectedWorkflow?.document?.filename && (
+              {selectedWorkflow?.document?.versions?.[0]?.filename && (
                 <span className="font-medium">
-                  {selectedWorkflow.document.filename}
+                  {((selectedWorkflow.document?.versions?.[0]?.filename) ?? '')}
                   {' — '}
                 </span>
               )}

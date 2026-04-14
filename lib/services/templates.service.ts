@@ -118,7 +118,7 @@ export const templatesService = {
       responseType: "blob",
       timeout: 60000, // Puppeteer puede tardar bastante en generar el PDF
       silentErrors: [404, 503],
-    });
+    } as any);
     return response.data;
   },
 };

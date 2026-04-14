@@ -24,7 +24,7 @@ export const usersService = {
     return response.data;
   },
 
-  async getOne(id: number): Promise<User> {
+  async getOne(id: string): Promise<User> {
     const response = await api.get<User>(`/users/${id}`);
     return response.data;
   },
@@ -34,12 +34,12 @@ export const usersService = {
     return response.data;
   },
 
-  async update(id: number, data: Partial<CreateUserDto>): Promise<User> {
+  async update(id: string, data: Partial<CreateUserDto>): Promise<User> {
     const response = await api.patch<User>(`/users/${id}`, data);
     return response.data;
   },
 
-  async delete(id: number): Promise<void> {
+  async delete(id: string): Promise<void> {
     await api.delete(`/users/${id}`);
   },
 };

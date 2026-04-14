@@ -69,7 +69,7 @@ function getFilePreviewContent(doc: Document): string {
   if (doc.template) {
     return `Documento generado desde plantilla "${doc.template.name}"${doc.template.documentType ? ` • Tipo: ${doc.template.documentType.name}` : ""}`;
   }
-  const fileType = formatMimeType(doc.mimetype);
+  const fileType = formatMimeType(((doc?.versions?.[0]?.mimetype) ?? ''));
   const uploadInfo = `Subido por ${doc.uploadedBy.name} el ${formatDate(doc.createdAt)}`;
   return `Archivo ${fileType} • ${uploadInfo}`;
 }
@@ -113,7 +113,7 @@ export function DocumentListItem({
   isOwn,
   isDeleting,
 }: DocumentListItemProps) {
-  const FileIcon = getFileIcon(doc.mimetype, !!doc.template);
+  const FileIcon = getFileIcon(((doc?.versions?.[0]?.mimetype) ?? ''), !!doc.template);
   const previewContent = getFilePreviewContent(doc);
   const ownerInitials = doc.uploadedBy.name
     .split(" ")
@@ -140,7 +140,7 @@ export function DocumentListItem({
             {thumbnailUrl ? (
               <img
                 src={thumbnailUrl}
-                alt={doc.filename}
+                alt={((doc?.versions?.[0]?.filename) ?? '')}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -169,7 +169,7 @@ export function DocumentListItem({
               )}
               <h3 className="font-medium text-lg leading-tight">
                 <Link href={`/dashboard/documents/${doc.id}`} className="hover:underline">
-                  {doc.filename}
+                  {((doc?.versions?.[0]?.filename) ?? '')}
                 </Link>
               </h3>
             </div>
@@ -181,7 +181,7 @@ export function DocumentListItem({
                 <span className="hidden sm:inline">Ver</span>
               </Button>
 
-              <Button onClick={() => onDownload(doc.id, doc.filename)} variant="default" size="sm">
+              <Button onClick={() => onDownload(doc.id, ((doc?.versions?.[0]?.filename) ?? ''))} variant="default" size="sm">
                 <Download className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Descargar</span>
               </Button>
@@ -307,7 +307,7 @@ export function DocumentListItem({
           <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <FileText className="h-3 w-3" />
-              {formatFileSize(doc.size)}
+              {formatFileSize(((doc?.versions?.[0]?.size) ?? 0))}
             </span>
             <span className="flex items-center gap-1">
               <User className="h-3 w-3" />
