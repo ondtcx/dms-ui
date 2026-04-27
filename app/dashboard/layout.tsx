@@ -1,11 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { NotificationsDropdown } from "@/components/notifications/notifications-dropdown";
-import { SearchBar } from "@/components/search/SearchBar";
 import { DashboardBreadcrumb } from "@/components/navigation/DashboardBreadcrumb";
+import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -26,12 +27,15 @@ export default function DashboardLayout({
                 <SidebarTrigger />
                 <DashboardBreadcrumb />
               </div>
-              <div className="flex-1 max-w-md mx-6">
-                <SearchBar />
+              <div className="flex-1 mx-6 flex justify-center">
+                <Button asChild variant="outline" className="gap-2">
+                  <Link href="/dashboard/documents">
+                    <Search className="h-4 w-4" />
+                    Buscar en documentos
+                  </Link>
+                </Button>
               </div>
-              <div className="flex items-center gap-2">
-                <NotificationsDropdown />
-              </div>
+              <div className="w-10" />
             </div>
           </header>
 

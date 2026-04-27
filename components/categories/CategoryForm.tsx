@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { sectionsService } from "@/lib/services/sections.service";
 import { Category, CreateCategoryDto } from "@/lib/types";
-import { UI_COLORS, CATEGORY_ICONS, CATEGORY_ROLES } from "@/lib/constants/ui";
+import { UI_COLORS, CATEGORY_ICONS } from "@/lib/constants/ui";
 import { derivePrefix } from "@/lib/utils/document-numbering";
+import { useRoles } from "@/hooks/useRoles";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,11 +43,13 @@ export function CategoryForm({
     isActive:       initialValues?.isActive ?? true,
     sectionId:      initialValues?.sectionId ?? null as number | null,
     requiresCourse: initialValues?.requiresCourse ?? false,
-    allowedRoles:   initialValues?.allowedRoles ?? [] as string[],
+    roleIds:        initialValues?.roleIds ?? initialValues?.roles?.map((r) => r.roleId) ?? [] as string[],
     prefix:         initialValues?.prefix ?? "",
   });
 
   const autoPrefix = derivePrefix(values.name);
+
+  const { data: rolesData } = useRoles();
 
   // Misma queryKey que el resto de la app → comparte caché sin fetch redundante
   const { data: sectionsResponse } = useQuery({
@@ -54,12 +57,12 @@ export function CategoryForm({
     queryFn: () => sectionsService.getAll({ isActive: true, limit: 100 }),
   });
 
-  const toggleRole = (role: string) => {
+  const toggleRole = (roleId: string) => {
     setValues((prev) => ({
       ...prev,
-      allowedRoles: prev.allowedRoles.includes(role)
-        ? prev.allowedRoles.filter((r) => r !== role)
-        : [...prev.allowedRoles, role],
+      roleIds: prev.roleIds.includes(roleId)
+        ? prev.roleIds.filter((r) => r !== roleId)
+        : [...prev.roleIds, roleId],
     }));
   };
 
@@ -74,7 +77,7 @@ export function CategoryForm({
       sectionId:      values.sectionId,
       requiresCourse: values.requiresCourse,
       // array vacío → undefined para que el backend interprete "sin restricción"
-      allowedRoles:   values.allowedRoles.length > 0 ? values.allowedRoles : undefined,
+      roleIds:        values.roleIds.length > 0 ? values.roleIds : undefined,
       prefix:         values.prefix.trim() || undefined,
     });
   };
@@ -245,17 +248,17 @@ export function CategoryForm({
           Sin selección = acceso para todos los roles
         </p>
         <div className="flex flex-wrap gap-2">
-          {CATEGORY_ROLES.map((role) => {
-            const selected = values.allowedRoles.includes(role.value);
+          {rolesData?.map((role) => {
+            const selected = values.roleIds.includes(role.id);
             return (
               <Badge
-                key={role.value}
+                key={role.id}
                 variant={selected ? "default" : "outline"}
                 className="cursor-pointer select-none"
                 style={selected ? { backgroundColor: values.color } : undefined}
-                onClick={() => toggleRole(role.value)}
+                onClick={() => toggleRole(role.id)}
               >
-                {role.label}
+                {role.name}
               </Badge>
             );
           })}

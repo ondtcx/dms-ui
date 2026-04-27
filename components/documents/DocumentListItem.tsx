@@ -18,16 +18,12 @@ import {
   FileSpreadsheet,
   FileCode,
   File,
-  GitBranch,
-  Share2,
   Lock,
   Unlock,
   Calendar,
 } from "lucide-react";
-import { Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -36,8 +32,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Document, WorkflowStatus } from "@/lib/types";
-import { WORKFLOW_STATUS_CONFIG } from "@/lib/workflow-status-config";
+import { Document } from "@/lib/types";
 import { formatMimeType, formatRole, formatFileSize } from "@/lib/utils";
 
 // ─── Helpers (solo usados en este componente) ─────────────────────────────────
@@ -60,7 +55,21 @@ function formatDate(dateString: string): string {
   });
 }
 
+function getDocumentModalityLabel(hasDigitalFile: boolean): string {
+  return hasDigitalFile ? "Digital" : "Físico";
+}
+
 function getFilePreviewContent(doc: Document): string {
+  if (!doc?.versions?.[0]) {
+    return doc.description
+      ? `${doc.title || 'Documento físico'} · ${doc.description}`
+      : 'Documento físico registrado sin archivo digital adjunto';
+  }
+  if (doc.title && doc.title !== ((doc?.versions?.[0]?.filename) ?? "")) {
+    return doc.description
+      ? `${doc.title} · ${doc.description}`
+      : doc.title;
+  }
   if (doc.description) {
     return doc.description.length > 150
       ? doc.description.substring(0, 150) + "..."
@@ -79,13 +88,10 @@ function getFilePreviewContent(doc: Document): string {
 interface DocumentListItemProps {
   doc: Document;
   index: number;
-  isSelected: boolean;
-  onToggle: (doc: Document) => void;
   thumbnailUrl: string | undefined;
   onPreview: (doc: Document) => void;
   onDownload: (id: number, filename: string) => void;
   onShowVersionHistory: (doc: Document) => void;
-  onShare: (doc: Document) => void;
   onEdit: (doc: Document) => void;
   onReplaceFile: (doc: Document) => void;
   onDelete: (id: number) => void;
@@ -99,13 +105,10 @@ interface DocumentListItemProps {
 export function DocumentListItem({
   doc,
   index,
-  isSelected,
-  onToggle,
   thumbnailUrl,
   onPreview,
   onDownload,
   onShowVersionHistory,
-  onShare,
   onEdit,
   onReplaceFile,
   onDelete,
@@ -113,6 +116,9 @@ export function DocumentListItem({
   isOwn,
   isDeleting,
 }: DocumentListItemProps) {
+  const latestVersion = doc?.versions?.[0];
+  const hasDigitalFile = !!latestVersion;
+  const modalityLabel = getDocumentModalityLabel(hasDigitalFile);
   const FileIcon = getFileIcon(((doc?.versions?.[0]?.mimetype) ?? ''), !!doc.template);
   const previewContent = getFilePreviewContent(doc);
   const ownerInitials = doc.uploadedBy.name
@@ -126,14 +132,6 @@ export function DocumentListItem({
     <div>
       {index > 0 && <Separator />}
       <div className="py-4 flex gap-4">
-        {/* Checkbox */}
-        <div className="flex items-start pt-1">
-          <Checkbox
-            checked={isSelected}
-            onCheckedChange={() => onToggle(doc)}
-          />
-        </div>
-
         {/* Thumbnail */}
         <div className="flex-shrink-0">
           <div className="w-20 h-20 rounded-lg border-2 border-border bg-muted flex items-center justify-center overflow-hidden relative">
@@ -169,22 +167,26 @@ export function DocumentListItem({
               )}
               <h3 className="font-medium text-lg leading-tight">
                 <Link href={`/dashboard/documents/${doc.id}`} className="hover:underline">
-                  {((doc?.versions?.[0]?.filename) ?? '')}
+                  {doc.title || ((doc?.versions?.[0]?.filename) ?? '')}
                 </Link>
               </h3>
             </div>
 
             {/* Botones de acción */}
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Button onClick={() => onPreview(doc)} variant="outline" size="sm">
-                <Eye className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Ver</span>
-              </Button>
+              {hasDigitalFile && (
+                <Button onClick={() => onPreview(doc)} variant="outline" size="sm">
+                  <Eye className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Ver</span>
+                </Button>
+              )}
 
-              <Button onClick={() => onDownload(doc.id, ((doc?.versions?.[0]?.filename) ?? ''))} variant="default" size="sm">
-                <Download className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Descargar</span>
-              </Button>
+              {hasDigitalFile && (
+                <Button onClick={() => onDownload(doc.id, ((doc?.versions?.[0]?.filename) ?? ''))} variant="default" size="sm">
+                  <Download className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Descargar</span>
+                </Button>
+              )}
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -193,15 +195,10 @@ export function DocumentListItem({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => onShowVersionHistory(doc)}>
-                    <History className="mr-2 h-4 w-4" />
-                    Ver Versiones
-                  </DropdownMenuItem>
-
-                  {isOwn && (
-                    <DropdownMenuItem onClick={() => onShare(doc)}>
-                      <Share2 className="mr-2 h-4 w-4" />
-                      Compartir
+                  {hasDigitalFile && (
+                    <DropdownMenuItem onClick={() => onShowVersionHistory(doc)}>
+                      <History className="mr-2 h-4 w-4" />
+                      Ver Versiones
                     </DropdownMenuItem>
                   )}
 
@@ -214,7 +211,7 @@ export function DocumentListItem({
 
                       <DropdownMenuItem onClick={() => onReplaceFile(doc)}>
                         <FileUp className="mr-2 h-4 w-4" />
-                        Reemplazar Archivo
+                        {hasDigitalFile ? 'Reemplazar Archivo' : 'Adjuntar Archivo'}
                       </DropdownMenuItem>
 
                       <DropdownMenuSeparator />
@@ -258,24 +255,6 @@ export function DocumentListItem({
                 <span style={{ color: doc.category.color }}>{doc.category.name}</span>
               </Badge>
             )}
-            {doc.template && (
-              <Badge variant="default" className="gap-1">
-                <FileType className="h-3 w-3" />
-                {doc.template.documentType?.name ?? doc.template.name}
-              </Badge>
-            )}
-            {doc.isComposite && (
-              <Badge variant="secondary" className="gap-1">
-                <Layers className="h-3 w-3" />
-                Informe Compuesto
-              </Badge>
-            )}
-            {doc.workflow && (
-              <Badge variant={WORKFLOW_STATUS_CONFIG[doc.workflow.status as WorkflowStatus].variant} className="gap-1">
-                <GitBranch className="h-3 w-3" />
-                {WORKFLOW_STATUS_CONFIG[doc.workflow.status as WorkflowStatus].label}
-              </Badge>
-            )}
             {doc.isPublic ? (
               <Badge variant="outline" className="gap-1">
                 <Unlock className="h-3 w-3" />
@@ -287,6 +266,16 @@ export function DocumentListItem({
                 Privado
               </Badge>
             )}
+            {!hasDigitalFile && (
+              <Badge variant="outline" className="gap-1">
+                <FileText className="h-3 w-3" />
+                Solo físico
+              </Badge>
+            )}
+            <Badge variant={hasDigitalFile ? "default" : "secondary"} className="gap-1">
+              <FileType className="h-3 w-3" />
+              {modalityLabel}
+            </Badge>
           </div>
 
           {/* Preview texto */}
@@ -307,7 +296,7 @@ export function DocumentListItem({
           <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <FileText className="h-3 w-3" />
-              {formatFileSize(((doc?.versions?.[0]?.size) ?? 0))}
+              {hasDigitalFile ? formatFileSize(((doc?.versions?.[0]?.size) ?? 0)) : 'Sin archivo adjunto'}
             </span>
             <span className="flex items-center gap-1">
               <User className="h-3 w-3" />

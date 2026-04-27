@@ -9,7 +9,6 @@ import {
   WorkflowStatus,
   ApprovalAction,
   WorkflowApproval,
-  UserRole,
 } from '@/lib/types';
 import { WORKFLOW_STATUS_CONFIG } from '@/lib/workflow-status-config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -120,8 +119,8 @@ export default function DocumentWorkflowCard({ documentId, categoryId, sectionId
     // ADMIN bypasea el filtro de rol iniciador — acceso total por rol, no por lista
     if (user?.role === 'admin') return true;
     // Filtro por rol del iniciador para los demás roles
-    const initiatorRoles = t.allowedInitiatorRoles ?? [];
-    if (initiatorRoles.length > 0 && user?.role && !initiatorRoles.includes(user.role)) return false;
+    const initiatorRoles = t.initiatorRoles ?? [];
+    if (initiatorRoles.length > 0 && user?.role && !initiatorRoles.some(r => r.role.name === user.role)) return false;
     return true;
   });
 
@@ -221,11 +220,7 @@ export default function DocumentWorkflowCard({ documentId, categoryId, sectionId
     );
   };
 
-  const INITIATOR_ROLES = [
-    UserRole.ADMIN, UserRole.RECTOR, UserRole.COORDINADOR,
-    UserRole.PROFESOR, UserRole.SECRETARIO,
-  ];
-  const canInitiate = user ? INITIATOR_ROLES.includes(user.role as UserRole) : false;
+  const canInitiate = Boolean(user);
 
   const isInitiator = workflow
     ? workflow.initiatedById === user?.id.toString()
@@ -557,7 +552,7 @@ export default function DocumentWorkflowCard({ documentId, categoryId, sectionId
                           </span>
                           <span>{sd.state}</span>
                           <Badge variant="outline" className="text-xs ml-auto">
-                            {sd.role}
+                            {sd.role?.name || sd.roleId}
                           </Badge>
                         </div>
                       ))}

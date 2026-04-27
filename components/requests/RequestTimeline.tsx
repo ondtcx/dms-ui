@@ -121,7 +121,7 @@ export function RequestTimeline({ workflow }: RequestTimelineProps) {
             <div className={cn("pb-6 pt-1", isLast && "pb-0")}>
               <p className="text-sm font-medium">{stateDef.state}</p>
               <p className="text-xs text-muted-foreground capitalize">
-                Responsable: {stateDef.role}
+                Responsable: {stateDef.role?.name || stateDef.roleId}
               </p>
 
               {approval?.action && (

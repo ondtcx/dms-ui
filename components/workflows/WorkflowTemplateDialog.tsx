@@ -6,7 +6,6 @@ import {
   CreateWorkflowTemplateDto,
   Section,
   StateDefinition,
-  UserRole,
   WorkflowTemplate,
 } from '@/lib/types';
 import {
@@ -32,35 +31,17 @@ import {
 } from '@/components/ui/select';
 import { Plus, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
-
-
-const INITIATOR_ROLE_OPTIONS = [
-  { value: UserRole.RECTOR,    label: 'Rector' },
-  { value: UserRole.VICERRECTOR, label: 'Vicerrector' },
-  { value: UserRole.COORDINADOR, label: 'Coordinador' },
-  { value: UserRole.PROFESOR,    label: 'Profesor' },
-  { value: UserRole.SECRETARIO,  label: 'Secretario' },
-];
-
-const APPROVER_ROLE_LABELS: Record<string, string> = {
-  [UserRole.RECTOR]:    'Rector',
-  [UserRole.VICERRECTOR]: 'Vicerrector',
-  [UserRole.COORDINADOR]: 'Coordinador',
-  [UserRole.PROFESOR]:    'Profesor',
-  [UserRole.SECRETARIO]:  'Secretario',
-  [UserRole.MODERADOR]:   'Moderador',
-  [UserRole.ADMIN]:       'Administrador',
-};
+import { useRoles } from '@/hooks/useRoles';
 
 const EMPTY_FORM: CreateWorkflowTemplateDto = {
   name: '',
   description: '',
   categoryId: undefined,
   sectionIds: [],
-  stateDefinitions: [{ state: '', role: '', order: 0 }],
+  stateDefinitions: [{ state: '', roleId: '', order: 0 }],
   autoAssign: true,
   requiresComment: false,
-  allowedInitiatorRoles: [],
+  initiatorRoleIds: [],
   isActive: true,
 };
 
@@ -84,6 +65,7 @@ export default function WorkflowTemplateDialog({
   sections,
 }: WorkflowTemplateDialogProps) {
   const [formData, setFormData] = useState<CreateWorkflowTemplateDto>(EMPTY_FORM);
+  const { data: rolesData } = useRoles();
 
   useEffect(() => {
     if (open) {
@@ -94,11 +76,11 @@ export default function WorkflowTemplateDialog({
           categoryId: template.categoryId || undefined,
           sectionIds: template.sections?.map(s => s.id) ?? [],
           stateDefinitions: template.stateDefinitions.length > 0
-            ? template.stateDefinitions
-            : [{ state: '', role: '', order: 0 }],
+            ? template.stateDefinitions.map(sd => ({...sd, roleId: sd.roleId || ''}))
+            : [{ state: '', roleId: '', order: 0 }],
           autoAssign: template.autoAssign,
           requiresComment: template.requiresComment,
-          allowedInitiatorRoles: template.allowedInitiatorRoles ?? [],
+          initiatorRoleIds: template.initiatorRoleIds ?? template.initiatorRoles?.map((r) => r.roleId) ?? [],
           isActive: template.isActive,
         });
       } else {
@@ -112,7 +94,7 @@ export default function WorkflowTemplateDialog({
       ...prev,
       stateDefinitions: [
         ...prev.stateDefinitions,
-        { state: '', role: '', order: prev.stateDefinitions.length },
+        { state: '', roleId: '', order: prev.stateDefinitions.length },
       ],
     }));
   };
@@ -150,14 +132,14 @@ export default function WorkflowTemplateDialog({
     }));
   };
 
-  const toggleInitiatorRole = (role: string) => {
+  const toggleInitiatorRole = (roleId: string) => {
     setFormData((prev) => {
-      const current = prev.allowedInitiatorRoles ?? [];
+      const current = prev.initiatorRoleIds ?? [];
       return {
         ...prev,
-        allowedInitiatorRoles: current.includes(role)
-          ? current.filter((r) => r !== role)
-          : [...current, role],
+        initiatorRoleIds: current.includes(roleId)
+          ? current.filter((r) => r !== roleId)
+          : [...current, roleId],
       };
     });
   };
@@ -176,7 +158,7 @@ export default function WorkflowTemplateDialog({
     }
 
     for (const sd of formData.stateDefinitions) {
-      if (!sd.state.trim() || !sd.role) {
+      if (!sd.state.trim() || !sd.roleId) {
         toast.error('Todas las etapas deben tener nombre y rol asignado');
         return;
       }
@@ -187,7 +169,7 @@ export default function WorkflowTemplateDialog({
       stateDefinitions: formData.stateDefinitions,
       autoAssign: formData.autoAssign,
       requiresComment: formData.requiresComment,
-      allowedInitiatorRoles: formData.allowedInitiatorRoles ?? [],
+      initiatorRoleIds: formData.initiatorRoleIds ?? [],
       isActive: formData.isActive,
     };
 
@@ -313,15 +295,15 @@ export default function WorkflowTemplateDialog({
               </p>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {INITIATOR_ROLE_OPTIONS.map((opt) => (
-                <div key={opt.value} className="flex items-center gap-2 rounded-md border px-3 py-2">
+              {rolesData?.map((role) => (
+                <div key={role.id} className="flex items-center gap-2 rounded-md border px-3 py-2">
                   <Checkbox
-                    id={`role-${opt.value}`}
-                    checked={(formData.allowedInitiatorRoles ?? []).includes(opt.value)}
-                    onCheckedChange={() => toggleInitiatorRole(opt.value)}
+                    id={`role-${role.id}`}
+                    checked={(formData.initiatorRoleIds ?? []).includes(role.id)}
+                    onCheckedChange={() => toggleInitiatorRole(role.id)}
                   />
-                  <label htmlFor={`role-${opt.value}`} className="text-sm cursor-pointer">
-                    {opt.label}
+                  <label htmlFor={`role-${role.id}`} className="text-sm cursor-pointer">
+                    {role.name}
                   </label>
                 </div>
               ))}
@@ -391,16 +373,16 @@ export default function WorkflowTemplateDialog({
                   />
 
                   <Select
-                    value={sd.role}
-                    onValueChange={(val) => updateStateDefinition(index, 'role', val)}
+                    value={sd.roleId}
+                    onValueChange={(val) => updateStateDefinition(index, 'roleId', val)}
                   >
                     <SelectTrigger className="w-[160px]">
                       <SelectValue placeholder="Rol aprobador" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(APPROVER_ROLE_LABELS).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
+                      {rolesData?.map((role) => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name}
                         </SelectItem>
                       ))}
                     </SelectContent>

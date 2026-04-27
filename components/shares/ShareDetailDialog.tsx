@@ -26,6 +26,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { displayRoleName } from "@/lib/auth/normalizers";
 import { cn } from "@/lib/utils";
 import { DocumentShare } from "@/lib/types";
 
@@ -53,11 +54,11 @@ function getRecipientInfo(share: DocumentShare): { icon: React.ReactNode; label:
       value: `${share.user.name} (${share.user.email})`,
     };
   }
-  if (share.role) {
+  if (share.roleId || share.role || share.legacyRoleName) {
     return {
       icon: <Users className="h-4 w-4 text-muted-foreground" />,
       label: "Rol",
-      value: share.role,
+      value: displayRoleName(share),
     };
   }
   if (share.departmentId && share.department) {

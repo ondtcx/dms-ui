@@ -23,7 +23,7 @@ export function RequestTypeStep({ onSelect }: RequestTypeStepProps) {
         (t) =>
           t.isActive &&
           user?.role &&
-          t.allowedInitiatorRoles.includes(user.role),
+          (!t.initiatorRoles || t.initiatorRoles.length === 0 || t.initiatorRoles.some((r) => r.role.name === user.role)),
       ),
     enabled: !!user,
   });

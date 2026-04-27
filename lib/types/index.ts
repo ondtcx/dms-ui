@@ -1,21 +1,20 @@
-export enum UserRole {
-  RECTOR    = "rector",
-  VICERRECTOR = "vicerrector",
-  COORDINADOR = "coordinador",
-  PROFESOR = "profesor",
-  SECRETARIO = "secretario",
-  PADRE = "padre",
-  ESTUDIANTE = "estudiante",
-  MODERADOR = "moderador",
-  ADMIN = "admin",     // Mantener para compatibilidad
-  USER = "user",       // Mantener para compatibilidad
+export interface RoleSummary {
+  id: string;
+  name: string;
+  description?: string | null;
+  isSystem?: boolean;
+  permissions?: { action: string }[];
 }
 
 export interface User {
   id: string;
   email: string;
   name: string;
-  role: UserRole;
+  roleId?: string | null;
+  role: string;
+  roleSummary?: RoleSummary | null;
+  legacyRoleName?: string | null;
+  permissions?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -47,7 +46,8 @@ export interface Category {
   sectionId: number | null;
   section?: { id: number; name: string; color: string; icon: string } | null;
   requiresCourse: boolean;
-  allowedRoles: string[];
+  roleIds?: string[]; // UUIDs
+  roles?: { roleId: string; role: RoleSummary }[]; // relation data
   bypassAcademicYear: boolean;
   createdAt: string;
   updatedAt: string;
@@ -117,7 +117,7 @@ export interface CreateCategoryDto {
   isActive?: boolean;
   sectionId?: number | null;
   requiresCourse?: boolean;
-  allowedRoles?: string[];
+  roleIds?: string[];
   prefix?: string;
 }
 
@@ -129,7 +129,7 @@ export interface UpdateCategoryDto {
   isActive?: boolean;
   sectionId?: number | null;
   requiresCourse?: boolean;
-  allowedRoles?: string[];
+  roleIds?: string[];
   prefix?: string | null;
 }
 
@@ -208,7 +208,18 @@ export interface DocumentTemplateData {
 
 export interface Document {
   id: number;
+  title: string | null;
   description: string | null;
+  documentDate: string | null;
+  sender: string | null;
+  recipient: string | null;
+  keywords: string | null;
+  status: PilotDocumentStatus;
+  physicalBuilding: string | null;
+  physicalOffice: string | null;
+  physicalArchive: string | null;
+  physicalBox: string | null;
+  physicalNotes: string | null;
   categoryId: number | null;
   category: (Category & { section?: { id: number; name: string; color: string; icon: string } | null }) | null;
   documentTypeId?: number | null;
@@ -218,7 +229,7 @@ export interface Document {
     id: string;
     name: string;
     email: string;
-    role?: string;
+    role?: string | RoleSummary;
   };
   uploadedById: string;
   templateId: number | null;
@@ -264,8 +275,21 @@ export interface DocumentsResponse {
   };
 }
 
+export type DocumentModalityFilter = 'PHYSICAL' | 'DIGITAL';
+
 export interface UploadDocumentDto {
+  title?: string;
   description?: string;
+  documentDate?: string;
+  sender?: string;
+  recipient?: string;
+  keywords?: string;
+  status?: PilotDocumentStatus;
+  physicalBuilding?: string;
+  physicalOffice?: string;
+  physicalArchive?: string;
+  physicalBox?: string;
+  physicalNotes?: string;
   categoryId?: number;
   documentTypeId?: number;
   sectionId?: number;
@@ -350,7 +374,8 @@ export enum ApprovalAction {
 
 export interface StateDefinition {
   state: string;
-  role: string;
+  roleId: string;
+  role?: RoleSummary;
   order: number;
   requiresComment?: boolean;
 }
@@ -365,7 +390,8 @@ export interface WorkflowTemplate {
   stateDefinitions: StateDefinition[];
   autoAssign: boolean;
   requiresComment: boolean;
-  allowedInitiatorRoles: string[];
+  initiatorRoleIds: string[];
+  initiatorRoles?: { roleId: string; role: RoleSummary }[];
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -380,7 +406,7 @@ export interface CreateWorkflowTemplateDto {
   stateDefinitions: StateDefinition[];
   autoAssign?: boolean;
   requiresComment?: boolean;
-  allowedInitiatorRoles?: string[];
+  initiatorRoleIds?: string[];
   isActive?: boolean;
 }
 
@@ -575,7 +601,7 @@ export interface DashboardReport {
     totalUsers: {
       total: number;
       byRole: {
-        role: UserRole;
+        role: string;
         count: number;
       }[];
     };
@@ -604,7 +630,7 @@ export interface DashboardReport {
     userActivity: {
       userId: string;
       userName: string;
-      role: UserRole;
+      role: string;
       documentCount: number;
     }[];
     workflowStats: {
@@ -768,7 +794,10 @@ export interface DocumentShare {
   // Destinatario (solo uno estará presente)
   userId: string | null;
   user: { id: string; name: string; email: string } | null;
+  roleId: string | null;
   role: string | null;
+  roleSummary?: RoleSummary | null;
+  legacyRoleName?: string | null;
   departmentId: number | null;
   department: { id: number; name: string } | null;
   courseId: number | null;
@@ -798,7 +827,7 @@ export interface DocumentShare {
 export interface CreateShareDto {
   documentId: number;
   userId?: string;
-  role?: string;
+  roleId?: string;
   departmentId?: number;
   courseId?: number;
   canView?: boolean;
@@ -871,21 +900,59 @@ export interface DocumentComposition {
 // ─── Upload Metadata ──────────────────────────────────────────────────────────
 
 export interface UploadMetadata {
+  title: string;
   categoryId: number | undefined;
   courseId: number | undefined;
   subjectId: number | undefined;
   academicYearId: number | undefined;
   documentTypeId: number | undefined;
+  documentDate: string;
+  sender: string;
+  recipient: string;
   description: string;
+  keywords: string;
+  status: PilotDocumentStatus;
+  physicalBuilding: string;
+  physicalOffice: string;
+  physicalArchive: string;
+  physicalBox: string;
+  physicalNotes: string;
   isPublic: boolean;
 }
 
+export type PilotDocumentStatus = 'REGISTRADO' | 'EN_REVISION' | 'ARCHIVADO';
+
+export interface DocumentType {
+  id: number;
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+  categoryId: number;
+  category?: {
+    id: number;
+    name: string;
+    color?: string;
+    icon?: string;
+  } | null;
+}
+
 export const EMPTY_UPLOAD_METADATA: UploadMetadata = {
+  title: "",
   categoryId: undefined,
   courseId: undefined,
   subjectId: undefined,
   academicYearId: undefined,
   documentTypeId: undefined,
+  documentDate: "",
+  sender: "",
+  recipient: "",
   description: "",
+  keywords: "",
+  status: 'REGISTRADO',
+  physicalBuilding: "",
+  physicalOffice: "",
+  physicalArchive: "",
+  physicalBox: "",
+  physicalNotes: "",
   isPublic: false,
 };

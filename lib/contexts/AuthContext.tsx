@@ -8,6 +8,7 @@ import {
   useState,
   ReactNode,
 } from "react";
+import { normalizeAuthUser } from "@/lib/auth/normalizers";
 import { User } from "@/lib/types";
 import { authService } from "@/lib/services/auth.service";
 import { useRouter } from "next/navigation";
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         if (authService.isAuthenticated()) {
           const userData = await authService.getProfile();
-          setUser(userData);
+          setUser(normalizeAuthUser(userData));
         }
       } catch (error) {
         console.error("Error loading user:", error);
@@ -49,13 +50,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const response = await authService.login({ email, password });
-    setUser(response.user);
+    setUser(normalizeAuthUser(response.user));
     router.push("/dashboard/home");
   };
 
   const register = async (email: string, password: string, name: string) => {
     const response = await authService.register({ email, password, name });
-    setUser(response.user);
+    setUser(normalizeAuthUser(response.user));
     router.push("/dashboard/home");
   };
 

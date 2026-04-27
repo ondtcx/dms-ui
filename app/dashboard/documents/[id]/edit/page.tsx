@@ -1,28 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
-import OnlyOfficeEditor from "@/components/documents/OnlyOfficeEditor";
-import api from "@/lib/axios";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
 export default function EditDocumentPage() {
   const { id } = useParams();
-  const [config, setConfig] = useState(null);
-  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    api
-      .get(`/onlyoffice/config/${id}`)
-      .then((res) => setConfig(res.data))
-      .catch(() => setError("No se pudo cargar el editor"));
-  }, [id]);
-
-  if (error) return <div>{error}</div>;
-  if (!config) return <div>Cargando editor...</div>;
+    router.replace(`/dashboard/documents/${id}?edit=metadata`);
+  }, [id, router]);
 
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-      <OnlyOfficeEditor config={config} />
+    <div className="flex items-center justify-center h-screen text-sm text-muted-foreground">
+      Redirigiendo al editor de metadatos del piloto...
     </div>
   );
 }

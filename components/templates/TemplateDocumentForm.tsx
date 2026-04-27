@@ -34,8 +34,19 @@ interface TemplateDocumentFormProps {
   documentId?: number;
   initialFormData?: Record<string, unknown>;
   initialMeta?: {
+    title?: string;
     filename: string;
+    documentDate?: string;
+    sender?: string;
+    recipient?: string;
     description: string;
+    keywords?: string;
+    status?: "REGISTRADO" | "EN_REVISION" | "ARCHIVADO";
+    physicalBuilding?: string;
+    physicalOffice?: string;
+    physicalArchive?: string;
+    physicalBox?: string;
+    physicalNotes?: string;
     categoryId?: number;
     isPublic: boolean;
   };
@@ -56,8 +67,19 @@ export function TemplateDocumentForm({
   const [formData, setFormData] = useState<Record<string, unknown>>(
     initialFormData ?? {}
   );
+  const [title, setTitle] = useState(initialMeta?.title ?? "");
   const [description, setDescription] = useState(initialMeta?.description ?? "");
   const [filename, setFilename] = useState(initialMeta?.filename ?? "");
+  const [documentDate, setDocumentDate] = useState(initialMeta?.documentDate ?? "");
+  const [sender, setSender] = useState(initialMeta?.sender ?? "");
+  const [recipient, setRecipient] = useState(initialMeta?.recipient ?? "");
+  const [keywords, setKeywords] = useState(initialMeta?.keywords ?? "");
+  const [status, setStatus] = useState(initialMeta?.status ?? "REGISTRADO");
+  const [physicalBuilding, setPhysicalBuilding] = useState(initialMeta?.physicalBuilding ?? "");
+  const [physicalOffice, setPhysicalOffice] = useState(initialMeta?.physicalOffice ?? "");
+  const [physicalArchive, setPhysicalArchive] = useState(initialMeta?.physicalArchive ?? "");
+  const [physicalBox, setPhysicalBox] = useState(initialMeta?.physicalBox ?? "");
+  const [physicalNotes, setPhysicalNotes] = useState(initialMeta?.physicalNotes ?? "");
   const [isPublic, setIsPublic] = useState(initialMeta?.isPublic ?? false);
   // categoryId is derived from the template; only shown as editable if template has no categoryId
   const [categoryId, setCategoryId] = useState<number | undefined>(
@@ -200,16 +222,38 @@ export function TemplateDocumentForm({
       createMutation.mutate({
         templateId: template.id,
         formData,
+        title: title || undefined,
         filename: filename || undefined,
+        documentDate: documentDate || undefined,
+        sender: sender || undefined,
+        recipient: recipient || undefined,
         description: description || undefined,
+        keywords: keywords || undefined,
+        status,
+        physicalBuilding: physicalBuilding || undefined,
+        physicalOffice: physicalOffice || undefined,
+        physicalArchive: physicalArchive || undefined,
+        physicalBox: physicalBox || undefined,
+        physicalNotes: physicalNotes || undefined,
         isPublic,
         categoryId: categoryId || undefined,
       });
     } else {
       updateMutation.mutate({
         formData,
+        title: title || undefined,
         filename: filename || undefined,
+        documentDate: documentDate || undefined,
+        sender: sender || undefined,
+        recipient: recipient || undefined,
         description: description || undefined,
+        keywords: keywords || undefined,
+        status,
+        physicalBuilding: physicalBuilding || undefined,
+        physicalOffice: physicalOffice || undefined,
+        physicalArchive: physicalArchive || undefined,
+        physicalBox: physicalBox || undefined,
+        physicalNotes: physicalNotes || undefined,
         isPublic,
         categoryId: categoryId || undefined,
       });
@@ -397,6 +441,16 @@ export function TemplateDocumentForm({
                 <h3 className="font-medium">Información Adicional (Opcional)</h3>
 
                 <div className="space-y-2">
+                  <Label htmlFor="title">Título del documento</Label>
+                  <Input
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Ej. Acta de sesión de secretaría"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="filename">Nombre del archivo</Label>
                   <Input
                     id="filename"
@@ -417,6 +471,52 @@ export function TemplateDocumentForm({
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Descripción del documento (opcional)"
                     rows={2}
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="documentDate">Fecha del documento</Label>
+                    <Input
+                      id="documentDate"
+                      type="date"
+                      value={documentDate}
+                      onChange={(e) => setDocumentDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Estado</Label>
+                    <Select value={status} onValueChange={setStatus}>
+                      <SelectTrigger id="status">
+                        <SelectValue placeholder="Selecciona un estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="REGISTRADO">Registrado</SelectItem>
+                        <SelectItem value="EN_REVISION">En revisión</SelectItem>
+                        <SelectItem value="ARCHIVADO">Archivado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="sender">Remitente</Label>
+                    <Input id="sender" value={sender} onChange={(e) => setSender(e.target.value)} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="recipient">Destinatario</Label>
+                    <Input id="recipient" value={recipient} onChange={(e) => setRecipient(e.target.value)} />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="keywords">Palabras clave</Label>
+                  <Input
+                    id="keywords"
+                    value={keywords}
+                    onChange={(e) => setKeywords(e.target.value)}
+                    placeholder="Ej. acta, secretaría, reunión"
                   />
                 </div>
 
@@ -469,6 +569,34 @@ export function TemplateDocumentForm({
                   >
                     Hacer público (visible para todos los usuarios)
                   </label>
+                </div>
+
+                <Separator />
+
+                <div className="space-y-4">
+                  <h4 className="font-medium">Ubicación física</h4>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="physicalBuilding">Edificio</Label>
+                      <Input id="physicalBuilding" value={physicalBuilding} onChange={(e) => setPhysicalBuilding(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="physicalOffice">Oficina</Label>
+                      <Input id="physicalOffice" value={physicalOffice} onChange={(e) => setPhysicalOffice(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="physicalArchive">Archivo o estante</Label>
+                      <Input id="physicalArchive" value={physicalArchive} onChange={(e) => setPhysicalArchive(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="physicalBox">Gaveta o caja</Label>
+                      <Input id="physicalBox" value={physicalBox} onChange={(e) => setPhysicalBox(e.target.value)} />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="physicalNotes">Observación</Label>
+                      <Textarea id="physicalNotes" value={physicalNotes} onChange={(e) => setPhysicalNotes(e.target.value)} rows={2} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { TemplateDocumentForm } from "@/components/templates/TemplateDocumentForm";
 import { useEffect } from "react";
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { UserRole } from "@/lib/types";
 
 export default function EditDocumentFormPage() {
   const params = useParams();
@@ -39,8 +38,8 @@ export default function EditDocumentFormPage() {
   useEffect(() => {
     if (!doc || !user) return;
     const canEdit =
-      user.role === UserRole.ADMIN ||
-      user.role === UserRole.RECTOR ||
+      user.role === "admin" ||
+      user.role === "rector" ||
       doc.uploadedById === user.id;
     if (!canEdit) {
       router.replace(`/dashboard/documents/${documentId}`);
@@ -77,8 +76,19 @@ export default function EditDocumentFormPage() {
       documentId={documentId}
       initialFormData={(doc?.templateData?.formData as Record<string, unknown>) ?? {}}
       initialMeta={{
+        title: doc.title ?? "",
         filename: ((doc?.versions?.[0]?.filename) ?? ''),
+        documentDate: doc.documentDate ? doc.documentDate.slice(0, 10) : "",
+        sender: doc.sender ?? "",
+        recipient: doc.recipient ?? "",
         description: doc.description ?? "",
+        keywords: doc.keywords ?? "",
+        status: doc.status,
+        physicalBuilding: doc.physicalBuilding ?? "",
+        physicalOffice: doc.physicalOffice ?? "",
+        physicalArchive: doc.physicalArchive ?? "",
+        physicalBox: doc.physicalBox ?? "",
+        physicalNotes: doc.physicalNotes ?? "",
         categoryId: doc.categoryId ?? undefined,
         isPublic: doc.isPublic,
       }}

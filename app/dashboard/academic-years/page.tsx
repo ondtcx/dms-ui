@@ -1,7 +1,6 @@
 "use client";
 
 import ProtectedRoute from "@/guards/ProtectedRoute";
-import { UserRole } from "@/lib/types";
 import { AcademicYearsManager } from "@/components/structure/AcademicYearsManager";
 import { GraduationCap } from "lucide-react";
 
@@ -24,7 +23,7 @@ function AcademicYearsContent() {
 
 export default function AcademicYearsPage() {
   return (
-    <ProtectedRoute requiredRoles={[UserRole.ADMIN, UserRole.RECTOR]}>
+    <ProtectedRoute routeKey="/dashboard/academic-years">
       <AcademicYearsContent />
     </ProtectedRoute>
   );

@@ -1,17 +1,24 @@
 import api from "@/lib/axios";
 import {
   Document,
+  DocumentModalityFilter,
   DocumentsResponse,
   UploadDocumentDto,
   DocumentVersion,
   ArchiveStats,
+  PilotDocumentStatus,
 } from "@/lib/types";
 
 export const documentsService = {
   async getAll(params?: {
     search?: string;
     categoryId?: number;
+    documentTypeId?: number;
     sectionId?: number;
+    status?: PilotDocumentStatus;
+    modality?: DocumentModalityFilter;
+    dateFrom?: string;
+    dateTo?: string;
     isPublic?: boolean;
     page?: number;
     limit?: number;
@@ -31,11 +38,24 @@ export const documentsService = {
     return response.data;
   },
 
-  async upload(file: File, data: UploadDocumentDto): Promise<Document> {
+  async upload(file: File | null, data: UploadDocumentDto): Promise<Document> {
     const formData = new FormData();
-    formData.append("file", file);
+    if (file) {
+      formData.append("file", file);
+    }
 
+    if (data.title) formData.append("title", data.title);
     if (data.description) formData.append("description", data.description);
+    if (data.documentDate) formData.append("documentDate", data.documentDate);
+    if (data.sender) formData.append("sender", data.sender);
+    if (data.recipient) formData.append("recipient", data.recipient);
+    if (data.keywords) formData.append("keywords", data.keywords);
+    if (data.status) formData.append("status", data.status);
+    if (data.physicalBuilding) formData.append("physicalBuilding", data.physicalBuilding);
+    if (data.physicalOffice) formData.append("physicalOffice", data.physicalOffice);
+    if (data.physicalArchive) formData.append("physicalArchive", data.physicalArchive);
+    if (data.physicalBox) formData.append("physicalBox", data.physicalBox);
+    if (data.physicalNotes) formData.append("physicalNotes", data.physicalNotes);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
     if (data.sectionId) formData.append("sectionId", String(data.sectionId));
     
@@ -72,7 +92,18 @@ export const documentsService = {
       formData.append("files", file);
     });
 
+    if (data.title) formData.append("title", data.title);
     if (data.description) formData.append("description", data.description);
+    if (data.documentDate) formData.append("documentDate", data.documentDate);
+    if (data.sender) formData.append("sender", data.sender);
+    if (data.recipient) formData.append("recipient", data.recipient);
+    if (data.keywords) formData.append("keywords", data.keywords);
+    if (data.status) formData.append("status", data.status);
+    if (data.physicalBuilding) formData.append("physicalBuilding", data.physicalBuilding);
+    if (data.physicalOffice) formData.append("physicalOffice", data.physicalOffice);
+    if (data.physicalArchive) formData.append("physicalArchive", data.physicalArchive);
+    if (data.physicalBox) formData.append("physicalBox", data.physicalBox);
+    if (data.physicalNotes) formData.append("physicalNotes", data.physicalNotes);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
     if (data.sectionId) formData.append("sectionId", String(data.sectionId));
 
@@ -201,8 +232,19 @@ export const documentsService = {
     id: number,
     data: {
       formData: Record<string, unknown>;
+      title?: string;
       filename?: string;
+      documentDate?: string;
+      sender?: string;
+      recipient?: string;
       description?: string;
+      keywords?: string;
+      status?: 'REGISTRADO' | 'EN_REVISION' | 'ARCHIVADO';
+      physicalBuilding?: string;
+      physicalOffice?: string;
+      physicalArchive?: string;
+      physicalBox?: string;
+      physicalNotes?: string;
       categoryId?: number;
       isPublic?: boolean;
     },

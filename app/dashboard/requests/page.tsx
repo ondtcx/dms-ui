@@ -1,7 +1,7 @@
 "use client";
 
-import { RequestList } from "@/components/requests/RequestList";
+import { FrozenRoutePage } from "@/components/pilot/FrozenRoutePage";
 
 export default function RequestsPage() {
-  return <RequestList />;
+  return <FrozenRoutePage moduleName="Solicitudes" />;
 }

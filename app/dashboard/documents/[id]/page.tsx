@@ -1,7 +1,7 @@
 'use client';
 
 import { formatMimeType, formatRole } from '@/lib/utils';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { documentsService } from '@/lib/services/documents.service';
 import { useState, useEffect } from 'react';
@@ -23,7 +23,12 @@ import {
   FileUp,
   MoreVertical,
   Hash,
-  Layers,
+  MapPin,
+  Building2,
+  Inbox,
+  Tag,
+  Send,
+  Shield,
   ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -41,15 +46,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import DocumentWorkflowCard from '@/components/workflows/DocumentWorkflowCard';
-import { DocumentCompositionCard } from '@/components/documents/DocumentCompositionCard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { UserRole } from '@/lib/types';
+
+const STATUS_CONFIG = {
+  REGISTRADO: { label: 'Registrado', variant: 'secondary' as const },
+  EN_REVISION: { label: 'En revisión', variant: 'outline' as const },
+  ARCHIVADO: { label: 'Archivado', variant: 'default' as const },
+};
+
+function getDocumentModalityLabel(hasDigitalFile: boolean): 'Físico' | 'Digital' {
+  return hasDigitalFile ? 'Digital' : 'Físico';
+}
 
 export default function DocumentDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const documentId = parseInt(params.id as string);
@@ -86,15 +99,15 @@ export default function DocumentDetailPage() {
   const canEdit =
     !!user &&
     !!doc &&
-    (user.role === UserRole.ADMIN ||
-      user.role === UserRole.RECTOR ||
+    (user.role === 'admin' ||
+      user.role === 'rector' ||
       doc.uploadedById === user.id);
 
   const canExplainPermissions =
     !!user &&
-    (user.role === UserRole.ADMIN ||
-      user.role === UserRole.RECTOR ||
-      user.role === UserRole.COORDINADOR);
+    (user.role === 'admin' ||
+      user.role === 'rector' ||
+      user.role === 'coordinador');
 
   const isPreviewable = (mimetype: string): boolean => {
     if (mimetype === 'application/pdf') return true;
@@ -112,6 +125,12 @@ export default function DocumentDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc]);
+
+  useEffect(() => {
+    if (searchParams.get('edit') === 'metadata' && canEdit) {
+      setShowEditDialog(true);
+    }
+  }, [searchParams, canEdit]);
 
   const loadPreview = async () => {
     if (!doc) return;
@@ -191,6 +210,17 @@ export default function DocumentDetailPage() {
     );
   }
 
+  const title = doc.title || ((doc?.versions?.[0]?.filename) ?? '');
+  const status = STATUS_CONFIG[doc.status] ?? STATUS_CONFIG.REGISTRADO;
+  const hasDigitalFile = !!doc?.versions?.[0];
+  const modalityLabel = getDocumentModalityLabel(hasDigitalFile);
+  const physicalLocation = [
+    doc.physicalBuilding,
+    doc.physicalOffice,
+    doc.physicalArchive,
+    doc.physicalBox,
+  ].filter(Boolean);
+
   return (
     <div className="space-y-6 p-8">
       {/* Header */}
@@ -210,17 +240,15 @@ export default function DocumentDetailPage() {
                 {doc.documentNumber && (
                   <p className="font-mono text-sm text-muted-foreground mb-0.5">{doc.documentNumber}</p>
                 )}
-                <h1 className="text-3xl font-bold">{((doc?.versions?.[0]?.filename) ?? '')}</h1>
-                {doc.isComposite && (
-                  <Badge variant="secondary" className="gap-1 mt-1 w-fit">
-                    <Layers className="h-3 w-3" />
-                    Informe Compuesto
-                  </Badge>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-3xl font-bold">{title}</h1>
+                  <Badge variant={status.variant}>{status.label}</Badge>
+                  <Badge variant={hasDigitalFile ? 'default' : 'secondary'}>{modalityLabel}</Badge>
+                </div>
               </div>
             </div>
             <p className="text-muted-foreground mt-1">
-              {doc.description || 'Sin descripción'}
+              {doc.description || 'Documento registrado para el piloto de secretaría.'}
             </p>
           </div>
         </div>
@@ -229,21 +257,21 @@ export default function DocumentDetailPage() {
           {canEdit && (
             <Button
               onClick={() =>
-                router.push(
-                  doc.templateId
-                    ? `/dashboard/documents/${doc.id}/edit-form`
-                    : `/dashboard/documents/${doc.id}/edit`,
-                )
+                doc.templateId
+                  ? router.push(`/dashboard/documents/${doc.id}/edit-form`)
+                  : setShowEditDialog(true)
               }
             >
               <Pencil className="mr-2 h-4 w-4" />
               Editar
             </Button>
           )}
-          <Button variant="outline" onClick={handleDownload}>
-            <Download className="mr-2 h-4 w-4" />
-            Descargar
-          </Button>
+          {hasDigitalFile && (
+            <Button variant="outline" onClick={handleDownload}>
+              <Download className="mr-2 h-4 w-4" />
+              Descargar
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon">
@@ -268,14 +296,16 @@ export default function DocumentDetailPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setShowReplaceDialog(true)}>
                     <FileUp className="mr-2 h-4 w-4" />
-                    Reemplazar archivo
+                    {hasDigitalFile ? 'Reemplazar archivo' : 'Adjuntar archivo'}
                   </DropdownMenuItem>
                 </>
               )}
-              <DropdownMenuItem onClick={() => setShowVersionHistory(true)}>
-                <History className="mr-2 h-4 w-4" />
-                Historial de versiones
-              </DropdownMenuItem>
+              {hasDigitalFile && (
+                <DropdownMenuItem onClick={() => setShowVersionHistory(true)}>
+                  <History className="mr-2 h-4 w-4" />
+                  Historial de versiones
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleDelete} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -297,7 +327,13 @@ export default function DocumentDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingPreview ? (
+              {!hasDigitalFile ? (
+                <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground">
+                  <FileText className="h-16 w-16 mb-4" />
+                  <p>Documento registrado sin archivo digital adjunto</p>
+                  <p className="text-sm mt-1">Este registro representa un documento físico.</p>
+                </div>
+              ) : loadingPreview ? (
                 <div className="flex flex-col items-center justify-center h-[600px]">
                   <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
                   <p className="text-muted-foreground mt-4">Cargando vista previa...</p>
@@ -325,10 +361,9 @@ export default function DocumentDetailPage() {
 
         {/* Panel lateral de información */}
         <div className="space-y-6">
-          {/* Información del documento */}
           <Card>
             <CardHeader>
-              <CardTitle>Información del Documento</CardTitle>
+              <CardTitle>Datos generales</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
@@ -347,10 +382,66 @@ export default function DocumentDetailPage() {
                 <Separator />
 
                 <div className="flex items-start gap-3">
+                  <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Título</p>
+                    <p className="text-sm text-muted-foreground">{title}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Fecha del documento</p>
+                    <p className="text-sm text-muted-foreground">
+                      {doc.documentDate
+                        ? format(new Date(doc.documentDate), 'PPP', { locale: es })
+                        : 'No registrada'}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-start gap-3">
+                  <Send className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Remitente</p>
+                    <p className="text-sm text-muted-foreground">{doc.sender || 'No registrado'}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-start gap-3">
+                  <User className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Destinatario</p>
+                    <p className="text-sm text-muted-foreground">{doc.recipient || 'No registrado'}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-start gap-3">
+                  <FileType className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Modalidad documental</p>
+                    <p className="text-sm text-muted-foreground">{modalityLabel}</p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-start gap-3">
                   <FileType className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">Tipo de archivo</p>
-                    <p className="text-sm text-muted-foreground">{formatMimeType(((doc?.versions?.[0]?.mimetype) ?? ''))}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {hasDigitalFile ? formatMimeType(((doc?.versions?.[0]?.mimetype) ?? '')) : 'Sin archivo adjunto'}
+                    </p>
                   </div>
                 </div>
 
@@ -360,7 +451,9 @@ export default function DocumentDetailPage() {
                   <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">Tamaño</p>
-                    <p className="text-sm text-muted-foreground">{formatFileSize(((doc?.versions?.[0]?.size) ?? 0))}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {hasDigitalFile ? formatFileSize(((doc?.versions?.[0]?.size) ?? 0)) : 'Sin archivo adjunto'}
+                    </p>
                   </div>
                 </div>
 
@@ -406,127 +499,256 @@ export default function DocumentDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Categorías y Secciones */}
           <Card>
             <CardHeader>
-              <CardTitle>Clasificación</CardTitle>
+              <CardTitle>Metadatos</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="space-y-3">
-                {doc.category && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Categoría</p>
-                    <Badge variant="outline" style={{ borderColor: doc.category.color }}>
-                      <span style={{ color: doc.category.color }}>{doc.category.name}</span>
-                    </Badge>
+                <div className="flex items-start gap-3">
+                  <Tag className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Asunto / descripción</p>
+                    <p className="text-sm text-muted-foreground">{doc.description || 'Sin descripción'}</p>
                   </div>
-                )}
+                </div>
 
-                {doc.category?.section && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Sección</p>
-                    <Badge variant="outline" style={{ borderColor: doc.category.section.color }}>
-                      <span style={{ color: doc.category.section.color }}>{doc.category.section.name}</span>
-                    </Badge>
+                <Separator />
+
+                <div>
+                  <p className="text-sm font-medium mb-2">Clasificación</p>
+                  <div className="flex flex-wrap gap-2">
+                    {doc.category?.section && (
+                      <Badge variant="outline" style={{ borderColor: doc.category.section.color }}>
+                        <span style={{ color: doc.category.section.color }}>{doc.category.section.name}</span>
+                      </Badge>
+                    )}
+                    {doc.category && (
+                      <Badge variant="outline" style={{ borderColor: doc.category.color }}>
+                        <span style={{ color: doc.category.color }}>{doc.category.name}</span>
+                      </Badge>
+                    )}
+                    {doc.documentType && (
+                      <Badge variant="secondary">{doc.documentType.name}</Badge>
+                    )}
                   </div>
-                )}
+                </div>
 
-                {doc.academic?.course && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Curso / Grado</p>
-                    <Badge variant="secondary">
-                      {doc.academic.course.name}
-                    </Badge>
+                <Separator />
+
+                <div className="flex items-start gap-3">
+                  <Hash className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Palabras clave</p>
+                    <p className="text-sm text-muted-foreground">{doc.keywords || 'No registradas'}</p>
                   </div>
-                )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-                {doc.academic?.subject && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Materia</p>
-                    <Badge variant="secondary">
-                      {doc.academic.subject.name}
-                    </Badge>
+          <Card>
+            <CardHeader>
+              <CardTitle>Ubicación física</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Ruta de archivo físico</p>
+                    <p className="text-sm text-muted-foreground">
+                      {physicalLocation.length > 0
+                        ? physicalLocation.join(' → ')
+                        : 'Ubicación física no registrada'}
+                    </p>
                   </div>
-                )}
+                </div>
 
-                {!doc.category && (
-                  <p className="text-sm text-muted-foreground">Sin clasificación</p>
+                <Separator />
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex items-start gap-3">
+                    <Building2 className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Edificio</p>
+                      <p className="text-sm text-muted-foreground">{doc.physicalBuilding || 'No registrado'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <Shield className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Oficina</p>
+                      <p className="text-sm text-muted-foreground">{doc.physicalOffice || 'No registrada'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <Inbox className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Archivo / estante</p>
+                      <p className="text-sm text-muted-foreground">{doc.physicalArchive || 'No registrado'}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <Hash className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium">Gaveta / caja</p>
+                      <p className="text-sm text-muted-foreground">{doc.physicalBox || 'No registrada'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {doc.physicalNotes && (
+                  <>
+                    <Separator />
+                    <div>
+                      <p className="text-sm font-medium mb-1">Observación</p>
+                      <p className="text-sm text-muted-foreground">{doc.physicalNotes}</p>
+                    </div>
+                  </>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Plantilla */}
-          {doc.template && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Plantilla</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-medium mb-1">Plantilla original</p>
-                    <Badge variant="outline">{doc.template.name}</Badge>
+          <Card>
+            <CardHeader>
+              <CardTitle>Trazabilidad</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Código documental
+                  </p>
+                  <p className="mt-1 text-sm font-mono text-foreground">
+                    {doc.documentNumber || 'Sin asignar'}
+                  </p>
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Modalidad
+                  </p>
+                  <div className="mt-1">
+                    <Badge variant={hasDigitalFile ? 'default' : 'secondary'}>{modalityLabel}</Badge>
                   </div>
-                  {doc.templateData && doc.templateData.formData && Object.keys(doc.templateData.formData).length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium mb-2 mt-4">Datos extraídos</p>
-                      <div className="space-y-2 text-sm text-muted-foreground border rounded-md p-3 bg-muted/50">
-                        {Object.entries(doc.templateData.formData).slice(0, 5).map(([key, value]) => (
-                          <div key={key} className="flex justify-between gap-4">
-                            <span className="font-medium truncate">{key}:</span>
-                            <span className="truncate">{String(value)}</span>
-                          </div>
-                        ))}
-                        {Object.keys(doc.templateData.formData).length > 5 && (
-                          <p className="text-xs text-center mt-2 pt-2 border-t">
-                            + {Object.keys(doc.templateData.formData).length - 5} campos más
-                          </p>
-                        )}
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Estado actual
+                  </p>
+                  <div className="mt-1">
+                    <Badge variant={status.variant}>{status.label}</Badge>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Versión actual
+                  </p>
+                  <p className="mt-1 text-sm text-foreground">
+                    {hasDigitalFile ? `v${doc.currentVersion || 1}` : 'Documento sin versiones digitales'}
+                  </p>
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <User className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Registrado por</p>
+                    <p className="text-sm text-muted-foreground">{doc.uploadedBy.name}</p>
+                    {doc.uploadedBy.role && (
+                      <p className="text-xs text-muted-foreground/70">{formatRole(doc.uploadedBy.role)}</p>
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Fecha de registro</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(doc.createdAt), 'PPP p', { locale: es })}
+                    </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-start gap-3">
+                  <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Última actualización</p>
+                    <p className="text-sm text-muted-foreground">
+                      {format(new Date(doc.updatedAt), 'PPP p', { locale: es })}
+                    </p>
+                  </div>
+                </div>
+
+                {hasDigitalFile && (
+                  <>
+                    <Separator />
+
+                    <div className="flex items-start gap-3">
+                      <History className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Historial disponible</p>
+                        <p className="text-sm text-muted-foreground">
+                          El documento cuenta con historial de versiones para seguimiento técnico.
+                        </p>
                       </div>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Workflow */}
-          <DocumentWorkflowCard documentId={documentId} categoryId={doc?.categoryId} sectionId={doc?.category?.section?.id} />
-
-          {/* Composición */}
-          <DocumentCompositionCard documentId={documentId} />
-
-          {/* Acciones rápidas */}
           <Card>
             <CardHeader>
               <CardTitle>Acciones</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => setShowEditDialog(true)}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar información
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => setShowReplaceDialog(true)}
-              >
-                <FileUp className="mr-2 h-4 w-4" />
-                Reemplazar archivo
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => setShowVersionHistory(true)}
-              >
-                <History className="mr-2 h-4 w-4" />
-                Ver historial
-              </Button>
+              {canEdit && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => setShowEditDialog(true)}
+                  >
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar información
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={() => setShowReplaceDialog(true)}
+                  >
+                    <FileUp className="mr-2 h-4 w-4" />
+                    Reemplazar archivo
+                  </Button>
+                </>
+              )}
+              {hasDigitalFile && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setShowVersionHistory(true)}
+                >
+                  <History className="mr-2 h-4 w-4" />
+                  Ver historial
+                </Button>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -553,7 +775,7 @@ export default function DocumentDetailPage() {
       {showReplaceDialog && (
         <ReplaceFileDialog
           documentId={doc.id}
-          documentName={((doc?.versions?.[0]?.filename) ?? '')}
+          documentName={title}
           open={showReplaceDialog}
           onOpenChange={setShowReplaceDialog}
         />
@@ -563,7 +785,7 @@ export default function DocumentDetailPage() {
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
         title="Eliminar documento"
-        description={`¿Estás seguro de eliminar "${((doc?.versions?.[0]?.filename) ?? '')}"? El documento será enviado a la papelera.`}
+        description={`¿Estás seguro de eliminar "${title}"? El documento será enviado a la papelera.`}
         confirmLabel="Eliminar"
         variant="destructive"
         loading={deleteMutation.isPending}

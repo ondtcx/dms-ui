@@ -26,21 +26,9 @@ import { Separator } from "@/components/ui/separator";
 import { sharesService } from "@/lib/services/shares.service";
 import { departmentsService } from "@/lib/services/departments.service";
 import { coursesService } from "@/lib/services/courses.service";
-import { UserRole } from "@/lib/types";
+import { rolesService } from "@/lib/services/roles.service";
 
 type ShareTarget = "usuario" | "rol" | "departamento" | "curso" | "link";
-
-const ROLE_LABELS: Record<string, string> = {
-  rector: "Rector",
-  coordinador: "Coordinador",
-  profesor: "Profesor",
-  secretario: "Secretario",
-  padre: "Padre",
-  estudiante: "Estudiante",
-  moderador: "Moderador",
-  admin: "Administrador",
-  user: "Usuario básico",
-};
 
 interface Props {
   documentId: number;
@@ -56,7 +44,7 @@ export function CreateShareDialog({ documentId, open, onOpenChange }: Props) {
 
   // Campos de destino
   const [userId, setUserId] = useState("");
-  const [role, setRole] = useState<string>("");
+  const [roleId, setRoleId] = useState<string>("");
   const [departmentId, setDepartmentId] = useState<string>("");
   const [courseId, setCourseId] = useState<string>("");
 
@@ -85,6 +73,12 @@ export function CreateShareDialog({ documentId, open, onOpenChange }: Props) {
     enabled: open && target === "curso",
   });
 
+  const { data: roles = [] } = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => rolesService.getAll(),
+    enabled: open && target === "rol",
+  });
+
   const createMutation = useMutation({
     mutationFn: sharesService.create,
     onSuccess: () => {
@@ -100,7 +94,7 @@ export function CreateShareDialog({ documentId, open, onOpenChange }: Props) {
   const handleClose = () => {
     setTarget("usuario");
     setUserId("");
-    setRole("");
+    setRoleId("");
     setDepartmentId("");
     setCourseId("");
     setCanDownload(true);
@@ -120,7 +114,7 @@ export function CreateShareDialog({ documentId, open, onOpenChange }: Props) {
       toast.error("Ingresa el ID o email del usuario");
       return;
     }
-    if (target === "rol" && !role) {
+    if (target === "rol" && !roleId) {
       toast.error("Selecciona un rol");
       return;
     }
@@ -140,7 +134,7 @@ export function CreateShareDialog({ documentId, open, onOpenChange }: Props) {
     createMutation.mutate({
       documentId,
       userId: target === "usuario" ? userId.trim() : undefined,
-      role: target === "rol" ? role : undefined,
+      roleId: target === "rol" ? roleId : undefined,
       departmentId: target === "departamento" ? Number(departmentId) : undefined,
       courseId: target === "curso" ? Number(courseId) : undefined,
       canView: true,
@@ -199,14 +193,14 @@ export function CreateShareDialog({ documentId, open, onOpenChange }: Props) {
           {target === "rol" && (
             <div className="space-y-1.5">
               <Label>Rol</Label>
-              <Select value={role} onValueChange={setRole}>
+              <Select value={roleId} onValueChange={setRoleId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona un rol" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.values(UserRole).map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {ROLE_LABELS[r] ?? r}
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -58,7 +58,8 @@ export interface DocumentTemplate {
     name: string;
     color: string;
     icon: string;
-    allowedRoles: string[];
+    roleIds?: string[];
+    roles?: { roleId: string; role: { id: string; name: string } }[];
     section?: { id: number; name: string } | null;
   } | null;
   createdById: string;

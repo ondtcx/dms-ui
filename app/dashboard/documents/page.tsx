@@ -3,46 +3,36 @@
 
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePermissions } from "@/hooks/use-permissions";
-import { useUploadMetadata } from "@/hooks/use-upload-metadata";
 import { useDocumentThumbnails } from "@/hooks/use-document-thumbnails";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { categoriesService } from "@/lib/services/categories.service";
+import { documentTypesService } from "@/lib/services/document-types.service";
 import { documentsService } from "@/lib/services/documents.service";
 import { sectionsService } from "@/lib/services/sections.service";
-import { onlyofficeService } from "@/lib/services/onlyoffice.service";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import {
   FileText,
   Download,
-  Upload,
-  Search,
-  Filter,
   User,
   FolderOpen,
   AlertCircle,
   RefreshCw,
-  GitBranch,
 } from "lucide-react";
-import { Document, WorkflowStatus, UploadMetadata, EMPTY_UPLOAD_METADATA } from "@/lib/types";
-import { formatFileSize } from "@/lib/utils";
-import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
+import { Document, DocumentModalityFilter, PilotDocumentStatus } from "@/lib/types";
 import { DocumentListItem } from "@/components/documents/DocumentListItem";
-import { DocumentMetadataForm } from "@/components/documents/DocumentMetadataForm";
-import { useRouter } from "next/navigation";
+import { DocumentsToolbar } from "@/components/documents/DocumentsToolbar";
+import {
+  UploadDocumentDialog,
+  UploadMultipleDocumentsDialog,
+} from "@/components/documents/UploadDocumentDialogs";
 import { DocumentVersionHistory } from "@/components/documents/DocumentVersionHistory";
 import { ReplaceFileDialog } from "@/components/documents/ReplaceFileDialog";
 import { EditDocumentDialog } from "@/components/documents/EditDocumentDialog";
-import { BatchActionsBar } from "@/components/documents/batch-actions-bar";
-import { BatchListSection } from "@/components/documents/BatchListSection";
-import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
-import { CreateShareDialog } from "@/components/shares/CreateShareDialog";
 import { useAcademicYearStore } from "@/components/structure/AcademicYearSelector";
-import { Layers } from "lucide-react";
 
 // Shadcn imports
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -60,14 +50,6 @@ import {
 } from "@/components/ui/dialog";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Helper para obtener el componente de icono desde el string
@@ -77,28 +59,33 @@ export default function DocumentsPage() {
   const { isAdmin } = usePermissions();
   const { currentYearId } = useAcademicYearStore();
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   // Estados
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | undefined>(
+    undefined,
+  );
+  const [documentTypeFilter, setDocumentTypeFilter] = useState<number | undefined>(
     undefined,
   );
   const [sectionFilter, setSectionFilter] = useState<number | undefined>(
     undefined,
   );
+  const [statusFilter, setStatusFilter] = useState<PilotDocumentStatus | undefined>(
+    undefined,
+  );
+  const [modalityFilter, setModalityFilter] = useState<DocumentModalityFilter | undefined>(
+    undefined,
+  );
+  const [dateFrom, setDateFrom] = useState<string | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<string | undefined>(undefined);
   const [onlyMine, setOnlyMine] = useState(false);
-  const [workflowFilter, setWorkflowFilter] = useState<"all" | "active" | "none">("all");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUploadMultipleModal, setShowUploadMultipleModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [uploadData, setUploadData] = useState<UploadMetadata>(EMPTY_UPLOAD_METADATA);
 
   // Estados para version history y replace file
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -109,25 +96,7 @@ export default function DocumentsPage() {
     useState<Document | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
-  const [sharingDocument, setSharingDocument] = useState<Document | null>(null);
-
-  // Estados para batch actions
-  const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([]);
-
-  // Tab principal: documentos individuales vs lotes
-  const [mainTab, setMainTab] = useState<'documents' | 'batches'>('documents');
-  const [showBatchSelectDialog, setShowBatchSelectDialog] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-
-  // Create in editor dialog state
-  const [showCreateInEditorDialog, setShowCreateInEditorDialog] = useState(false);
-  const [createInEditorData, setCreateInEditorData] = useState<{
-    title: string;
-    fileType: "docx" | "xlsx" | "pptx";
-    categoryId?: number;
-    documentTypeId?: number;
-  }>({ title: "", fileType: "docx" });
-  const [creatingInEditor, setCreatingInEditor] = useState(false);
 
   // Queries
   const {
@@ -136,12 +105,29 @@ export default function DocumentsPage() {
     error: documentsError,
     refetch: refetchDocuments,
   } = useQuery({
-    queryKey: ["documents", searchTerm, categoryFilter, sectionFilter, onlyMine, currentYearId],
+    queryKey: [
+      "documents",
+      searchTerm,
+      categoryFilter,
+      documentTypeFilter,
+      sectionFilter,
+      statusFilter,
+      modalityFilter,
+      dateFrom,
+      dateTo,
+      onlyMine,
+      currentYearId,
+    ],
     queryFn: () =>
       documentsService.getAll({
         search: searchTerm || undefined,
         categoryId: categoryFilter,
+        documentTypeId: documentTypeFilter,
         sectionId: sectionFilter,
+        status: statusFilter,
+        modality: modalityFilter,
+        dateFrom,
+        dateTo,
         onlyMine: onlyMine || undefined,
         academicYearId: currentYearId ?? undefined,
         excludeBatched: true,
@@ -157,25 +143,19 @@ export default function DocumentsPage() {
     queryFn: () => documentsService.getStats(),
   });
 
+  const { data: categories, isLoading: loadingCategories } = useQuery({
+    queryKey: ["categories", "active"],
+    queryFn: () => categoriesService.getActive(),
+  });
+
   const { data: sectionStats, isLoading: loadingSections } = useQuery({
     queryKey: ["section-stats"],
     queryFn: () => sectionsService.getStats(),
   });
 
-  const {
-    categories,
-    loadingCategories,
-    academicYears,
-    uploadDocumentTypes,
-    allCourses,
-    loadingCourses,
-    courseSubjects,
-    loadingSubjects,
-    selectedCategory,
-    showCourseFields,
-  } = useUploadMetadata({
-    categoryId: uploadData.categoryId,
-    courseId: uploadData.courseId,
+  const { data: documentTypes, isLoading: loadingDocumentTypes } = useQuery({
+    queryKey: ["document-types", "active", categoryFilter],
+    queryFn: () => documentTypesService.getActive(categoryFilter),
   });
 
   // Mutations
@@ -192,99 +172,15 @@ export default function DocumentsPage() {
   });
 
   // Handlers
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    }
+  const handleUploadSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["documents"] });
+    queryClient.invalidateQueries({ queryKey: ["stats"] });
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
   };
 
-  const handleCreateInEditor = async () => {
-    if (!createInEditorData.title.trim()) {
-      toast.error("Ingresa un nombre para el documento");
-      return;
-    }
-    setCreatingInEditor(true);
-    try {
-      const doc = await onlyofficeService.createBlank(createInEditorData);
-      setShowCreateInEditorDialog(false);
-      setCreateInEditorData({ title: "", fileType: "docx" });
-      router.push(`/dashboard/documents/${doc.id}/edit`);
-    } catch {
-      toast.error("Error al crear el documento");
-    } finally {
-      setCreatingInEditor(false);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error("Selecciona un archivo");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      await documentsService.upload(selectedFile, uploadData);
-      toast.success("Archivo subido exitosamente");
-      setSelectedFile(null);
-      setUploadData({
-        categoryId: undefined,
-        courseId: undefined,
-        subjectId: undefined,
-        academicYearId: undefined,
-        documentTypeId: undefined,
-        description: "",
-        isPublic: false,
-      });
-      setShowUploadModal(false);
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-    } catch (error) {
-      const message =
-        (error as { response?: { data?: { message?: string } } }).response?.data
-          ?.message || "Error al subir archivo";
-      toast.error(message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleUploadMultiple = async () => {
-    if (selectedFiles.length === 0) {
-      toast.error("Selecciona al menos un archivo");
-      return;
-    }
-
-    setUploading(true);
-    try {
-      await documentsService.uploadMultiple(selectedFiles, uploadData);
-      toast.success(
-        `${selectedFiles.length} archivo(s) subido(s) exitosamente`,
-      );
-      setSelectedFiles([]);
-      setUploadData({
-        categoryId: undefined,
-        courseId: undefined,
-        subjectId: undefined,
-        academicYearId: undefined,
-        documentTypeId: undefined,
-        description: "",
-        isPublic: false,
-      });
-      setShowUploadMultipleModal(false);
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-    } catch (error) {
-      const message =
-        (error as { response?: { data?: { message?: string } } }).response?.data
-          ?.message || "Error al subir archivos";
-      toast.error(message);
-    } finally {
-      setUploading(false);
-    }
-  };
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchTerm((current) => (current === value ? current : value));
+  }, []);
 
   const handleDownload = async (id: number, filename: string) => {
     try {
@@ -324,36 +220,6 @@ export default function DocumentsPage() {
     }
   };
 
-  // Handlers para batch actions
-  const handleToggleDocument = (doc: Document) => {
-    setSelectedDocuments((prev) => {
-      const isSelected = prev.some((d) => d.id === doc.id);
-      if (isSelected) {
-        return prev.filter((d) => d.id !== doc.id);
-      } else {
-        return [...prev, doc];
-      }
-    });
-  };
-
-  const handleSelectAll = () => {
-    if (selectedDocuments.length === filteredDocuments.length) {
-      setSelectedDocuments([]);
-    } else {
-      setSelectedDocuments(filteredDocuments);
-    }
-  };
-
-  const handleClearSelection = () => {
-    setSelectedDocuments([]);
-  };
-
-  const handleBatchSuccess = () => {
-    setSelectedDocuments([]);
-    queryClient.invalidateQueries({ queryKey: ["documents"] });
-    queryClient.invalidateQueries({ queryKey: ["stats"] });
-  };
-
   // Limpiar URL del blob cuando se cierra el modal
   useEffect(() => {
     if (!showPreviewModal && previewUrl) {
@@ -373,21 +239,7 @@ export default function DocumentsPage() {
     setShowReplaceFile(true);
   };
 
-  const ACTIVE_WORKFLOW_STATUSES: WorkflowStatus[] = [
-    WorkflowStatus.PENDING,
-    WorkflowStatus.IN_PROGRESS,
-    WorkflowStatus.CHANGES_REQUESTED,
-  ];
-
-  const filteredDocuments = (documents?.data ?? []).filter((doc) => {
-    if (workflowFilter === "active") {
-      return doc.workflow != null && ACTIVE_WORKFLOW_STATUSES.includes(doc.workflow.status);
-    }
-    if (workflowFilter === "none") {
-      return doc.workflow == null;
-    }
-    return true;
-  });
+  const filteredDocuments = documents?.data ?? [];
 
   return (
     <div className="bg-background">
@@ -426,137 +278,44 @@ export default function DocumentsPage() {
         {/* Barra de acciones */}
         <Card>
           <CardContent>
-            <div className="flex flex-col md:flex-row gap-4">
-              {/* Búsqueda y Filtros */}
-              <div className="flex-1 flex gap-2">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Buscar documentos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && searchTerm.trim()) {
-                        router.push(`/dashboard/search?q=${encodeURIComponent(searchTerm.trim())}`);
-                      }
-                    }}
-                    className="pl-10"
-                  />
-                </div>
-
-                {/* Filtro de secciones */}
-                <Select
-                  value={sectionFilter?.toString() || "all"}
-                  onValueChange={(value) => {
-                    setSectionFilter(value === "all" ? undefined : parseInt(value));
-                    setCategoryFilter(undefined); // resetear categoría al cambiar sección
-                  }}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <FolderOpen className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Sección" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {!loadingSections &&
-                      sectionStats?.map((section) => (
-                        <SelectItem key={section.id} value={section.id.toString()}>
-                          {section.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Filtro de categorías — limitado a las de la sección seleccionada */}
-                <Select
-                  value={categoryFilter?.toString() || "all"}
-                  onValueChange={(value) =>
-                    setCategoryFilter(value === "all" ? undefined : parseInt(value))
-                  }
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {!loadingCategories &&
-                      categories
-                        ?.filter((cat) =>
-                          cat.isActive &&
-                          (sectionFilter === undefined || cat.sectionId === sectionFilter)
-                        )
-                        .map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id.toString()}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Filtro de flujo */}
-                <Select
-                  value={workflowFilter}
-                  onValueChange={(value) => setWorkflowFilter(value as "all" | "active" | "none")}
-                >
-                  <SelectTrigger className="w-[170px]">
-                    <GitBranch className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Flujo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los flujos</SelectItem>
-                    <SelectItem value="active">Con flujo activo</SelectItem>
-                    <SelectItem value="none">Sin flujo</SelectItem>
-                  </SelectContent>
-                </Select>
-
-              </div>
-
-              {/* Botón Nuevo */}
-              <NewDocumentButton
+            <DocumentsToolbar
+              initialSearch={searchTerm}
+                categoryFilter={categoryFilter}
+                documentTypeFilter={documentTypeFilter}
+                sectionFilter={sectionFilter}
+                statusFilter={statusFilter}
+                modalityFilter={modalityFilter}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                categories={categories}
+                documentTypes={documentTypes}
+                sections={sectionStats}
+                loadingCategories={loadingCategories}
+                loadingDocumentTypes={loadingDocumentTypes}
+                loadingSections={loadingSections}
+                onSearchChange={handleSearchChange}
+                onCategoryChange={setCategoryFilter}
+                onDocumentTypeChange={setDocumentTypeFilter}
+                onSectionChange={setSectionFilter}
+                onStatusChange={setStatusFilter}
+                onModalityChange={setModalityFilter}
+                onDateFromChange={setDateFrom}
+                onDateToChange={setDateTo}
                 onUploadSingle={() => setShowUploadModal(true)}
                 onUploadMultiple={() => setShowUploadMultipleModal(true)}
-                onFromTemplate={() => router.push("/dashboard/templates")}
-                onBatchGenerate={() => setShowBatchSelectDialog(true)}
-                onCreateInEditor={() => setShowCreateInEditorDialog(true)}
               />
-            </div>
           </CardContent>
         </Card>
 
-        {/* Tabs: Documentos / Lotes */}
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'batches')}>
-          <TabsList>
-            <TabsTrigger value="documents">
-              <FileText className="mr-2 h-4 w-4" />
-              Documentos
-            </TabsTrigger>
-            <TabsTrigger value="batches">
-              <Layers className="mr-2 h-4 w-4" />
-              Lotes
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="documents" className="mt-4">
+        <div className="mt-4">
         {/* Lista de documentos */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Documentos</CardTitle>
+                <CardTitle>Archivo y consulta</CardTitle>
                 <CardDescription>
                   {filteredDocuments.length} documento(s) encontrado(s)
-                  {workflowFilter !== "all" && documents?.data.length !== filteredDocuments.length && (
-                    <span className="ml-1 text-muted-foreground">
-                      (de {documents?.data.length ?? 0} total)
-                    </span>
-                  )}
-                  {selectedDocuments.length > 0 && (
-                    <span className="ml-2 text-primary">
-                      ({selectedDocuments.length} seleccionado
-                      {selectedDocuments.length > 1 ? "s" : ""})
-                    </span>
-                  )}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-3">
@@ -580,19 +339,6 @@ export default function DocumentsPage() {
                     Mis documentos
                   </Button>
                 </div>
-              {filteredDocuments.length > 0 && (
-                <label
-                  onClick={handleSelectAll}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border rounded-md hover:bg-accent cursor-pointer"
-                >
-                  <Checkbox
-                    checked={filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length}
-                  />
-                  {selectedDocuments.length === filteredDocuments.length
-                    ? "Deseleccionar todos"
-                    : "Seleccionar todos"}
-                </label>
-              )}
               </div>
             </div>
           </CardHeader>
@@ -630,9 +376,7 @@ export default function DocumentsPage() {
                 <FileText className="h-16 w-16 text-muted-foreground mb-4" />
                 <p className="text-lg font-medium">No hay documentos</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {workflowFilter !== "all"
-                    ? "No hay documentos que coincidan con el filtro de flujo"
-                    : "Comienza subiendo tu primer documento"}
+                  Comienza subiendo tu primer documento
                 </p>
               </div>
             ) : (
@@ -642,13 +386,10 @@ export default function DocumentsPage() {
                     key={doc.id}
                     doc={doc}
                     index={index}
-                    isSelected={selectedDocuments.some((d) => d.id === doc.id)}
-                    onToggle={handleToggleDocument}
                     thumbnailUrl={thumbnailUrls[doc.id]?.url}
                     onPreview={handlePreview}
                     onDownload={handleDownload}
                     onShowVersionHistory={handleShowVersionHistory}
-                    onShare={setSharingDocument}
                     onEdit={(d) => { setEditingDocument(d); setShowEditDialog(true); }}
                     onReplaceFile={handleShowReplaceFile}
                     onDelete={handleDelete}
@@ -661,78 +402,14 @@ export default function DocumentsPage() {
             )}
           </CardContent>
         </Card>
-          </TabsContent>
+        </div>
 
-          <TabsContent value="batches" className="mt-4">
-            <BatchListSection />
-          </TabsContent>
-        </Tabs>
-
-        {/* Modal de subir documento */}
-        <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Subir Documento</DialogTitle>
-              <DialogDescription>
-                Completa la información del documento que deseas subir
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 py-4">
-              {/* Seleccionar archivo */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Archivo *</label>
-                <Input
-                  type="file"
-                  onChange={handleFileChange}
-                  className="cursor-pointer"
-                />
-                {selectedFile && (
-                  <p className="text-sm text-muted-foreground">
-                    Archivo seleccionado: {selectedFile.name} (
-                    {formatFileSize(selectedFile.size)})
-                  </p>
-                )}
-              </div>
-
-              <DocumentMetadataForm
-                value={uploadData}
-                onChange={setUploadData}
-                categories={categories}
-                loadingCategories={loadingCategories}
-                selectedCategory={selectedCategory}
-                showCourseFields={showCourseFields}
-                academicYears={academicYears}
-                showAcademicYear={true}
-                uploadDocumentTypes={uploadDocumentTypes}
-                showDocumentType={true}
-                allCourses={allCourses}
-                loadingCourses={loadingCourses}
-                courseSubjects={courseSubjects}
-                loadingSubjects={loadingSubjects}
-                userRole={user?.role}
-                descriptionLabel="Descripción"
-                visibilityLabel="Hacer público (visible para todos los usuarios)"
-                isPublicCheckboxId="isPublic"
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowUploadModal(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleUpload}
-                disabled={uploading || !selectedFile}
-              >
-                {uploading ? "Subiendo..." : "Subir Documento"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <UploadDocumentDialog
+          open={showUploadModal}
+          onOpenChange={setShowUploadModal}
+          userRole={user?.role}
+          onSuccess={handleUploadSuccess}
+        />
 
         {/* Modal de vista previa de documento */}
         <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
@@ -815,200 +492,12 @@ export default function DocumentsPage() {
           />
         )}
 
-        {/* Modal de subir múltiples documentos */}
-        <Dialog
+        <UploadMultipleDocumentsDialog
           open={showUploadMultipleModal}
           onOpenChange={setShowUploadMultipleModal}
-        >
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Subir Múltiples Documentos</DialogTitle>
-              <DialogDescription>
-                Selecciona varios archivos para subir al mismo tiempo
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 py-4">
-              {/* Seleccionar archivos múltiples */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Archivos *</label>
-                <Input
-                  type="file"
-                  multiple
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    setSelectedFiles(files);
-                  }}
-                  className="cursor-pointer"
-                />
-                {selectedFiles.length > 0 && (
-                  <div className="space-y-1 mt-2">
-                    <p className="text-sm font-medium">
-                      {selectedFiles.length} archivo(s) seleccionado(s):
-                    </p>
-                    {selectedFiles.map((file, idx) => (
-                      <p key={idx} className="text-sm text-muted-foreground">
-                        • {file.name} ({formatFileSize(file.size)})
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <DocumentMetadataForm
-                value={uploadData}
-                onChange={setUploadData}
-                categories={categories}
-                loadingCategories={loadingCategories}
-                selectedCategory={selectedCategory}
-                showCourseFields={showCourseFields}
-                academicYears={academicYears}
-                showAcademicYear={true}
-                uploadDocumentTypes={uploadDocumentTypes}
-                showDocumentType={true}
-                allCourses={allCourses}
-                loadingCourses={loadingCourses}
-                courseSubjects={courseSubjects}
-                loadingSubjects={loadingSubjects}
-                userRole={user?.role}
-                descriptionLabel="Descripción (opcional)"
-                visibilityLabel="Hacer públicos (visible para todos los usuarios)"
-                isPublicCheckboxId="isPublicMultiple"
-              />
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowUploadMultipleModal(false);
-                  setSelectedFiles([]);
-                  setUploadData({
-                    categoryId: undefined,
-                    courseId: undefined,
-                    subjectId: undefined,
-                    academicYearId: undefined,
-                    documentTypeId: undefined,
-                    description: "",
-                    isPublic: false,
-                  });
-                }}
-                disabled={uploading}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleUploadMultiple}
-                disabled={uploading || selectedFiles.length === 0}
-              >
-                {uploading ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Subiendo...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Subir {selectedFiles.length} archivo(s)
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Batch Actions Bar */}
-        <BatchActionsBar
-          selectedDocuments={selectedDocuments}
-          onClearSelection={handleClearSelection}
-          onSuccess={handleBatchSuccess}
+          userRole={user?.role}
+          onSuccess={handleUploadSuccess}
         />
-
-        {/* Dialog para seleccionar plantilla en modo lote */}
-        <SelectTemplateDialog
-          open={showBatchSelectDialog}
-          onOpenChange={setShowBatchSelectDialog}
-          mode="batch"
-        />
-
-        {/* Create in editor dialog */}
-        <Dialog open={showCreateInEditorDialog} onOpenChange={setShowCreateInEditorDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Crear en Editor</DialogTitle>
-              <DialogDescription>
-                Se creará un documento en blanco y se abrirá en OnlyOffice.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Nombre del documento</label>
-                <Input
-                  placeholder="Ej. Notas de reunión"
-                  value={createInEditorData.title}
-                  onChange={(e) =>
-                    setCreateInEditorData((prev) => ({ ...prev, title: e.target.value }))
-                  }
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateInEditor()}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Tipo de archivo</label>
-                <Select
-                  value={createInEditorData.fileType}
-                  onValueChange={(v) =>
-                    setCreateInEditorData((prev) => ({
-                      ...prev,
-                      fileType: v as "docx" | "xlsx" | "pptx",
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="docx">Documento Word (.docx)</SelectItem>
-                    <SelectItem value="xlsx">Hoja de cálculo (.xlsx)</SelectItem>
-                    <SelectItem value="pptx">Presentación (.pptx)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Categoría (opcional)</label>
-                <Select
-                  value={createInEditorData.categoryId?.toString() ?? "none"}
-                  onValueChange={(v) =>
-                    setCreateInEditorData((prev) => ({
-                      ...prev,
-                      categoryId: v === "none" ? undefined : parseInt(v),
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sin categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin categoría</SelectItem>
-                    {!loadingCategories &&
-                      categories?.map((cat: { id: number; name: string }) => (
-                        <SelectItem key={cat.id} value={cat.id.toString()}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateInEditorDialog(false)}>
-                Cancelar
-              </Button>
-              <Button onClick={handleCreateInEditor} disabled={creatingInEditor || !createInEditorData.title.trim()}>
-                {creatingInEditor ? "Creando..." : "Crear y Abrir"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         <ConfirmDialog
           open={deleteConfirmId !== null}
@@ -1023,14 +512,6 @@ export default function DocumentsPage() {
             setDeleteConfirmId(null);
           }}
         />
-
-        {sharingDocument && (
-          <CreateShareDialog
-            documentId={sharingDocument.id}
-            open={!!sharingDocument}
-            onOpenChange={(open) => { if (!open) setSharingDocument(null); }}
-          />
-        )}
       </div>
     </div>
   );

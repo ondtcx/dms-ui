@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usersService } from "@/lib/services/users.service";
-import { User, UserRole } from "@/lib/types";
+import { rolesService } from "@/lib/services/roles.service";
+import { User } from "@/lib/types";
 import toast from "react-hot-toast";
 import {
   Dialog,
@@ -24,19 +25,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.RECTOR]: "Rector",
-  [UserRole.VICERRECTOR]: "Vicerrector",
-  [UserRole.COORDINADOR]: "Coordinador",
-  [UserRole.PROFESOR]: "Profesor",
-  [UserRole.SECRETARIO]: "Secretario",
-  [UserRole.PADRE]: "Padre",
-  [UserRole.ESTUDIANTE]: "Estudiante",
-  [UserRole.MODERADOR]: "Moderador",
-  [UserRole.ADMIN]: "Administrador",
-  [UserRole.USER]: "Usuario",
-};
-
 interface EditUserDialogProps {
   user: User;
   open: boolean;
@@ -45,16 +33,25 @@ interface EditUserDialogProps {
 
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const queryClient = useQueryClient();
+  const { data: roles = [] } = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => rolesService.getAll(),
+  });
 
   const [formData, setFormData] = useState({
     name: user.name,
     email: user.email,
-    role: user.role,
+    roleId: user.roleId ?? "",
     password: "",
   });
 
   useEffect(() => {
-    setFormData({ name: user.name, email: user.email, role: user.role, password: "" });
+    setFormData({
+      name: user.name,
+      email: user.email,
+      roleId: user.roleId ?? "",
+      password: "",
+    });
   }, [user]);
 
   const updateMutation = useMutation({
@@ -62,7 +59,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       const payload: Record<string, string> = {
         name: data.name,
         email: data.email,
-        role: data.role,
+        roleId: data.roleId,
       };
       if (data.password.trim()) payload.password = data.password;
       return usersService.update(user.id, payload);
@@ -122,16 +119,16 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
           <div className="space-y-2">
             <Label htmlFor="edit-role">Rol</Label>
             <Select
-              value={formData.role}
-              onValueChange={(value) => setFormData({ ...formData, role: value as UserRole })}
+              value={formData.roleId}
+              onValueChange={(value) => setFormData({ ...formData, roleId: value })}
             >
               <SelectTrigger id="edit-role">
-                <SelectValue />
+                <SelectValue placeholder="Selecciona un rol" />
               </SelectTrigger>
               <SelectContent>
-                {Object.values(UserRole).map((role) => (
-                  <SelectItem key={role} value={role}>
-                    {ROLE_LABELS[role]}
+                {roles.map((role) => (
+                  <SelectItem key={role.id} value={role.id}>
+                    {role.name}
                   </SelectItem>
                 ))}
               </SelectContent>

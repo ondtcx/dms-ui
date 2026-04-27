@@ -1,6 +1,7 @@
 "use client";
 
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, MapPin } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -76,16 +77,77 @@ export function DocumentMetadataForm({
   visibilityLabel = "Hacer público (visible para todos los usuarios)",
   isPublicCheckboxId = "isPublic",
 }: DocumentMetadataFormProps) {
+  const updateValue = (updates: Partial<UploadMetadata>) =>
+    onChange({ ...value, ...updates });
+
   return (
     <>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2 md:col-span-2">
+          <label className="text-sm font-medium">Título del documento *</label>
+          <Input
+            value={value.title}
+            onChange={(e) => updateValue({ title: e.target.value })}
+            placeholder="Ej. Solicitud de permiso docente"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Fecha del documento *</label>
+          <Input
+            type="date"
+            value={value.documentDate}
+            onChange={(e) => updateValue({ documentDate: e.target.value })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Estado *</label>
+          <Select
+            value={value.status}
+            onValueChange={(status) =>
+              updateValue({ status: status as UploadMetadata["status"] })
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Selecciona un estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="REGISTRADO">Registrado</SelectItem>
+              <SelectItem value="EN_REVISION">En revisión</SelectItem>
+              <SelectItem value="ARCHIVADO">Archivado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Remitente *</label>
+          <Input
+            value={value.sender}
+            onChange={(e) => updateValue({ sender: e.target.value })}
+            placeholder="Ej. Secretaría General"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Destinatario</label>
+          <Input
+            value={value.recipient}
+            onChange={(e) => updateValue({ recipient: e.target.value })}
+            placeholder="Ej. Rectorado"
+          />
+        </div>
+      </div>
+
+      <Separator />
+
       {/* Categoría */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Categoría</label>
         <Select
           value={value.categoryId?.toString() || ""}
           onValueChange={(v) =>
-            onChange({
-              ...value,
+            updateValue({
               categoryId: v ? parseInt(v) : undefined,
               courseId: undefined,
               subjectId: undefined,
@@ -101,8 +163,8 @@ export function DocumentMetadataForm({
                 ?.filter((cat) => {
                   if (!cat.isActive) return false;
                   if (userRole === "admin") return true;
-                  if (!cat.allowedRoles || cat.allowedRoles.length === 0) return true;
-                  return userRole && cat.allowedRoles.includes(userRole);
+                  if (!cat.roles || cat.roles.length === 0) return true;
+                  return userRole && cat.roles.some((r) => r.role.name === userRole);
                 })
                 .map((cat) => (
                   <SelectItem key={cat.id} value={cat.id.toString()}>
@@ -150,8 +212,7 @@ export function DocumentMetadataForm({
             <Select
               value={value.courseId?.toString() || ""}
               onValueChange={(v) =>
-                onChange({
-                  ...value,
+                updateValue({
                   courseId: v ? parseInt(v) : undefined,
                   subjectId: undefined,
                 })
@@ -174,12 +235,12 @@ export function DocumentMetadataForm({
           {value.courseId && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Materia</label>
-              <Select
-                value={value.subjectId?.toString() || ""}
-                onValueChange={(v) =>
-                  onChange({ ...value, subjectId: v ? parseInt(v) : undefined })
-                }
-              >
+                <Select
+                  value={value.subjectId?.toString() || ""}
+                  onValueChange={(v) =>
+                    updateValue({ subjectId: v ? parseInt(v) : undefined })
+                  }
+                >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona una materia" />
                 </SelectTrigger>
@@ -204,8 +265,7 @@ export function DocumentMetadataForm({
           <Select
             value={value.academicYearId?.toString() || "auto"}
             onValueChange={(v) =>
-              onChange({
-                ...value,
+              updateValue({
                 academicYearId: v === "auto" ? undefined : parseInt(v),
               })
             }
@@ -238,8 +298,7 @@ export function DocumentMetadataForm({
           <Select
             value={value.documentTypeId?.toString() ?? "none"}
             onValueChange={(v) =>
-              onChange({
-                ...value,
+              updateValue({
                 documentTypeId: v === "none" ? undefined : parseInt(v),
               })
             }
@@ -261,15 +320,91 @@ export function DocumentMetadataForm({
 
       <Separator />
 
-      {/* Descripción */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">{descriptionLabel}</label>
-        <Textarea
-          value={value.description}
-          onChange={(e) => onChange({ ...value, description: e.target.value })}
-          placeholder="Describe el contenido del documento..."
-          rows={3}
-        />
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Descripción */}
+        <div className="space-y-2 md:col-span-2">
+          <label className="text-sm font-medium">{descriptionLabel}</label>
+          <Textarea
+            value={value.description}
+            onChange={(e) => updateValue({ description: e.target.value })}
+            placeholder="Resume el contenido o asunto principal del documento..."
+            rows={3}
+          />
+        </div>
+
+        <div className="space-y-2 md:col-span-2">
+          <label className="text-sm font-medium">Palabras clave</label>
+          <Input
+            value={value.keywords}
+            onChange={(e) => updateValue({ keywords: e.target.value })}
+            placeholder="Ej. permiso, docente, abril"
+          />
+          <p className="text-xs text-muted-foreground">
+            Puedes separarlas por comas para facilitar la búsqueda.
+          </p>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-primary" />
+          <div>
+            <p className="text-sm font-medium">Ubicación física</p>
+            <p className="text-xs text-muted-foreground">
+              Registra dónde se encuentra el documento en archivo físico.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Edificio *</label>
+            <Input
+              value={value.physicalBuilding}
+              onChange={(e) => updateValue({ physicalBuilding: e.target.value })}
+              placeholder="Ej. Edificio principal"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Oficina *</label>
+            <Input
+              value={value.physicalOffice}
+              onChange={(e) => updateValue({ physicalOffice: e.target.value })}
+              placeholder="Ej. Secretaría"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Archivo o estante *</label>
+            <Input
+              value={value.physicalArchive}
+              onChange={(e) => updateValue({ physicalArchive: e.target.value })}
+              placeholder="Ej. Archivo A"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Gaveta o caja *</label>
+            <Input
+              value={value.physicalBox}
+              onChange={(e) => updateValue({ physicalBox: e.target.value })}
+              placeholder="Ej. Gaveta 2"
+            />
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <label className="text-sm font-medium">Observación de ubicación</label>
+            <Textarea
+              value={value.physicalNotes}
+              onChange={(e) => updateValue({ physicalNotes: e.target.value })}
+              placeholder="Ej. Carpeta azul con separador rojo"
+              rows={2}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Visibilidad */}
@@ -278,7 +413,7 @@ export function DocumentMetadataForm({
           id={isPublicCheckboxId}
           checked={value.isPublic}
           onCheckedChange={(checked) =>
-            onChange({ ...value, isPublic: checked as boolean })
+            updateValue({ isPublic: checked as boolean })
           }
         />
         <label

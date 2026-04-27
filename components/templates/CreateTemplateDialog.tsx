@@ -331,7 +331,7 @@ export function CreateTemplateDialog({
                 {categoryId && categories && (
                   <p className="text-xs text-muted-foreground">
                     Roles con acceso:{" "}
-                    {(categories.find((c) => c.id === categoryId)?.allowedRoles as string[] | undefined)?.join(", ") || "todos"}
+                    {(categories.find((c) => c.id === categoryId)?.roles?.map(r => r.role.name))?.join(", ") || "todos"}
                   </p>
                 )}
               </div>

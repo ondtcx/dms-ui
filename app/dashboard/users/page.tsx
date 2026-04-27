@@ -1,7 +1,9 @@
 "use client";
 
+import { displayRoleName, resolveLegacyRoleName } from "@/lib/auth/normalizers";
 import ProtectedRoute from "@/guards/ProtectedRoute";
-import { UserRole, User } from "@/lib/types";
+import { rolesService } from "@/lib/services/roles.service";
+import { User, type RoleSummary } from "@/lib/types";
 import { EditUserDialog } from "@/components/users/EditUserDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersService } from "@/lib/services/users.service";
@@ -44,19 +46,6 @@ import {
 } from "@/components/ui/dialog";
 import { Users, UserPlus, Pencil, Trash2 } from "lucide-react";
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  [UserRole.RECTOR]: "Rector",
-  [UserRole.VICERRECTOR]: "Vicerrector",
-  [UserRole.COORDINADOR]: "Coordinador",
-  [UserRole.PROFESOR]: "Profesor",
-  [UserRole.SECRETARIO]: "Secretario",
-  [UserRole.PADRE]: "Padre",
-  [UserRole.ESTUDIANTE]: "Estudiante",
-  [UserRole.MODERADOR]: "Moderador",
-  [UserRole.ADMIN]: "Administrador",
-  [UserRole.USER]: "Usuario",
-};
-
 const ROLE_BADGE_VARIANT: Record<
   string,
   "default" | "secondary" | "destructive" | "outline"
@@ -82,12 +71,17 @@ function UsersManagementContent() {
     name: "",
     email: "",
     password: "",
-    role: UserRole.PROFESOR,
+    roleId: "",
   });
 
   const { data: users, isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: () => usersService.getAll(),
+  });
+
+  const { data: roles = [] } = useQuery<RoleSummary[]>({
+    queryKey: ["roles"],
+    queryFn: () => rolesService.getAll(),
   });
 
   const createMutation = useMutation({
@@ -96,7 +90,7 @@ function UsersManagementContent() {
       queryClient.invalidateQueries({ queryKey: ["users"] });
       toast.success("Usuario creado exitosamente");
       setIsCreating(false);
-      setNewUser({ name: "", email: "", password: "", role: UserRole.PROFESOR });
+      setNewUser({ name: "", email: "", password: "", roleId: "" });
     },
     onError: (error) => {
       const message =
@@ -181,11 +175,12 @@ function UsersManagementContent() {
                     <TableCell>
                       <Badge
                         variant={
-                          ROLE_BADGE_VARIANT[user.role] ?? "outline"
+                          ROLE_BADGE_VARIANT[resolveLegacyRoleName(user) ?? ""] ??
+                          "outline"
                         }
                         className="capitalize"
                       >
-                        {ROLE_LABELS[user.role as UserRole] ?? user.role}
+                        {displayRoleName(user)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -260,18 +255,16 @@ function UsersManagementContent() {
             <div className="space-y-2">
               <Label htmlFor="new-role">Rol</Label>
               <Select
-                value={newUser.role}
-                onValueChange={(v) =>
-                  setNewUser({ ...newUser, role: v as UserRole })
-                }
+                value={newUser.roleId}
+                onValueChange={(value) => setNewUser({ ...newUser, roleId: value })}
               >
                 <SelectTrigger id="new-role">
-                  <SelectValue />
+                  <SelectValue placeholder="Selecciona un rol" />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.values(UserRole).map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {ROLE_LABELS[role]}
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {role.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -322,7 +315,7 @@ function UsersManagementContent() {
 
 export default function UsersManagementPage() {
   return (
-    <ProtectedRoute requiredRole={UserRole.ADMIN}>
+    <ProtectedRoute routeKey="/dashboard/users">
       <UsersManagementContent />
     </ProtectedRoute>
   );

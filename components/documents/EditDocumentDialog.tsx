@@ -26,7 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Pencil, Save } from "lucide-react";
-import { Document } from "@/lib/types";
+import { Document, PilotDocumentStatus } from "@/lib/types";
 
 interface EditDocumentDialogProps {
   document: Document;
@@ -42,8 +42,19 @@ export function EditDocumentDialog({
   const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
+    title: document.title || "",
     filename: ((document?.versions?.[0]?.filename) ?? ''),
     description: document.description || "",
+    documentDate: document.documentDate ? document.documentDate.slice(0, 10) : "",
+    sender: document.sender || "",
+    recipient: document.recipient || "",
+    keywords: document.keywords || "",
+    status: document.status,
+    physicalBuilding: document.physicalBuilding || "",
+    physicalOffice: document.physicalOffice || "",
+    physicalArchive: document.physicalArchive || "",
+    physicalBox: document.physicalBox || "",
+    physicalNotes: document.physicalNotes || "",
     categoryId: document.categoryId,
     isPublic: document.isPublic,
   });
@@ -51,8 +62,19 @@ export function EditDocumentDialog({
   // Actualizar form cuando cambia el documento
   useEffect(() => {
     setFormData({
+      title: document.title || "",
       filename: ((document?.versions?.[0]?.filename) ?? ''),
       description: document.description || "",
+      documentDate: document.documentDate ? document.documentDate.slice(0, 10) : "",
+      sender: document.sender || "",
+      recipient: document.recipient || "",
+      keywords: document.keywords || "",
+      status: document.status,
+      physicalBuilding: document.physicalBuilding || "",
+      physicalOffice: document.physicalOffice || "",
+      physicalArchive: document.physicalArchive || "",
+      physicalBox: document.physicalBox || "",
+      physicalNotes: document.physicalNotes || "",
       categoryId: document.categoryId,
       isPublic: document.isPublic,
     });
@@ -68,7 +90,18 @@ export function EditDocumentDialog({
   const updateMutation = useMutation({
     mutationFn: () =>
       documentsService.update(document.id, {
+        title: formData.title || undefined,
         description: formData.description || undefined,
+        documentDate: formData.documentDate || undefined,
+        sender: formData.sender || undefined,
+        recipient: formData.recipient || undefined,
+        keywords: formData.keywords || undefined,
+        status: formData.status,
+        physicalBuilding: formData.physicalBuilding || undefined,
+        physicalOffice: formData.physicalOffice || undefined,
+        physicalArchive: formData.physicalArchive || undefined,
+        physicalBox: formData.physicalBox || undefined,
+        physicalNotes: formData.physicalNotes || undefined,
         categoryId: formData.categoryId || undefined,
         isPublic: formData.isPublic,
       }),
@@ -92,8 +125,8 @@ export function EditDocumentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-[500px]">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="h-5 w-5" />
             Editar Documento
@@ -103,7 +136,8 @@ export function EditDocumentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-1 pr-1">
           {/* Número institucional (solo lectura) */}
           {document.documentNumber && (
             <div className="space-y-2">
@@ -119,6 +153,18 @@ export function EditDocumentDialog({
 
           {/* Nombre del archivo (solo lectura) */}
           <div className="space-y-2">
+            <Label htmlFor="title">Título del documento</Label>
+            <Input
+              id="title"
+              value={formData.title}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
+              placeholder="Ej. Solicitud de permiso docente"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="filename">Nombre del Archivo</Label>
             <Input
               id="filename"
@@ -129,6 +175,66 @@ export function EditDocumentDialog({
             <p className="text-xs text-muted-foreground">
               El nombre del archivo no se puede cambiar
             </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="documentDate">Fecha del documento</Label>
+              <Input
+                id="documentDate"
+                type="date"
+                value={formData.documentDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, documentDate: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">Estado</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    status: value as PilotDocumentStatus,
+                  })
+                }
+              >
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Selecciona un estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="REGISTRADO">Registrado</SelectItem>
+                  <SelectItem value="EN_REVISION">En revisión</SelectItem>
+                  <SelectItem value="ARCHIVADO">Archivado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="sender">Remitente</Label>
+              <Input
+                id="sender"
+                value={formData.sender}
+                onChange={(e) =>
+                  setFormData({ ...formData, sender: e.target.value })
+                }
+                placeholder="Ej. Secretaría General"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="recipient">Destinatario</Label>
+              <Input
+                id="recipient"
+                value={formData.recipient}
+                onChange={(e) =>
+                  setFormData({ ...formData, recipient: e.target.value })
+                }
+                placeholder="Ej. Rectorado"
+              />
+            </div>
           </div>
 
           {/* Descripción */}
@@ -142,6 +248,18 @@ export function EditDocumentDialog({
               }
               placeholder="Descripción del documento..."
               rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="keywords">Palabras clave</Label>
+            <Input
+              id="keywords"
+              value={formData.keywords}
+              onChange={(e) =>
+                setFormData({ ...formData, keywords: e.target.value })
+              }
+              placeholder="Ej. permiso, docente, abril"
             />
           </div>
 
@@ -174,6 +292,67 @@ export function EditDocumentDialog({
             </Select>
           </div>
 
+          <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
+            <p className="text-sm font-medium">Ubicación física</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="physicalBuilding">Edificio</Label>
+                <Input
+                  id="physicalBuilding"
+                  value={formData.physicalBuilding}
+                  onChange={(e) =>
+                    setFormData({ ...formData, physicalBuilding: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="physicalOffice">Oficina</Label>
+                <Input
+                  id="physicalOffice"
+                  value={formData.physicalOffice}
+                  onChange={(e) =>
+                    setFormData({ ...formData, physicalOffice: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="physicalArchive">Archivo o estante</Label>
+                <Input
+                  id="physicalArchive"
+                  value={formData.physicalArchive}
+                  onChange={(e) =>
+                    setFormData({ ...formData, physicalArchive: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="physicalBox">Gaveta o caja</Label>
+                <Input
+                  id="physicalBox"
+                  value={formData.physicalBox}
+                  onChange={(e) =>
+                    setFormData({ ...formData, physicalBox: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="physicalNotes">Observación</Label>
+                <Textarea
+                  id="physicalNotes"
+                  value={formData.physicalNotes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, physicalNotes: e.target.value })
+                  }
+                  rows={2}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Visibilidad */}
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -191,7 +370,9 @@ export function EditDocumentDialog({
             </Label>
           </div>
 
-          <DialogFooter>
+          </div>
+
+          <DialogFooter className="shrink-0 pt-4">
             <Button
               type="button"
               variant="outline"

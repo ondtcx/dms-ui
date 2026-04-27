@@ -61,6 +61,19 @@ export function formatMimeType(mimetype: string): string {
   return cleaned.toUpperCase();
 }
 
+type RoleLike =
+  | string
+  | {
+      id?: string;
+      name?: string;
+      description?: string | null;
+      isSystem?: boolean;
+      createdAt?: string;
+      updatedAt?: string;
+    }
+  | null
+  | undefined;
+
 const ROLE_LABELS: Record<string, string> = {
   rector: "Rector/a",
   coordinador: "Coordinador/a",
@@ -73,9 +86,13 @@ const ROLE_LABELS: Record<string, string> = {
   user: "Usuario",
 };
 
-export function formatRole(role?: string | null): string {
+export function formatRole(role?: RoleLike): string {
   if (!role) return "";
-  return ROLE_LABELS[role] ?? role;
+
+  const roleName = typeof role === "string" ? role : role.name;
+  if (!roleName) return "";
+
+  return ROLE_LABELS[roleName] ?? roleName;
 }
 
 export function formatFileSize(bytes: number): string {

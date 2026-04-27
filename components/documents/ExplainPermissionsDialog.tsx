@@ -10,8 +10,6 @@ import { usersService } from '@/lib/services/users.service';
 import { permissionsService } from '@/lib/services/permissions.service';
 import { formatRole } from '@/lib/utils';
 
-import { UserRole } from '@/lib/types';
-
 interface Props {
   documentId: number;
   open: boolean;
@@ -78,7 +76,7 @@ export function ExplainPermissionsDialog({ documentId, open, onOpenChange }: Pro
               </div>
               <div>
                 <span className="font-semibold text-sm">Rol evaluado: </span>
-                <span className="text-sm text-muted-foreground">{formatRole(explanation.role as unknown as UserRole)}</span>
+                <span className="text-sm text-muted-foreground">{formatRole(explanation.role)}</span>
               </div>
               <div className="space-y-2">
                 <span className="font-semibold text-sm">Razones detectadas:</span>

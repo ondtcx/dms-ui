@@ -1,24 +1,27 @@
 // src/guards/ProtectedRoute.tsx
 "use client";
 
+import { getUnauthorizedFallbackPath } from "@/lib/auth/access";
 import { useAuth } from "@/lib/contexts/AuthContext";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { UserRole } from "@/lib/types";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: UserRole;
-  requiredRoles?: UserRole[];
+  routeKey: string;
+  fallback?: React.ReactNode;
 }
 
-export default function ProtectedRoute({
+export function AuthorizationBoundary({
   children,
-  requiredRole,
-  requiredRoles,
+  routeKey,
+  fallback = null,
 }: ProtectedRouteProps) {
-  const { user, loading, isAuthenticated } = useAuth();
+  const { loading, isAuthenticated } = useAuth();
+  const { canAccessRoute } = usePermissions();
   const router = useRouter();
+  const isAuthorized = canAccessRoute(routeKey);
 
   useEffect(() => {
     if (!loading) {
@@ -27,19 +30,12 @@ export default function ProtectedRoute({
         return;
       }
 
-      // Verificar rol requerido
-      if (requiredRole && user?.role !== requiredRole) {
-        router.push("/errors/unauthorized");
-        return;
-      }
-
-      // Verificar múltiples roles permitidos
-      if (requiredRoles && !requiredRoles.includes(user?.role as UserRole)) {
-        router.push("/errors/unauthorized");
+      if (!isAuthorized) {
+        router.push(getUnauthorizedFallbackPath());
         return;
       }
     }
-  }, [user, loading, isAuthenticated, requiredRole, requiredRoles, router]);
+  }, [isAuthorized, loading, isAuthenticated, router]);
 
   if (loading) {
     return (
@@ -56,13 +52,11 @@ export default function ProtectedRoute({
     return null;
   }
 
-  if (requiredRole && user?.role !== requiredRole) {
-    return null;
-  }
-
-  if (requiredRoles && !requiredRoles.includes(user?.role as UserRole)) {
-    return null;
+  if (!isAuthorized) {
+    return <>{fallback}</>;
   }
 
   return <>{children}</>;
 }
+
+export default AuthorizationBoundary;
