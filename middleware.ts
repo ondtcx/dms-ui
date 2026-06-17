@@ -44,6 +44,7 @@ export function middleware(request: NextRequest) {
   const publicRoutes = [
     "/auth/login",
     "/auth/forgot-password",
+    "/auth/reset-password",
     "/landing",
   ];
   const isPublicRoute = publicRoutes.includes(pathname);

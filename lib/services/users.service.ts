@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import { User } from "@/lib/types";
+import { ResetTokenResponse, User } from "@/lib/types";
 
 export interface CreateUserDto {
   email: string;
@@ -41,5 +41,13 @@ export const usersService = {
 
   async delete(id: string): Promise<void> {
     await api.delete(`/users/${id}`);
+  },
+
+  async generateResetToken(userId: string): Promise<ResetTokenResponse> {
+    const response = await api.post<ResetTokenResponse>(
+      "/auth/admin/generate-reset-token",
+      { userId },
+    );
+    return response.data;
   },
 };

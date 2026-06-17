@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import { AuthResponse, LoginDto, RegisterDto, User } from "@/lib/types";
+import { AuthResponse, ChangePasswordDto, LoginDto, RegisterDto, User } from "@/lib/types";
 import Cookies from "js-cookie";
 
 export const authService = {
@@ -42,6 +42,15 @@ export const authService = {
   async getProfile(): Promise<User> {
     const response = await api.get<User>("/auth/profile");
     return response.data;
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const payload = { token, newPassword };
+    await api.post("/auth/reset-password", payload);
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await api.post("/auth/change-password", { currentPassword, newPassword } satisfies ChangePasswordDto);
   },
 
   logout() {

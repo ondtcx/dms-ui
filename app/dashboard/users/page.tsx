@@ -41,8 +41,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, UserPlus, Pencil, Trash2 } from "lucide-react";
+import { Users, UserPlus, Pencil, Trash2, KeyRound, Copy, Check, Loader2 } from "lucide-react";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.RECTOR]: "Rector",
@@ -117,6 +118,49 @@ function UsersManagementContent() {
     },
   });
 
+  // Token generation state
+  const [tokenDialogUser, setTokenDialogUser] = useState<{ id: string; name: string } | null>(null);
+  const [generatedToken, setGeneratedToken] = useState<{ token: string; expiresAt: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const generateTokenMutation = useMutation({
+    mutationFn: usersService.generateResetToken,
+    onSuccess: (data) => {
+      setGeneratedToken(data);
+      toast.success("Token generado exitosamente");
+    },
+    onError: () => {
+      toast.error("Error al generar el token");
+    },
+  });
+
+  const handleGenerateToken = (user: User) => {
+    setTokenDialogUser({ id: user.id, name: user.name });
+    setGeneratedToken(null);
+    setCopied(false);
+    generateTokenMutation.mutate(user.id);
+  };
+
+  const handleCopyToken = async () => {
+    if (!generatedToken) return;
+    try {
+      await navigator.clipboard.writeText(generatedToken.token);
+      setCopied(true);
+      toast.success("Token copiado al portapapeles");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Error al copiar el token");
+    }
+  };
+
+  const formatExpiry = (expiresAt: string) => {
+    const date = new Date(expiresAt);
+    return date.toLocaleString("es-AR", {
+      dateStyle: "long",
+      timeStyle: "short",
+    });
+  };
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     createMutation.mutate(newUser);
@@ -190,6 +234,14 @@ function UsersManagementContent() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleGenerateToken(user)}
+                          title="Generar token de restablecimiento"
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -316,6 +368,83 @@ function UsersManagementContent() {
           onOpenChange={(open) => !open && setEditingUser(null)}
         />
       )}
+
+      {/* Dialog token de restablecimiento */}
+      <Dialog
+        open={tokenDialogUser !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTokenDialogUser(null);
+            setGeneratedToken(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Token de restablecimiento</DialogTitle>
+            <DialogDescription>
+              Token generado para {tokenDialogUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {generateTokenMutation.isPending ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : generatedToken ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Token</Label>
+                <div className="flex gap-2">
+                  <Input
+                    value={generatedToken.token}
+                    readOnly
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleCopyToken}
+                    title="Copiar al portapapeles"
+                  >
+                    {copied ? (
+                      <Check className="h-4 w-4 text-green-600" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="text-sm text-muted-foreground">
+                <p>
+                  <strong>Expira:</strong> {formatExpiry(generatedToken.expiresAt)}
+                </p>
+                <p className="mt-1">
+                  Este token solo se muestra una vez. Copialo y compártelo de
+                  forma segura con el usuario.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="py-4 text-center text-sm text-destructive">
+              No se pudo generar el token. Intenta nuevamente.
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              type="button"
+              onClick={() => {
+                setTokenDialogUser(null);
+                setGeneratedToken(null);
+              }}
+            >
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

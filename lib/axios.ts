@@ -60,7 +60,7 @@ api.interceptors.response.use(
       // Token expirado o inválido — side effect crítico, siempre se ejecuta
       Cookies.remove("token", { path: "/" });
       Cookies.remove("user", { path: "/" });
-      const publicPaths = ["/auth/login", "/auth/register", "/auth/forgot-password"];
+      const publicPaths = ["/auth/login", "/auth/register", "/auth/forgot-password", "/auth/reset-password"];
       if (!publicPaths.includes(window.location.pathname)) {
         if (!silent) toast.error("Sesión expirada. Por favor inicia sesión nuevamente.");
         window.location.href = "/auth/login";

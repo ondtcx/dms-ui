@@ -37,6 +37,14 @@ export function ForgotPasswordForm({
           <Button asChild variant="outline" className="w-full">
             <Link href="/auth/login">Volver al inicio de sesión</Link>
           </Button>
+          <div className="text-center text-sm text-muted-foreground">
+            <Link
+              href="/auth/reset-password"
+              className="underline underline-offset-4 hover:text-primary"
+            >
+              ¿Ya tienes un token? Restablecer contraseña
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

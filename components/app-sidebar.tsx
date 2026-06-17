@@ -49,6 +49,8 @@ import {
   ClipboardList,
   GraduationCap,
   Tags,
+  House,
+  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -153,6 +155,14 @@ export const mainMenuItems: MenuItem[] = [
     title: "Archivo",
     icon: Archive,
     url: "/dashboard/archive",
+  },
+];
+
+export const accountMenuItems: MenuItem[] = [
+  {
+    title: "Mi Cuenta",
+    icon: UserRound,
+    url: "/dashboard/mi-cuenta",
   },
 ];
 
@@ -341,6 +351,28 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 ),
               )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Menu de Cuenta */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Cuenta</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {accountMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.url}
+                  >
+                    <Link href={item.url} className="flex items-center">
+                      <item.icon className="h-4 w-4 mr-2" />
+                      {item.title}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

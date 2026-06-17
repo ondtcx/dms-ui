@@ -868,6 +868,27 @@ export interface DocumentComposition {
   }[];
 }
 
+// ===== AUTH - PASSWORD RESET & CHANGE =====
+
+export interface GenerateResetTokenDto {
+  userId: string;
+}
+
+export interface ResetTokenResponse {
+  token: string;
+  expiresAt: string;
+}
+
+export interface ResetPasswordDto {
+  token: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+
 // ─── Upload Metadata ──────────────────────────────────────────────────────────
 
 export interface UploadMetadata {
