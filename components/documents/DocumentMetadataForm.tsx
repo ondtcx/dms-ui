@@ -78,6 +78,28 @@ export function DocumentMetadataForm({
 }: DocumentMetadataFormProps) {
   return (
     <>
+      <div className="space-y-1">
+        <p className="text-sm font-semibold">Metadatos principales</p>
+        <p className="text-xs text-muted-foreground">
+          Completa primero título, categoría, tipo y fecha académica.
+        </p>
+      </div>
+
+      {showTitle && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium" htmlFor="title">{titleLabel} *</label>
+          <Input
+            id="title"
+            value={value.title}
+            onChange={(e) => onChange({ ...value, title: e.target.value })}
+            placeholder="Ej: Oficio de solicitud de materiales"
+          />
+          <p className="text-xs text-muted-foreground">
+            Este título identifica funcionalmente el documento dentro del sistema.
+          </p>
+        </div>
+      )}
+
       {/* Categoría */}
       <div className="space-y-2">
         <label className="text-sm font-medium">Categoría</label>
@@ -92,7 +114,7 @@ export function DocumentMetadataForm({
             })
           }
         >
-          <SelectTrigger>
+          <SelectTrigger id="category" aria-invalid={categoryRequired && !value.categoryId}>
             <SelectValue placeholder="Selecciona una categoría" />
           </SelectTrigger>
           <SelectContent>
@@ -142,59 +164,37 @@ export function DocumentMetadataForm({
         )}
       </div>
 
-      {/* Curso y Materia (condicional) */}
-      {showCourseFields && (
-        <>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Curso *</label>
-            <Select
-              value={value.courseId?.toString() || ""}
-              onValueChange={(v) =>
-                onChange({
-                  ...value,
-                  courseId: v ? parseInt(v) : undefined,
-                  subjectId: undefined,
-                })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona un curso" />
-              </SelectTrigger>
-              <SelectContent>
-                {!loadingCourses &&
-                  allCourses?.map((course) => (
-                    <SelectItem key={course.id} value={course.id.toString()}>
-                      {course.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {value.courseId && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Materia</label>
-              <Select
-                value={value.subjectId?.toString() || ""}
-                onValueChange={(v) =>
-                  onChange({ ...value, subjectId: v ? parseInt(v) : undefined })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona una materia" />
-                </SelectTrigger>
-                <SelectContent>
-                  {!loadingSubjects &&
-                    courseSubjects?.map((subject) => (
-                      <SelectItem key={subject.id} value={subject.id.toString()}>
-                        {subject.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Tipo de documento */}
+      {showDocumentType && value.categoryId && uploadDocumentTypes && uploadDocumentTypes.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">
+            Tipo de documento {documentTypeRequired ? "*" : ""}
+          </label>
+          <Select
+            value={value.documentTypeId?.toString() ?? (documentTypeRequired ? "" : "none")}
+            onValueChange={(v) =>
+              onChange({
+                ...value,
+                documentTypeId: v === "none" ? undefined : parseInt(v),
+              })
+            }
+          >
+            <SelectTrigger id="documentType" aria-invalid={documentTypeRequired && !value.documentTypeId}>
+              <SelectValue placeholder={documentTypeRequired ? "Selecciona un tipo" : "Sin tipo"} />
+            </SelectTrigger>
+            <SelectContent>
+              {!documentTypeRequired && <SelectItem value="none">Sin tipo</SelectItem>}
+              {uploadDocumentTypes.map((dt) => (
+                <SelectItem key={dt.id} value={dt.id.toString()}>
+                  {dt.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {documentTypeRequired && !value.documentTypeId && (
+            <p className="text-xs text-destructive">El tipo de documento es obligatorio para esta categoría.</p>
           )}
-        </>
+        </div>
       )}
 
       {/* Año Lectivo */}

@@ -295,7 +295,7 @@ export default function DocumentsPage() {
       a.download = filename;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
       document.body.removeChild(a);
       toast.success("Descarga iniciada");
     } catch {
