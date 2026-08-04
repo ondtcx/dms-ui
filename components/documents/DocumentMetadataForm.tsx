@@ -81,24 +81,9 @@ export function DocumentMetadataForm({
       <div className="space-y-1">
         <p className="text-sm font-semibold">Metadatos principales</p>
         <p className="text-xs text-muted-foreground">
-          Completa primero título, categoría, tipo y fecha académica.
+          Completa primero categoría, tipo y fecha académica.
         </p>
       </div>
-
-      {showTitle && (
-        <div className="space-y-2">
-          <label className="text-sm font-medium" htmlFor="title">{titleLabel} *</label>
-          <Input
-            id="title"
-            value={value.title}
-            onChange={(e) => onChange({ ...value, title: e.target.value })}
-            placeholder="Ej: Oficio de solicitud de materiales"
-          />
-          <p className="text-xs text-muted-foreground">
-            Este título identifica funcionalmente el documento dentro del sistema.
-          </p>
-        </div>
-      )}
 
       {/* Categoría */}
       <div className="space-y-2">
@@ -114,7 +99,7 @@ export function DocumentMetadataForm({
             })
           }
         >
-          <SelectTrigger id="category" aria-invalid={categoryRequired && !value.categoryId}>
+          <SelectTrigger id="category">
             <SelectValue placeholder="Selecciona una categoría" />
           </SelectTrigger>
           <SelectContent>
@@ -167,11 +152,9 @@ export function DocumentMetadataForm({
       {/* Tipo de documento */}
       {showDocumentType && value.categoryId && uploadDocumentTypes && uploadDocumentTypes.length > 0 && (
         <div className="space-y-2">
-          <label className="text-sm font-medium">
-            Tipo de documento {documentTypeRequired ? "*" : ""}
-          </label>
+          <label className="text-sm font-medium">Tipo de documento</label>
           <Select
-            value={value.documentTypeId?.toString() ?? (documentTypeRequired ? "" : "none")}
+            value={value.documentTypeId?.toString() ?? "none"}
             onValueChange={(v) =>
               onChange({
                 ...value,
@@ -179,11 +162,11 @@ export function DocumentMetadataForm({
               })
             }
           >
-            <SelectTrigger id="documentType" aria-invalid={documentTypeRequired && !value.documentTypeId}>
-              <SelectValue placeholder={documentTypeRequired ? "Selecciona un tipo" : "Sin tipo"} />
+            <SelectTrigger id="documentType">
+              <SelectValue placeholder="Sin tipo" />
             </SelectTrigger>
             <SelectContent>
-              {!documentTypeRequired && <SelectItem value="none">Sin tipo</SelectItem>}
+              <SelectItem value="none">Sin tipo</SelectItem>
               {uploadDocumentTypes.map((dt) => (
                 <SelectItem key={dt.id} value={dt.id.toString()}>
                   {dt.name}
@@ -191,9 +174,6 @@ export function DocumentMetadataForm({
               ))}
             </SelectContent>
           </Select>
-          {documentTypeRequired && !value.documentTypeId && (
-            <p className="text-xs text-destructive">El tipo de documento es obligatorio para esta categoría.</p>
-          )}
         </div>
       )}
 
