@@ -304,7 +304,6 @@ export interface WorkflowTemplate {
   description: string | null;
   categoryId: number | null;
   category?: Category;
-  sections?: { id: number; name: string; color: string; icon: string }[];
   stateDefinitions: StateDefinition[];
   autoAssign: boolean;
   requiresComment: boolean;
@@ -319,7 +318,6 @@ export interface CreateWorkflowTemplateDto {
   name: string;
   description?: string;
   categoryId?: number;
-  sectionIds?: number[];
   stateDefinitions: StateDefinition[];
   autoAssign?: boolean;
   requiresComment?: boolean;
@@ -467,7 +465,6 @@ export interface CreateCommentDto {
 export interface SearchQueryDto {
   query?: string;
   categoryIds?: number[];
-  sectionIds?: number[];
   departmentIds?: number[];
   courseIds?: number[];
   subjectIds?: number[];
