@@ -7,7 +7,6 @@ import { useUploadMetadata } from "@/hooks/use-upload-metadata";
 import { useDocumentThumbnails } from "@/hooks/use-document-thumbnails";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
-import { sectionsService } from "@/lib/services/sections.service";
 import { onlyofficeService } from "@/lib/services/onlyoffice.service";
 import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
@@ -86,9 +85,6 @@ export default function DocumentsPage() {
   const [categoryFilter, setCategoryFilter] = useState<number | undefined>(
     undefined,
   );
-  const [sectionFilter, setSectionFilter] = useState<number | undefined>(
-    undefined,
-  );
   const [onlyMine, setOnlyMine] = useState(false);
   const [workflowFilter, setWorkflowFilter] = useState<"all" | "active" | "none">("all");
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -134,12 +130,11 @@ export default function DocumentsPage() {
     error: documentsError,
     refetch: refetchDocuments,
   } = useQuery({
-    queryKey: ["documents", searchTerm, categoryFilter, sectionFilter, onlyMine, currentYearId],
+    queryKey: ["documents", searchTerm, categoryFilter, onlyMine, currentYearId],
     queryFn: () =>
       documentsService.getAll({
         search: searchTerm || undefined,
         categoryId: categoryFilter,
-        sectionId: sectionFilter,
         onlyMine: onlyMine || undefined,
         academicYearId: currentYearId ?? undefined,
         excludeBatched: true,
@@ -155,25 +150,14 @@ export default function DocumentsPage() {
     queryFn: () => documentsService.getStats(),
   });
 
-  const { data: sectionStats, isLoading: loadingSections } = useQuery({
-    queryKey: ["section-stats"],
-    queryFn: () => sectionsService.getStats(),
-  });
-
   const {
     categories,
     loadingCategories,
     academicYears,
     uploadDocumentTypes,
-    allCourses,
-    loadingCourses,
-    courseSubjects,
-    loadingSubjects,
     selectedCategory,
-    showCourseFields,
   } = useUploadMetadata({
     categoryId: uploadData.categoryId,
-    courseId: uploadData.courseId,
   });
 
   // Mutations
@@ -442,30 +426,7 @@ export default function DocumentsPage() {
                   />
                 </div>
 
-                {/* Filtro de secciones */}
-                <Select
-                  value={sectionFilter?.toString() || "all"}
-                  onValueChange={(value) => {
-                    setSectionFilter(value === "all" ? undefined : parseInt(value));
-                    setCategoryFilter(undefined); // resetear categoría al cambiar sección
-                  }}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <FolderOpen className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Sección" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {!loadingSections &&
-                      sectionStats?.map((section) => (
-                        <SelectItem key={section.id} value={section.id.toString()}>
-                          {section.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Filtro de categorías — limitado a las de la sección seleccionada */}
+                {/* Filtro de categorías */}
                 <Select
                   value={categoryFilter?.toString() || "all"}
                   onValueChange={(value) =>
@@ -480,10 +441,7 @@ export default function DocumentsPage() {
                     <SelectItem value="all">Todas</SelectItem>
                     {!loadingCategories &&
                       categories
-                        ?.filter((cat) =>
-                          cat.isActive &&
-                          (sectionFilter === undefined || cat.sectionId === sectionFilter)
-                        )
+                        ?.filter((cat) => cat.isActive)
                         .map((cat) => (
                           <SelectItem key={cat.id} value={cat.id.toString()}>
                             {cat.name}
@@ -698,15 +656,10 @@ export default function DocumentsPage() {
                 categories={categories}
                 loadingCategories={loadingCategories}
                 selectedCategory={selectedCategory}
-                showCourseFields={showCourseFields}
                 academicYears={academicYears}
                 showAcademicYear={true}
                 uploadDocumentTypes={uploadDocumentTypes}
                 showDocumentType={true}
-                allCourses={allCourses}
-                loadingCourses={loadingCourses}
-                courseSubjects={courseSubjects}
-                loadingSubjects={loadingSubjects}
                 userRole={user?.role}
                 descriptionLabel="Descripción"
                 visibilityLabel="Hacer público (visible para todos los usuarios)"
@@ -858,15 +811,10 @@ export default function DocumentsPage() {
                 categories={categories}
                 loadingCategories={loadingCategories}
                 selectedCategory={selectedCategory}
-                showCourseFields={showCourseFields}
                 academicYears={academicYears}
                 showAcademicYear={true}
                 uploadDocumentTypes={uploadDocumentTypes}
                 showDocumentType={true}
-                allCourses={allCourses}
-                loadingCourses={loadingCourses}
-                courseSubjects={courseSubjects}
-                loadingSubjects={loadingSubjects}
                 userRole={user?.role}
                 descriptionLabel="Descripción (opcional)"
                 visibilityLabel="Hacer públicos (visible para todos los usuarios)"

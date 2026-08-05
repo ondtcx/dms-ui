@@ -1,6 +1,5 @@
 "use client";
 
-import { FolderOpen } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,16 +11,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { AcademicYear, Category, UploadMetadata } from "@/lib/types";
-
-interface Course {
-  id: number;
-  name: string;
-}
-
-interface Subject {
-  id: number;
-  name: string;
-}
 
 interface DocumentType {
   id: number;
@@ -35,19 +24,12 @@ interface DocumentMetadataFormProps {
   categories: Category[] | undefined;
   loadingCategories: boolean;
   selectedCategory: Category | undefined;
-  showCourseFields: boolean;
 
   academicYears: AcademicYear[] | undefined;
   showAcademicYear?: boolean;
 
   uploadDocumentTypes: DocumentType[] | undefined;
   showDocumentType?: boolean;
-
-  allCourses: Course[] | undefined;
-  loadingCourses: boolean;
-
-  courseSubjects: Subject[] | undefined;
-  loadingSubjects: boolean;
 
   userRole: string | undefined;
 
@@ -62,15 +44,10 @@ export function DocumentMetadataForm({
   categories,
   loadingCategories,
   selectedCategory,
-  showCourseFields,
   academicYears,
   showAcademicYear = true,
   uploadDocumentTypes,
   showDocumentType = true,
-  allCourses,
-  loadingCourses,
-  courseSubjects,
-  loadingSubjects,
   userRole,
   descriptionLabel = "Descripción",
   visibilityLabel = "Hacer público (visible para todos los usuarios)",
@@ -124,27 +101,6 @@ export function DocumentMetadataForm({
             {selectedCategory.description && (
               <p className="text-xs text-muted-foreground">{selectedCategory.description}</p>
             )}
-            <div className="flex items-center gap-3 flex-wrap">
-              {selectedCategory.section && (
-                <span
-                  className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full border"
-                  style={{
-                    borderColor: selectedCategory.section.color,
-                    color: selectedCategory.section.color,
-                    backgroundColor: `${selectedCategory.section.color}15`,
-                  }}
-                >
-                  {selectedCategory.section.name}
-                </span>
-              )}
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <FolderOpen className="h-3 w-3" />
-                Se archivará en:{" "}
-                <span className="font-medium text-foreground">
-                  {selectedCategory.section?.name ?? "Sin sección"}
-                </span>
-              </span>
-            </div>
           </div>
         )}
       </div>

@@ -131,7 +131,7 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
       </div>
 
       <CollapsibleContent>
-        <div className="mt-4 p-4 border rounded-lg bg-muted/30 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="mt-4 p-4 border rounded-lg bg-muted/30 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Categoría */}
           <div className="space-y-2">
             <Label>Categoría</Label>
@@ -184,7 +184,7 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
           </div>
 
           {/* Tipo de archivo */}
-          <div className="space-y-2 md:col-span-2 lg:col-span-4">
+          <div className="space-y-2 md:col-span-2 lg:col-span-3">
             <Separator />
             <Label>Tipo de archivo</Label>
             <div className="flex flex-wrap gap-4">

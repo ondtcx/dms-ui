@@ -11,7 +11,6 @@ export const documentsService = {
   async getAll(params?: {
     search?: string;
     categoryId?: number;
-    sectionId?: number;
     isPublic?: boolean;
     page?: number;
     limit?: number;
@@ -37,7 +36,6 @@ export const documentsService = {
 
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
-    if (data.sectionId) formData.append("sectionId", String(data.sectionId));
     
     // Group academic fields into a nested object and stringify it
     if (data.courseId || data.subjectId || data.academicYearId) {
@@ -74,7 +72,6 @@ export const documentsService = {
 
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
-    if (data.sectionId) formData.append("sectionId", String(data.sectionId));
 
     if (data.courseId || data.subjectId || data.academicYearId) {
       formData.append("academic", JSON.stringify({
