@@ -21,7 +21,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { categoriesService } from "@/lib/services/categories.service";
-import { sectionsService } from "@/lib/services/sections.service";
 import { useState } from "react";
 
 const MIME_OPTIONS = [
@@ -40,7 +39,6 @@ const SORT_OPTIONS = [
 
 export interface SearchFiltersValue {
   categoryIds?: number[];
-  sectionIds?: number[];
   dateFrom?: string;
   dateTo?: string;
   mimetypes?: string[];
@@ -62,15 +60,8 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
     staleTime: 5 * 60_000,
   });
 
-  const { data: sections } = useQuery({
-    queryKey: ["section-stats"],
-    queryFn: () => sectionsService.getStats(),
-    staleTime: 5 * 60_000,
-  });
-
   const activeCount = [
     value.categoryIds?.length,
-    value.sectionIds?.length,
     value.dateFrom || value.dateTo ? 1 : 0,
     value.mimetypes?.length,
   ].reduce((acc: number, v) => acc + (v ? 1 : 0), 0);
@@ -165,32 +156,6 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
                       {c.name}
                     </SelectItem>
                   ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Sección */}
-          <div className="space-y-2">
-            <Label>Sección</Label>
-            <Select
-              value={value.sectionIds?.[0]?.toString() ?? "all"}
-              onValueChange={(v) =>
-                onChange({
-                  ...value,
-                  sectionIds: v === "all" ? undefined : [parseInt(v)],
-                })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Todas" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {sections?.map((s) => (
-                  <SelectItem key={s.id} value={s.id.toString()}>
-                    {s.name}
-                  </SelectItem>
-                ))}
               </SelectContent>
             </Select>
           </div>

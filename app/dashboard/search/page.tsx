@@ -110,7 +110,6 @@ function SearchContent() {
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
         categoryIds: filters.categoryIds,
-        sectionIds: filters.sectionIds,
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
         mimetypes: filters.mimetypes,
