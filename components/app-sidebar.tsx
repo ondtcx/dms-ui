@@ -3,7 +3,6 @@
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useSettings } from "@/lib/contexts/SettingsContext";
-import { usePendingApprovalsCount } from "@/hooks/use-pending-approvals-count";
 import {
   Collapsible,
   CollapsibleContent,
@@ -104,47 +103,9 @@ export const mainMenuItems: MenuItem[] = [
     ],
   }, */
   {
-    title: "Compartidos",
-    icon: Share2,
-    url: "/dashboard/shares",
-  },
-  {
     title: "Calendario",
     icon: Calendar,
     url: "/dashboard/calendar",
-  },
-  {
-    // Hidden from PROFESOR — they use "Mis Solicitudes" instead for a simpler experience
-    title: "Aprobaciones",
-    icon: CheckCircle2,
-    url: "/dashboard/workflows",
-    requiredRoles: [
-      UserRole.ADMIN,
-      UserRole.RECTOR,
-      UserRole.VICERRECTOR,
-      UserRole.COORDINADOR,
-      UserRole.SECRETARIO,
-      UserRole.MODERADOR,
-    ],
-  },
-  {
-    // Simplified requests section — visible only to PROFESOR and SECRETARIO
-    title: "Mis Solicitudes",
-    icon: ClipboardList,
-    url: "/dashboard/requests",
-    requiredRoles: [UserRole.PROFESOR, UserRole.SECRETARIO],
-    items: [
-      {
-        title: "Nueva Solicitud",
-        icon: PlusCircle,
-        url: "/dashboard/requests/new",
-      },
-      {
-        title: "Mis Solicitudes",
-        icon: FileText,
-        url: "/dashboard/requests",
-      },
-    ],
   },
   {
     title: "Papelera",
@@ -180,12 +141,6 @@ export const adminMenuItems: MenuItem[] = [
     requiredRoles: [UserRole.ADMIN, UserRole.RECTOR, UserRole.VICERRECTOR],
   },
   {
-    title: "Secciones",
-    icon: Layers,
-    url: "/dashboard/sections",
-    requiredRole: UserRole.ADMIN,
-  },
-  {
     title: "Categorias",
     icon: FolderKanban,
     url: "/dashboard/categories",
@@ -208,17 +163,6 @@ export const adminMenuItems: MenuItem[] = [
     icon: GraduationCap,
     url: "/dashboard/academic-years",
     requiredRoles: [UserRole.ADMIN, UserRole.RECTOR],
-  },
-  {
-    title: "Reportes",
-    icon: BarChart3,
-    url: "/dashboard/reports",
-    requiredRoles: [
-      UserRole.ADMIN,
-      UserRole.RECTOR,
-      UserRole.VICERRECTOR,
-      UserRole.COORDINADOR,
-    ],
   },
   {
     title: "Configuracion",
@@ -244,7 +188,6 @@ export function AppSidebar() {
   const { hasRole, hasAnyRole } = usePermissions();
   const pathname = usePathname();
   const { settings } = useSettings();
-  const pendingApprovalsCount = usePendingApprovalsCount();
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ?? "";
   const logoUrl = settings?.institution?.logoPath
@@ -338,14 +281,6 @@ export function AppSidebar() {
                       >
                         <item.icon className="h-4 w-4 mr-2 shrink-0" />
                         <span className="flex-1 truncate">{item.title}</span>
-                        {item.url === "/dashboard/workflows" &&
-                          pendingApprovalsCount > 0 && (
-                            <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                              {pendingApprovalsCount > 99
-                                ? "99+"
-                                : pendingApprovalsCount}
-                            </span>
-                          )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

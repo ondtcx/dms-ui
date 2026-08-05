@@ -41,7 +41,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import DocumentWorkflowCard from '@/components/workflows/DocumentWorkflowCard';
 import { DocumentCompositionCard } from '@/components/documents/DocumentCompositionCard';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -490,9 +489,6 @@ export default function DocumentDetailPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* Workflow */}
-          <DocumentWorkflowCard documentId={documentId} categoryId={doc?.categoryId} sectionId={doc?.category?.section?.id} />
 
           {/* Composición */}
           <DocumentCompositionCard documentId={documentId} />

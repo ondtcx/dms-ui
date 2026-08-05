@@ -19,7 +19,6 @@ import {
   FileCode,
   File,
   GitBranch,
-  Share2,
   Lock,
   Unlock,
   Calendar,
@@ -85,7 +84,6 @@ interface DocumentListItemProps {
   onPreview: (doc: Document) => void;
   onDownload: (id: number, filename: string) => void;
   onShowVersionHistory: (doc: Document) => void;
-  onShare: (doc: Document) => void;
   onEdit: (doc: Document) => void;
   onReplaceFile: (doc: Document) => void;
   onDelete: (id: number) => void;
@@ -105,7 +103,6 @@ export function DocumentListItem({
   onPreview,
   onDownload,
   onShowVersionHistory,
-  onShare,
   onEdit,
   onReplaceFile,
   onDelete,
@@ -197,13 +194,6 @@ export function DocumentListItem({
                     <History className="mr-2 h-4 w-4" />
                     Ver Versiones
                   </DropdownMenuItem>
-
-                  {isOwn && (
-                    <DropdownMenuItem onClick={() => onShare(doc)}>
-                      <Share2 className="mr-2 h-4 w-4" />
-                      Compartir
-                    </DropdownMenuItem>
-                  )}
 
                   {canDelete && (
                     <>

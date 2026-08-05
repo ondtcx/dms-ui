@@ -3,7 +3,6 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
-import { NotificationsDropdown } from "@/components/notifications/notifications-dropdown";
 import { SearchBar } from "@/components/search/SearchBar";
 import { DashboardBreadcrumb } from "@/components/navigation/DashboardBreadcrumb";
 
@@ -28,9 +27,6 @@ export default function DashboardLayout({
               </div>
               <div className="flex-1 max-w-md mx-6">
                 <SearchBar />
-              </div>
-              <div className="flex items-center gap-2">
-                <NotificationsDropdown />
               </div>
             </div>
           </header>

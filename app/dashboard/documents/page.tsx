@@ -35,7 +35,6 @@ import { EditDocumentDialog } from "@/components/documents/EditDocumentDialog";
 import { BatchActionsBar } from "@/components/documents/batch-actions-bar";
 import { BatchListSection } from "@/components/documents/BatchListSection";
 import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
-import { CreateShareDialog } from "@/components/shares/CreateShareDialog";
 import { useAcademicYearStore } from "@/components/structure/AcademicYearSelector";
 import { Layers } from "lucide-react";
 
@@ -109,7 +108,6 @@ export default function DocumentsPage() {
     useState<Document | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
-  const [sharingDocument, setSharingDocument] = useState<Document | null>(null);
 
   // Estados para batch actions
   const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([]);
@@ -648,7 +646,6 @@ export default function DocumentsPage() {
                     onPreview={handlePreview}
                     onDownload={handleDownload}
                     onShowVersionHistory={handleShowVersionHistory}
-                    onShare={setSharingDocument}
                     onEdit={(d) => { setEditingDocument(d); setShowEditDialog(true); }}
                     onReplaceFile={handleShowReplaceFile}
                     onDelete={handleDelete}
@@ -1023,14 +1020,6 @@ export default function DocumentsPage() {
             setDeleteConfirmId(null);
           }}
         />
-
-        {sharingDocument && (
-          <CreateShareDialog
-            documentId={sharingDocument.id}
-            open={!!sharingDocument}
-            onOpenChange={(open) => { if (!open) setSharingDocument(null); }}
-          />
-        )}
       </div>
     </div>
   );
