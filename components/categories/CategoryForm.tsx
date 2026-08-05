@@ -1,8 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { sectionsService } from "@/lib/services/sections.service";
 import { Category, CreateCategoryDto } from "@/lib/types";
 import { UI_COLORS, CATEGORY_ICONS, CATEGORY_ROLES } from "@/lib/constants/ui";
 import { derivePrefix } from "@/lib/utils/document-numbering";
@@ -40,19 +38,12 @@ export function CategoryForm({
     color:          initialValues?.color ?? "#3b82f6",
     icon:           initialValues?.icon ?? "Folder",
     isActive:       initialValues?.isActive ?? true,
-    sectionId:      initialValues?.sectionId ?? null as number | null,
     requiresCourse: initialValues?.requiresCourse ?? false,
     allowedRoles:   initialValues?.allowedRoles ?? [] as string[],
     prefix:         initialValues?.prefix ?? "",
   });
 
   const autoPrefix = derivePrefix(values.name);
-
-  // Misma queryKey que el resto de la app → comparte caché sin fetch redundante
-  const { data: sectionsResponse } = useQuery({
-    queryKey: ["sections", { isActive: true }],
-    queryFn: () => sectionsService.getAll({ isActive: true, limit: 100 }),
-  });
 
   const toggleRole = (role: string) => {
     setValues((prev) => ({
@@ -71,7 +62,6 @@ export function CategoryForm({
       color:          values.color,
       icon:           values.icon,
       isActive:       values.isActive,
-      sectionId:      values.sectionId,
       requiresCourse: values.requiresCourse,
       // array vacío → undefined para que el backend interprete "sin restricción"
       allowedRoles:   values.allowedRoles.length > 0 ? values.allowedRoles : undefined,
@@ -153,34 +143,6 @@ export function CategoryForm({
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label>Sección</Label>
-        <Select
-          value={values.sectionId === null ? "none" : String(values.sectionId)}
-          onValueChange={(v) =>
-            setValues({ ...values, sectionId: v === "none" ? null : Number(v) })
-          }
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Sin sección" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sin sección</SelectItem>
-            {sectionsResponse?.data.map((s) => (
-              <SelectItem key={s.id} value={String(s.id)}>
-                <div className="flex items-center gap-2">
-                  <div
-                    className="h-3 w-3 rounded-full"
-                    style={{ backgroundColor: s.color }}
-                  />
-                  {s.name}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="flex items-center gap-6">
