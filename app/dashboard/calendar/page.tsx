@@ -7,7 +7,6 @@ import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths
 import { es } from 'date-fns/locale';
 import { calendarService } from '@/lib/services/calendar.service';
 import { categoriesService } from '@/lib/services/categories.service';
-import { sectionsService } from '@/lib/services/sections.service';
 import { Document, CalendarEvent, Category } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,9 +71,7 @@ export default function CalendarioPage() {
 
   // Filtros
   const [categoryFilter, setCategoryFilter] = useState<number | undefined>(undefined);
-  const [sectionFilter, setSectionFilter] = useState<number | undefined>(undefined);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [sections, setSections] = useState<any[]>([]);
 
   // Modal de detalles
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
@@ -86,16 +83,12 @@ export default function CalendarioPage() {
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [loadingPreview, setLoadingPreview] = useState(false);
 
-  // Cargar categorías y secciones
+  // Cargar categorías
   useEffect(() => {
     const loadFilters = async () => {
       try {
-        const [categoriesData, sectionsData] = await Promise.all([
-          categoriesService.getActive(),
-          sectionsService.getStats(),
-        ]);
+        const categoriesData = await categoriesService.getActive();
         setCategories(categoriesData);
-        setSections(sectionsData);
       } catch (error) {
         console.error('Error loading filters:', error);
       }
@@ -114,7 +107,6 @@ export default function CalendarioPage() {
         startDate: format(start, 'yyyy-MM-dd'),
         endDate: format(end, 'yyyy-MM-dd'),
         categoryId: categoryFilter,
-        sectionId: sectionFilter,
       });
 
       setDocuments(data.documents);
@@ -126,7 +118,7 @@ export default function CalendarioPage() {
         start: new Date(doc.createdAt),
         end: new Date(doc.createdAt),
         resource: doc,
-        color: doc.category?.color || doc.category?.section?.color || '#3b82f6',
+        color: doc.category?.color || '#3b82f6',
       }));
 
       setEvents(calendarEvents);
@@ -136,7 +128,7 @@ export default function CalendarioPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentDate, categoryFilter, sectionFilter]);
+  }, [currentDate, categoryFilter]);
 
   useEffect(() => {
     loadDocuments();
@@ -228,13 +220,7 @@ export default function CalendarioPage() {
       return acc;
     }, {} as Record<string, number>);
 
-    const bySection = documents.reduce((acc, doc) => {
-      const secName = doc.category?.section?.name || 'Sin sección';
-      acc[secName] = (acc[secName] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return { totalDocs, byCategory, bySection };
+    return { totalDocs, byCategory };
   }, [documents]);
 
   const formatFileSize = (bytes: number): string => {
@@ -259,7 +245,7 @@ export default function CalendarioPage() {
       </div>
 
       {/* Estadísticas rápidas */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Documentos este mes</CardTitle>
@@ -283,23 +269,6 @@ export default function CalendarioPage() {
               {Object.entries(stats.byCategory).slice(0, 3).map(([cat, count]) => (
                 <div key={cat} className="flex justify-between text-sm">
                   <span className="text-muted-foreground">{cat}</span>
-                  <span className="font-medium">{count}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Por sección</CardTitle>
-            <Filter className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1">
-              {Object.entries(stats.bySection).slice(0, 3).map(([sec, count]) => (
-                <div key={sec} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{sec}</span>
                   <span className="font-medium">{count}</span>
                 </div>
               ))}
@@ -342,23 +311,6 @@ export default function CalendarioPage() {
                   {categories.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id.toString()}>
                       {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={sectionFilter?.toString() || 'all'}
-                onValueChange={(value) => setSectionFilter(value === 'all' ? undefined : parseInt(value))}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sección" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las secciones</SelectItem>
-                  {sections.map((sec) => (
-                    <SelectItem key={sec.id} value={sec.id.toString()}>
-                      {sec.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -454,11 +406,6 @@ export default function CalendarioPage() {
                   {selectedDocument.category && (
                     <Badge variant="outline" style={{ borderColor: selectedDocument.category.color }}>
                       <span style={{ color: selectedDocument.category.color }}>{selectedDocument.category.name}</span>
-                    </Badge>
-                  )}
-                  {selectedDocument.category?.section && (
-                    <Badge variant="outline" style={{ borderColor: selectedDocument.category.section.color }}>
-                      <span style={{ color: selectedDocument.category.section.color }}>{selectedDocument.category.section.name}</span>
                     </Badge>
                   )}
                 </div>
