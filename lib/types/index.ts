@@ -44,8 +44,6 @@ export interface Category {
   icon: string;
   isActive: boolean;
   prefix: string | null;
-  sectionId: number | null;
-  section?: { id: number; name: string; color: string; icon: string } | null;
   requiresCourse: boolean;
   allowedRoles: string[];
   bypassAcademicYear: boolean;
@@ -57,65 +55,12 @@ export interface Category {
   };
 }
 
-export interface Section {
-  id: number;
-  name: string;
-  description: string | null;
-  color: string;
-  icon: string;
-  isActive: boolean;
-  prefix: string | null;
-  createdAt: string;
-  updatedAt: string;
-  _count?: {
-    categories: number;
-  };
-}
-
-export interface SectionStats {
-  id: number;
-  name: string;
-  color: string;
-  icon: string;
-  categoryCount: number;
-  documentCount: number;
-}
-
-export interface SectionsResponse {
-  data: Section[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
-export interface CreateSectionDto {
-  name: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-  isActive?: boolean;
-  prefix?: string;
-}
-
-export interface UpdateSectionDto {
-  name?: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-  isActive?: boolean;
-  prefix?: string | null;
-}
-
 export interface CreateCategoryDto {
   name: string;
   description?: string;
   color?: string;
   icon?: string;
   isActive?: boolean;
-  sectionId?: number | null;
   requiresCourse?: boolean;
   allowedRoles?: string[];
   prefix?: string;
@@ -127,7 +72,6 @@ export interface UpdateCategoryDto {
   color?: string;
   icon?: string;
   isActive?: boolean;
-  sectionId?: number | null;
   requiresCourse?: boolean;
   allowedRoles?: string[];
   prefix?: string | null;
@@ -210,7 +154,7 @@ export interface Document {
   id: number;
   description: string | null;
   categoryId: number | null;
-  category: (Category & { section?: { id: number; name: string; color: string; icon: string } | null }) | null;
+  category: Category | null;
   documentTypeId?: number | null;
   documentType?: { id: number; name: string } | null;
   isPublic: boolean;
@@ -268,7 +212,6 @@ export interface UploadDocumentDto {
   description?: string;
   categoryId?: number;
   documentTypeId?: number;
-  sectionId?: number;
   courseId?: number;
   subjectId?: number;
   isPublic?: boolean;
@@ -361,7 +304,7 @@ export interface WorkflowTemplate {
   description: string | null;
   categoryId: number | null;
   category?: Category;
-  sections?: Section[];
+  sections?: { id: number; name: string; color: string; icon: string }[];
   stateDefinitions: StateDefinition[];
   autoAssign: boolean;
   requiresComment: boolean;

@@ -59,7 +59,6 @@ export interface DocumentTemplate {
     color: string;
     icon: string;
     allowedRoles: string[];
-    section?: { id: number; name: string } | null;
   } | null;
   createdById: string;
   createdBy: {
@@ -118,7 +117,6 @@ export interface CreateDocumentFromTemplateDto {
   filename?: string;
   description?: string;
   categoryId?: number;
-  sectionId?: number;
   academicYearId?: number;
   isPublic?: boolean;
 }
