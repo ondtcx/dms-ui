@@ -6,7 +6,6 @@ import {
   Download,
   Trash2,
   User,
-  FolderOpen,
   Filter,
   FileType,
   Eye,
@@ -226,18 +225,6 @@ export function DocumentListItem({
 
           {/* Badges */}
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            {doc.category?.section && (
-              <Badge
-                variant="outline"
-                className="gap-1"
-                style={{ borderColor: doc.category.section.color }}
-              >
-                <FolderOpen className="h-3 w-3" style={{ color: doc.category.section.color }} />
-                <span style={{ color: doc.category.section.color }}>
-                  {doc.category.section.name}
-                </span>
-              </Badge>
-            )}
             {doc.category && (
               <Badge
                 variant="outline"

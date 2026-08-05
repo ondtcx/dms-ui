@@ -243,7 +243,6 @@ export default function CategoriesPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Sección</TableHead>
                   <TableHead>Prefijo</TableHead>
                   <TableHead>Descripción</TableHead>
                   <TableHead>Req. Curso</TableHead>
@@ -263,21 +262,6 @@ export default function CategoriesPage() {
                         />
                         <span className="font-medium">{category.name}</span>
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {category.section ? (
-                        <Badge
-                          variant="outline"
-                          style={{
-                            borderColor: category.section.color,
-                            color: category.section.color,
-                          }}
-                        >
-                          {category.section.name}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground text-sm">—</span>
-                      )}
                     </TableCell>
                     <TableCell>
                       {category.prefix ? (

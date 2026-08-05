@@ -421,15 +421,6 @@ export default function DocumentDetailPage() {
                   </div>
                 )}
 
-                {doc.category?.section && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Sección</p>
-                    <Badge variant="outline" style={{ borderColor: doc.category.section.color }}>
-                      <span style={{ color: doc.category.section.color }}>{doc.category.section.name}</span>
-                    </Badge>
-                  </div>
-                )}
-
                 {doc.academic?.course && (
                   <div>
                     <p className="text-sm font-medium mb-2">Curso / Grado</p>

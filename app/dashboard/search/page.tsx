@@ -317,11 +317,6 @@ function SearchContent() {
                           {doc.category.name}
                         </Badge>
                       )}
-                      {doc.category?.section && (
-                        <span className="text-xs text-muted-foreground">
-                          {doc.category.section.name}
-                        </span>
-                      )}
                       {doc.uploadedBy && (
                         <span className="text-xs text-muted-foreground">
                           {doc.uploadedBy.name}
