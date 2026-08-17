@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import EditDocumentPage from "@/app/dashboard/documents/[id]/edit/page";
+import api from "@/lib/axios";
 import { documentsService } from "@/lib/services/documents.service";
 import { onlyofficeService } from "@/lib/services/onlyoffice.service";
 
@@ -58,5 +59,15 @@ describe("EditDocumentPage", () => {
     expect(screen.getByRole("button", { name: "Descargar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Volver" })).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: "Contenido del documento" })).not.toBeInTheDocument();
+  });
+
+  it("renders the OnlyOffice editor when the service is healthy", async () => {
+    jest.mocked(onlyofficeService.checkHealth).mockResolvedValue(true);
+    jest.mocked(api.get).mockResolvedValue({ data: { type: "desktop" } });
+
+    render(<EditDocumentPage />);
+
+    await waitFor(() => expect(screen.getByText("OnlyOffice")).toBeInTheDocument());
+    expect(screen.queryByText("OnlyOffice no está disponible. Estás usando el editor básico.")).not.toBeInTheDocument();
   });
 });
