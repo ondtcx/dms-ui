@@ -16,7 +16,6 @@ import {
   ArrowRight,
   Sparkles,
   CalendarDays,
-  ClipboardList,
 } from "lucide-react";
 
 import {
@@ -292,15 +291,6 @@ export default function DashboardHomePage() {
             title="Calendario"
             desc="Vista por fecha"
           />
-          <RoleGuard roles={[UserRole.SECRETARIO, UserRole.PROFESOR]}>
-            <QuickLink
-              href="/dashboard/requests/new"
-              icon={<ClipboardList className="h-5 w-5 text-rose-600 dark:text-rose-400" />}
-              iconBg="bg-rose-100 dark:bg-rose-900"
-              title="Nueva Solicitud"
-              desc="Iniciar trámite"
-            />
-          </RoleGuard>
         </div>
       </div>
 
