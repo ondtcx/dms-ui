@@ -296,7 +296,6 @@ export enum ApprovalAction {
 export interface SearchQueryDto {
   query?: string;
   categoryIds?: number[];
-  departmentIds?: number[];
   courseIds?: number[];
   subjectIds?: number[];
   uploadedById?: string;
@@ -381,17 +380,13 @@ export interface TransferHistory {
     id: string;
     name: string;
     email: string;
-    department: { id: number; name: string } | null;
   };
   toUserId: string;
   toUser: {
     id: string;
     name: string;
     email: string;
-    department: { id: number; name: string } | null;
   };
-  toDepartmentId: number | null;
-  toDepartment: { id: number; name: string } | null;
   status: TransferStatus;
   comment: string | null;
   completedAt: string | null;
@@ -403,7 +398,6 @@ export interface TransferHistory {
 export interface CreateTransferDto {
   documentId: number;
   toUserId?: string;
-  toDepartmentId?: number;
   comment?: string;
 }
 
@@ -468,8 +462,6 @@ export interface DocumentShare {
   userId: string | null;
   user: { id: string; name: string; email: string } | null;
   role: string | null;
-  departmentId: number | null;
-  department: { id: number; name: string } | null;
   courseId: number | null;
   course: { id: number; name: string; code: string } | null;
   // Permisos
@@ -498,7 +490,6 @@ export interface CreateShareDto {
   documentId: number;
   userId?: string;
   role?: string;
-  departmentId?: number;
   courseId?: number;
   canView?: boolean;
   canDownload?: boolean;

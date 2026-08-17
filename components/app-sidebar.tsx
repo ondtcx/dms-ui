@@ -135,12 +135,6 @@ export const adminMenuItems: MenuItem[] = [
     requiredRole: UserRole.ADMIN,
   },
   {
-    title: "Departamentos",
-    icon: Building2,
-    url: "/dashboard/departments",
-    requiredRoles: [UserRole.ADMIN, UserRole.RECTOR, UserRole.VICERRECTOR],
-  },
-  {
     title: "Categorias",
     icon: FolderKanban,
     url: "/dashboard/categories",
