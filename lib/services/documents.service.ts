@@ -137,6 +137,11 @@ export const documentsService = {
     return response.data;
   },
 
+  async saveContent(id: number, content: string): Promise<Document> {
+    const response = await api.put<Document>(`/documents/${id}/content`, { content });
+    return response.data;
+  },
+
   async getThumbnail(id: number, updatedAt?: string): Promise<Blob> {
     const response = await api.get(`/documents/${id}/thumbnail`, {
       responseType: "blob",

@@ -5,6 +5,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export function isTextEditable(mimetype: string): boolean {
+  const normalizedMimetype = mimetype.toLowerCase();
+  return (
+    normalizedMimetype.startsWith("text/") ||
+    [
+      "application/json",
+      "application/xml",
+      "application/javascript",
+      "application/csv",
+    ].includes(normalizedMimetype)
+  );
+}
+
 const mimeTypeLabels: Record<string, string> = {
   // Documentos
   "application/pdf": "PDF",
