@@ -340,7 +340,6 @@ export interface CalendarQueryDto {
   startDate?: string;
   endDate?: string;
   categoryId?: number;
-  sectionId?: number;
 }
 
 export interface CalendarResponse {
@@ -444,7 +443,6 @@ export interface CreateBatchFromTemplateDto {
   batchName?: string;
   rows: BatchRowDto[];
   categoryId?: number;
-  sectionId?: number;
   isPublic?: boolean;
 }
 

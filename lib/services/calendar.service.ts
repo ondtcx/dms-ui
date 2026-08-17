@@ -14,8 +14,6 @@ export const calendarService = {
     if (query?.endDate) params.append("endDate", query.endDate);
     if (query?.categoryId)
       params.append("categoryId", query.categoryId.toString());
-    if (query?.sectionId)
-      params.append("sectionId", query.sectionId.toString());
 
     const queryString = params.toString();
     const url = `/documents/calendar${queryString ? `?${queryString}` : ""}`;
