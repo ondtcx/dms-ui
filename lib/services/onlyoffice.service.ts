@@ -13,7 +13,7 @@ export const onlyofficeService = {
 
   async createBlank(data: {
     title: string;
-    fileType: "docx" | "xlsx" | "pptx";
+    fileType: "docx" | "xlsx" | "pptx" | "txt" | "md";
     categoryId?: number;
     courseId?: number;
     documentTypeId?: number;

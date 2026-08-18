@@ -38,6 +38,18 @@ export default function EditDocumentPage() {
         if (cancelled) return;
         setDoc(document);
 
+        const mode = new URLSearchParams(window.location.search).get("mode");
+        const mimetype = document.versions?.[0]?.mimetype ?? "";
+
+        if (mode === "basic" && isTextEditable(mimetype)) {
+          const blob = await documentsService.view(id);
+          if (!cancelled) {
+            setContent(await blob.text());
+            setEditorMode("basic");
+          }
+          return;
+        }
+
         if (onlyofficeAvailable) {
           const response = await api.get(`/onlyoffice/config/${id}`);
           if (!cancelled) {
@@ -47,7 +59,6 @@ export default function EditDocumentPage() {
           return;
         }
 
-        const mimetype = document.versions?.[0]?.mimetype ?? "";
         if (!isTextEditable(mimetype)) {
           setEditorMode("unavailable");
           return;

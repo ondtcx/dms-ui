@@ -70,4 +70,18 @@ describe("EditDocumentPage", () => {
     await waitFor(() => expect(screen.getByText("OnlyOffice")).toBeInTheDocument());
     expect(screen.queryByText("OnlyOffice no está disponible. Estás usando el editor básico.")).not.toBeInTheDocument();
   });
+
+  it("renders the basic editor when mode=basic is forced even if OnlyOffice is healthy", async () => {
+    jest.mocked(onlyofficeService.checkHealth).mockResolvedValue(true);
+    jest.mocked(documentsService.view).mockResolvedValue({ text: async () => "contenido" } as Blob);
+    window.history.replaceState({}, "", "/dashboard/documents/7/edit?mode=basic");
+
+    render(<EditDocumentPage />);
+
+    await waitFor(() => expect(screen.getByText("OnlyOffice no está disponible. Estás usando el editor básico.")).toBeInTheDocument());
+    expect(screen.queryByText("OnlyOffice")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Contenido del documento" })).toHaveValue("contenido");
+
+    window.history.replaceState({}, "", "/");
+  });
 });

@@ -117,7 +117,7 @@ export default function DocumentsPage() {
   const [showCreateInEditorDialog, setShowCreateInEditorDialog] = useState(false);
   const [createInEditorData, setCreateInEditorData] = useState<{
     title: string;
-    fileType: "docx" | "xlsx" | "pptx";
+    fileType: "docx" | "xlsx" | "pptx" | "txt" | "md";
     categoryId?: number;
     documentTypeId?: number;
   }>({ title: "", fileType: "docx" });
@@ -190,7 +190,14 @@ export default function DocumentsPage() {
       const doc = await onlyofficeService.createBlank(createInEditorData);
       setShowCreateInEditorDialog(false);
       setCreateInEditorData({ title: "", fileType: "docx" });
-      router.push(`/dashboard/documents/${doc.id}/edit`);
+      if (
+        createInEditorData.fileType === "txt" ||
+        createInEditorData.fileType === "md"
+      ) {
+        router.push(`/dashboard/documents/${doc.id}/edit?mode=basic`);
+      } else {
+        router.push(`/dashboard/documents/${doc.id}/edit`);
+      }
     } catch {
       toast.error("Error al crear el documento");
     } finally {
@@ -882,7 +889,7 @@ export default function DocumentsPage() {
             <DialogHeader>
               <DialogTitle>Crear en Editor</DialogTitle>
               <DialogDescription>
-                Se creará un documento en blanco y se abrirá en OnlyOffice.
+                Se creará un documento en blanco y se abrirá en el editor correspondiente.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
@@ -904,7 +911,7 @@ export default function DocumentsPage() {
                   onValueChange={(v) =>
                     setCreateInEditorData((prev) => ({
                       ...prev,
-                      fileType: v as "docx" | "xlsx" | "pptx",
+                      fileType: v as "docx" | "xlsx" | "pptx" | "txt" | "md",
                     }))
                   }
                 >
@@ -915,6 +922,8 @@ export default function DocumentsPage() {
                     <SelectItem value="docx">Documento Word (.docx)</SelectItem>
                     <SelectItem value="xlsx">Hoja de cálculo (.xlsx)</SelectItem>
                     <SelectItem value="pptx">Presentación (.pptx)</SelectItem>
+                    <SelectItem value="txt">Documento de texto (.txt)</SelectItem>
+                    <SelectItem value="md">Markdown (.md)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
