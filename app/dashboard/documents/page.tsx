@@ -20,9 +20,8 @@ import {
   FolderOpen,
   AlertCircle,
   RefreshCw,
-  GitBranch,
 } from "lucide-react";
-import { Document, WorkflowStatus, UploadMetadata, EMPTY_UPLOAD_METADATA } from "@/lib/types";
+import { Document, UploadMetadata, EMPTY_UPLOAD_METADATA } from "@/lib/types";
 import { formatFileSize } from "@/lib/utils";
 import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
 import { DocumentListItem } from "@/components/documents/DocumentListItem";
@@ -86,7 +85,6 @@ export default function DocumentsPage() {
     undefined,
   );
   const [onlyMine, setOnlyMine] = useState(false);
-  const [workflowFilter, setWorkflowFilter] = useState<"all" | "active" | "none">("all");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUploadMultipleModal, setShowUploadMultipleModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -362,21 +360,7 @@ export default function DocumentsPage() {
     setShowReplaceFile(true);
   };
 
-  const ACTIVE_WORKFLOW_STATUSES: WorkflowStatus[] = [
-    WorkflowStatus.PENDING,
-    WorkflowStatus.IN_PROGRESS,
-    WorkflowStatus.CHANGES_REQUESTED,
-  ];
-
-  const filteredDocuments = (documents?.data ?? []).filter((doc) => {
-    if (workflowFilter === "active") {
-      return doc.workflow != null && ACTIVE_WORKFLOW_STATUSES.includes(doc.workflow.status);
-    }
-    if (workflowFilter === "none") {
-      return doc.workflow == null;
-    }
-    return true;
-  });
+  const filteredDocuments = documents?.data ?? [];
 
   return (
     <div className="bg-background">
@@ -457,22 +441,6 @@ export default function DocumentsPage() {
                   </SelectContent>
                 </Select>
 
-                {/* Filtro de flujo */}
-                <Select
-                  value={workflowFilter}
-                  onValueChange={(value) => setWorkflowFilter(value as "all" | "active" | "none")}
-                >
-                  <SelectTrigger className="w-[170px]">
-                    <GitBranch className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Flujo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los flujos</SelectItem>
-                    <SelectItem value="active">Con flujo activo</SelectItem>
-                    <SelectItem value="none">Sin flujo</SelectItem>
-                  </SelectContent>
-                </Select>
-
               </div>
 
               {/* Botón Nuevo */}
@@ -509,11 +477,6 @@ export default function DocumentsPage() {
                 <CardTitle>Documentos</CardTitle>
                 <CardDescription>
                   {filteredDocuments.length} documento(s) encontrado(s)
-                  {workflowFilter !== "all" && documents?.data.length !== filteredDocuments.length && (
-                    <span className="ml-1 text-muted-foreground">
-                      (de {documents?.data.length ?? 0} total)
-                    </span>
-                  )}
                   {selectedDocuments.length > 0 && (
                     <span className="ml-2 text-primary">
                       ({selectedDocuments.length} seleccionado
@@ -593,9 +556,7 @@ export default function DocumentsPage() {
                 <FileText className="h-16 w-16 text-muted-foreground mb-4" />
                 <p className="text-lg font-medium">No hay documentos</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {workflowFilter !== "all"
-                    ? "No hay documentos que coincidan con el filtro de flujo"
-                    : "Comienza subiendo tu primer documento"}
+                  Comienza subiendo tu primer documento
                 </p>
               </div>
             ) : (

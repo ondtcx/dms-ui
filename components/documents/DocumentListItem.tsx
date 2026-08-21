@@ -17,7 +17,6 @@ import {
   FileSpreadsheet,
   FileCode,
   File,
-  GitBranch,
   Lock,
   Unlock,
   Calendar,
@@ -34,8 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Document, WorkflowStatus } from "@/lib/types";
-import { WORKFLOW_STATUS_CONFIG } from "@/lib/workflow-status-config";
+import { Document } from "@/lib/types";
 import { formatMimeType, formatRole, formatFileSize } from "@/lib/utils";
 
 // ─── Helpers (solo usados en este componente) ─────────────────────────────────
@@ -245,12 +243,6 @@ export function DocumentListItem({
               <Badge variant="secondary" className="gap-1">
                 <Layers className="h-3 w-3" />
                 Informe Compuesto
-              </Badge>
-            )}
-            {doc.workflow && (
-              <Badge variant={WORKFLOW_STATUS_CONFIG[doc.workflow.status as WorkflowStatus].variant} className="gap-1">
-                <GitBranch className="h-3 w-3" />
-                {WORKFLOW_STATUS_CONFIG[doc.workflow.status as WorkflowStatus].label}
               </Badge>
             )}
             {doc.isPublic ? (
