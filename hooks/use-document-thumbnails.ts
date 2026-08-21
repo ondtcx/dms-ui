@@ -15,13 +15,12 @@ export function useDocumentThumbnails(documents: Document[] | undefined) {
     };
   }, []);
 
-  // Cargar thumbnails para PDFs e imágenes
+  // Cargar thumbnails para todos los tipos de documentos
   useEffect(() => {
     const loadThumbnails = async () => {
       if (!documents) return;
 
       for (const doc of documents) {
-        if (!((doc?.versions?.[0]?.mimetype) ?? '').startsWith("image/") && ((doc?.versions?.[0]?.mimetype) ?? '') !== "application/pdf") continue;
         if (thumbnailUrls[doc.id]?.updatedAt === doc.updatedAt) continue;
 
         try {
