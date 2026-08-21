@@ -141,7 +141,7 @@ export const adminMenuItems: MenuItem[] = [
     requiredRole: UserRole.ADMIN,
   },
   {
-    title: "Subtipos de Documento",
+    title: "Tipos de Documento",
     icon: Tags,
     url: "/dashboard/document-types",
     requiredRole: UserRole.ADMIN,
@@ -153,16 +153,18 @@ export const adminMenuItems: MenuItem[] = [
     requiredRole: UserRole.ADMIN,
   },
   {
-    title: "Años Lectivos",
-    icon: GraduationCap,
-    url: "/dashboard/academic-years",
-    requiredRoles: [UserRole.ADMIN, UserRole.RECTOR],
-  },
-  {
     title: "Configuracion",
     icon: Settings,
     url: "/dashboard/settings",
     requiredRole: UserRole.ADMIN,
+    items: [
+      {
+        title: "Años Lectivos",
+        icon: GraduationCap,
+        url: "/dashboard/academic-years",
+        requiredRoles: [UserRole.ADMIN, UserRole.RECTOR],
+      },
+    ],
   },
 ];
 
@@ -323,8 +325,59 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminMenuItems.map((item) => {
-                  if (!shouldShowMenuItem(item)) {
+                  const visibleSubItems =
+                    item.items?.filter(shouldShowMenuItem) ?? [];
+
+                  if (item.items && visibleSubItems.length === 0) {
                     return null;
+                  }
+                  if (!item.items && !shouldShowMenuItem(item)) {
+                    return null;
+                  }
+
+                  if (item.items) {
+                    return (
+                      <Collapsible
+                        key={item.title}
+                        defaultOpen={pathname.startsWith(item.url)}
+                        className="group/collapsible"
+                      >
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton>
+                              {item.icon && (
+                                <item.icon className="h-4 w-4 mr-2" />
+                              )}
+                              {item.title}
+                              <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
+                              <Minus className="ml-auto group-data-[state=closed]/collapsible:hidden" />
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {visibleSubItems.map((subItem) => (
+                                <SidebarMenuSubItem key={subItem.title}>
+                                  <SidebarMenuSubButton
+                                    asChild
+                                    isActive={pathname === subItem.url}
+                                  >
+                                    <Link
+                                      href={subItem.url}
+                                      className="flex items-center"
+                                    >
+                                      {subItem.icon && (
+                                        <subItem.icon className="h-4 w-4 mr-2" />
+                                      )}
+                                      {subItem.title}
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuItem>
+                      </Collapsible>
+                    );
                   }
 
                   return (
