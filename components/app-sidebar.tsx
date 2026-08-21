@@ -24,38 +24,36 @@ import {
   SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Home,
   FileText,
   Users,
   Settings,
-  LogOut,
   FolderKanban,
-  Layers,
   Trash2,
   FileType,
-  CheckCircle2,
-  BarChart3,
   Calendar,
-  Send,
-  Inbox,
   Minus,
   Plus,
-  PlusCircle,
   Building2,
   Archive,
-  Share2,
-  ClipboardList,
   GraduationCap,
   Tags,
-  House,
   UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@/lib/types";
 import { LucideIcon } from "lucide-react";
-import { AcademicYearSelector } from "@/components/structure/AcademicYearSelector";
 
 export interface MenuItem {
   title: string;
@@ -190,6 +188,14 @@ export function AppSidebar() {
     ? `${apiBase}${settings.institution.logoPath}`
     : null;
   const institutionName = settings?.institution?.name ?? "DMS";
+  const userInitials = (user?.name ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((name) => name[0])
+    .join("")
+    .toUpperCase() || "US";
 
   const shouldShowMenuItem = (item: MenuItem): boolean => {
     if (!item.requiredRole && !item.requiredRoles) {
@@ -205,7 +211,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       {/* Header */}
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center gap-2">
@@ -237,7 +243,11 @@ export function AppSidebar() {
                   >
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
-                        <SidebarMenuButton>
+                        <SidebarMenuButton
+                          isActive={pathname.startsWith(item.url + "/")}
+                          tooltip={item.title}
+                          className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
+                        >
                           {item.icon && <item.icon className="h-4 w-4 mr-2" />}
                           {item.title}{" "}
                           <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
@@ -270,7 +280,12 @@ export function AppSidebar() {
                   </Collapsible>
                 ) : (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={pathname === item.url}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === item.url}
+                      tooltip={item.title}
+                      className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
+                    >
                       <Link
                         href={item.url}
                         className="flex items-center w-full"
@@ -296,6 +311,8 @@ export function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={pathname === item.url}
+                    tooltip={item.title}
+                    className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                   >
                     <Link href={item.url} className="flex items-center">
                       <item.icon className="h-4 w-4 mr-2" />
@@ -339,12 +356,16 @@ export function AppSidebar() {
                     return (
                       <Collapsible
                         key={item.title}
-                        defaultOpen={pathname.startsWith(item.url)}
+                        defaultOpen={pathname.startsWith(item.url + "/")}
                         className="group/collapsible"
                       >
                         <SidebarMenuItem>
                           <CollapsibleTrigger asChild>
-                            <SidebarMenuButton>
+                            <SidebarMenuButton
+                              isActive={pathname.startsWith(item.url + "/")}
+                              tooltip={item.title}
+                              className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
+                            >
                               {item.icon && (
                                 <item.icon className="h-4 w-4 mr-2" />
                               )}
@@ -385,6 +406,8 @@ export function AppSidebar() {
                       <SidebarMenuButton
                         asChild
                         isActive={pathname === item.url}
+                        tooltip={item.title}
+                        className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                       >
                         <Link href={item.url} className="flex items-center">
                           <item.icon className="h-4 w-4 mr-2" />
@@ -405,28 +428,36 @@ export function AppSidebar() {
         {/* <div className="pb-2">
           <AcademicYearSelector />
         </div> */}
-        <div className="flex flex-col gap-2">
-          <div className="text-sm">
-            <div className="font-medium">{user?.name}</div>
-            <div className="text-xs text-muted-foreground">{user?.email}</div>
-            <div className="mt-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Abrir menú de cuenta"
+              className="flex w-full items-center justify-center rounded-md p-1 outline-hidden transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:p-0"
+            >
+              <Avatar>
+                <AvatarFallback>{userInitials}</AvatarFallback>
+              </Avatar>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>
+              <div>{user?.name ?? "Usuario"}</div>
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getRoleBadgeColor(
+                className={`mt-1 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getRoleBadgeColor(
                   user?.role || "",
                 )}`}
               >
-                {user?.role?.toUpperCase()}
+                {user?.role?.toUpperCase() ?? "USUARIO"}
               </span>
-            </div>
-          </div>
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Cerrar Sesion</span>
-          </button>
-        </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/dashboard/mi-cuenta">Mi Cuenta</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={logout}>Cerrar Sesión</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
