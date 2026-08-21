@@ -54,6 +54,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@/lib/types";
 import { LucideIcon } from "lucide-react";
+import { isNavItemActive } from "@/lib/sidebar-nav";
 
 export interface MenuItem {
   title: string;
@@ -244,7 +245,7 @@ export function AppSidebar() {
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
                         <SidebarMenuButton
-                          isActive={pathname.startsWith(item.url + "/")}
+                          isActive={isNavItemActive(item, pathname)}
                           tooltip={item.title}
                           className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                         >
@@ -260,7 +261,7 @@ export function AppSidebar() {
                             <SidebarMenuSubItem key={subItem.title}>
                               <SidebarMenuSubButton
                                 asChild
-                                isActive={pathname === subItem.url}
+                                isActive={isNavItemActive(subItem, pathname)}
                               >
                                 <Link
                                   href={subItem.url}
@@ -282,7 +283,7 @@ export function AppSidebar() {
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
                       asChild
-                      isActive={pathname === item.url}
+                      isActive={isNavItemActive(item, pathname)}
                       tooltip={item.title}
                       className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                     >
@@ -310,7 +311,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname === item.url}
+                    isActive={isNavItemActive(item, pathname)}
                     tooltip={item.title}
                     className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                   >
@@ -362,7 +363,7 @@ export function AppSidebar() {
                         <SidebarMenuItem>
                           <CollapsibleTrigger asChild>
                             <SidebarMenuButton
-                              isActive={pathname.startsWith(item.url + "/")}
+                              isActive={isNavItemActive(item, pathname)}
                               tooltip={item.title}
                               className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                             >
@@ -380,7 +381,7 @@ export function AppSidebar() {
                                 <SidebarMenuSubItem key={subItem.title}>
                                   <SidebarMenuSubButton
                                     asChild
-                                    isActive={pathname === subItem.url}
+                                    isActive={isNavItemActive(subItem, pathname)}
                                   >
                                     <Link
                                       href={subItem.url}
@@ -405,7 +406,7 @@ export function AppSidebar() {
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton
                         asChild
-                        isActive={pathname === item.url}
+                        isActive={isNavItemActive(item, pathname)}
                         tooltip={item.title}
                         className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                       >
