@@ -5,6 +5,7 @@ import {
   UploadDocumentDto,
   DocumentVersion,
   ArchiveStats,
+  DashboardSummary,
 } from "@/lib/types";
 
 export const documentsService = {
@@ -27,6 +28,11 @@ export const documentsService = {
 
   async getOne(id: number): Promise<Document> {
     const response = await api.get<Document>(`/documents/${id}`);
+    return response.data;
+  },
+
+  async getDashboardSummary(): Promise<DashboardSummary> {
+    const response = await api.get<DashboardSummary>("/documents/dashboard-summary");
     return response.data;
   },
 

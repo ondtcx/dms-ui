@@ -1,368 +1,76 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowRight, CalendarDays, FileText, Settings, Sparkles, Users } from "lucide-react";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { useSettings } from "@/lib/contexts/SettingsContext";
-import { useQuery } from "@tanstack/react-query";
-import { documentsService } from "@/lib/services/documents.service";
 import { RoleGuard } from "@/guards/RoleGuard";
+import { documentsService } from "@/lib/services/documents.service";
 import { UserRole } from "@/lib/types";
-import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
-import { es } from "date-fns/locale";
-import {
-  FileText,
-  Users,
-  Settings,
-  ArrowRight,
-  Sparkles,
-  CalendarDays,
-} from "lucide-react";
-
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { DashboardDocumentRow } from "@/components/documents/DashboardDocumentRow";
+import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// ─── helpers ───────────────────────────────────────────────────────────────
-
 function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "¡Buenos días";
-  if (h < 19) return "¡Buenas tardes";
-  return "¡Buenas noches";
+  const hour = new Date().getHours();
+  return hour < 12 ? "¡Buenos días" : hour < 19 ? "¡Buenas tardes" : "¡Buenas noches";
 }
 
-function roleLabel(role: string): string {
-  const labels: Record<string, string> = {
-    admin: "Administrador",
-    rector: "Rector",
-    vicerrector: "Vicerrector",
-    coordinador: "Coordinador",
-    profesor: "Profesor",
-    secretario: "Secretario",
-    padre: "Padre/Tutor",
-    estudiante: "Estudiante",
-    moderador: "Moderador",
-    user: "Usuario",
-  };
-  return labels[role] ?? role;
+function roleLabel(role: string) {
+  return ({ admin: "Administrador", rector: "Rector", vicerrector: "Vicerrector", coordinador: "Coordinador", profesor: "Profesor", secretario: "Secretario", padre: "Padre/Tutor", estudiante: "Estudiante", moderador: "Moderador", user: "Usuario" } as Record<string, string>)[role] ?? role;
 }
 
-function roleBadgeVariant(
-  role: string
-): "default" | "secondary" | "destructive" | "outline" {
-  if (role === "admin" || role === "rector" || role === "vicerrector") return "destructive";
-  if (role === "coordinador" || role === "moderador") return "default";
-  return "secondary";
+function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+  return <section className="space-y-3" aria-labelledby={`${title}-heading`}><div className="flex items-center justify-between gap-4"><h2 id={`${title}-heading`} className="text-lg font-semibold">{title}</h2>{action}</div>{children}</section>;
 }
 
-function formatBytes(mb: string | number) {
-  const n = typeof mb === "string" ? parseFloat(mb) : mb;
-  if (n >= 1024) return `${(n / 1024).toFixed(1)} GB`;
-  return `${n} MB`;
+function EmptyPendingState() {
+  return <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground"><p>No hay pendientes de oficialización.</p><Link className="mt-2 inline-block font-medium text-slate-700 underline underline-offset-2 dark:text-slate-200" href="/dashboard/documents">Ver documentos</Link></div>;
 }
 
-function workflowStatusBadge(status?: string) {
-  if (!status) return null;
-  const map: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-    PENDING: { label: "Pendiente", variant: "outline" },
-    IN_PROGRESS: { label: "En curso", variant: "default" },
-    APPROVED: { label: "Aprobado", variant: "secondary" },
-    REJECTED: { label: "Rechazado", variant: "destructive" },
-    CANCELLED: { label: "Cancelado", variant: "outline" },
-  };
-  const entry = map[status] ?? { label: status, variant: "outline" as const };
-  return <Badge variant={entry.variant}>{entry.label}</Badge>;
+function isPermissionDenied(error: unknown) {
+  if (!error || typeof error !== "object" || !("response" in error)) return false;
+  const response = error.response;
+  return !!response && typeof response === "object" && "status" in response && response.status === 403;
 }
-
-// ─── stat card ──────────────────────────────────────────────────────────────
-
-interface StatCardProps {
-  title: string;
-  value: React.ReactNode;
-  subtitle?: string;
-  icon: React.ReactNode;
-  loading?: boolean;
-  href?: string;
-  highlight?: boolean;
-}
-
-function StatCard({
-  title,
-  value,
-  subtitle,
-  icon,
-  loading,
-  href,
-  highlight,
-}: StatCardProps) {
-  const content = (
-    <Card
-      className={
-        highlight
-          ? "border-orange-300 bg-orange-50 dark:bg-orange-950/20"
-          : undefined
-      }
-    >
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <span className="text-muted-foreground">{icon}</span>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-8 w-20" />
-        ) : (
-          <div className="text-2xl font-bold">{value}</div>
-        )}
-        {subtitle && (
-          <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-
-  if (href) {
-    return <Link href={href}>{content}</Link>;
-  }
-  return content;
-}
-
-// ─── page ───────────────────────────────────────────────────────────────────
 
 export default function DashboardHomePage() {
   const { user } = useAuth();
   const { settings } = useSettings();
+  const router = useRouter();
+  const summary = useQuery({ queryKey: ["documents", "dashboard-summary"], queryFn: documentsService.getDashboardSummary });
+  const context = [settings?.institution?.name, settings?.schoolYear?.isActive ? settings.schoolYear.name : null].filter(Boolean).join(" · ");
+  const goToDocuments = () => router.push("/dashboard/documents");
+  const permissionDenied = isPermissionDenied(summary.error);
 
-  const institutionName = settings?.institution?.name;
-  const schoolYearName = settings?.schoolYear?.isActive ? settings.schoolYear.name : null;
-  const contextSubtitle = [institutionName, schoolYearName].filter(Boolean).join(" · ");
+  return <main className="mx-auto max-w-7xl space-y-8 overflow-x-hidden p-4 sm:p-8">
+    <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="space-y-1"><h1 className="text-3xl font-bold tracking-tight">{getGreeting()}, {user?.name}!</h1><div className="flex flex-wrap items-center gap-2"><p className="text-muted-foreground">Bienvenido a tu panel de gestión de documentos</p><Badge variant="secondary">{roleLabel(user?.role ?? "")}</Badge></div>{context && <p className="text-sm text-muted-foreground">{context}</p>}</div>
+      <NewDocumentButton aria-label="Nuevo documento" onUploadSingle={goToDocuments} onUploadMultiple={goToDocuments} onFromTemplate={goToDocuments} onBatchGenerate={goToDocuments} onCreateInEditor={goToDocuments} />
+    </header>
 
-  // ── queries ──
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["stats"],
-    queryFn: () => documentsService.getStats(),
-  });
+     <Section title="Pendientes de oficialización" action={summary.data?.pendingHasMore ? <Link className="text-sm font-medium text-slate-700 hover:underline dark:text-slate-200" href="/dashboard/documents">Ver todos <ArrowRight className="inline h-3.5 w-3.5" aria-hidden="true" /></Link> : undefined}>
+      <Card><CardHeader className="pb-3"><CardTitle className="text-sm font-normal text-muted-foreground">Trabajo que requiere atención</CardTitle></CardHeader><CardContent className="pt-0">
+        {summary.isLoading ? <div className="space-y-3" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando resumen">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-14 w-full motion-reduce:animate-none" />)}</div> : summary.isError ? <div className="rounded-lg border border-destructive/40 p-5 text-sm" role="status" aria-live="polite"><p className="font-medium">{permissionDenied ? "No tienes permisos para consultar este resumen." : "No se pudo cargar el resumen."}</p><p className="mt-1 text-muted-foreground">{permissionDenied ? "Tu acceso a los documentos se mantiene protegido. Puedes ir a Documentos para continuar." : "Conteo no disponible. Las filas no están disponibles."}</p><div className="mt-3 flex flex-wrap gap-2"><Button variant="outline" onClick={() => summary.refetch()}>Reintentar</Button><Button asChild variant="link"><Link href="/dashboard/documents">Ir a Documentos</Link></Button></div></div> : summary.data?.pendingOfficialization.length ? <div className="divide-y">{summary.data.pendingOfficialization.map((document) => <DashboardDocumentRow key={document.id} document={document} pending />)}</div> : <EmptyPendingState />}
+      </CardContent></Card>
+      {!summary.isLoading && !summary.isError && summary.data && <p className="text-sm text-muted-foreground">{summary.data.pendingOfficializationCount} pendiente{summary.data.pendingOfficializationCount === 1 ? "" : "s"}</p>}
+    </Section>
 
-  const { data: recentDocs, isLoading: recentLoading } = useQuery({
-    queryKey: ["documents", "recent"],
-    queryFn: () => documentsService.getAll({ limit: 5, page: 1 }),
-  });
+    <Section title="Documentos recientes" action={<Link className="text-sm font-medium text-slate-700 hover:underline dark:text-slate-200" href="/dashboard/documents">Ver todos <ArrowRight className="inline h-3.5 w-3.5" aria-hidden="true" /></Link>}>
+      <Card><CardContent className="pt-4">{summary.isLoading ? <div className="space-y-3" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando documentos">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-14 w-full motion-reduce:animate-none" />)}</div> : summary.isError ? <p className="text-sm text-muted-foreground" role="status">{permissionDenied ? "Los documentos recientes no están disponibles por permisos insuficientes." : "Los documentos recientes no están disponibles."}</p> : summary.data?.recent.length ? <div className="divide-y">{summary.data.recent.map((document) => <DashboardDocumentRow key={document.id} document={document} />)}</div> : <p className="py-6 text-center text-sm text-muted-foreground">No hay documentos recientes.</p>}</CardContent></Card>
+    </Section>
 
-  return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
-      {/* ── Bienvenida ── */}
-      <div className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">
-          {getGreeting()}, {user?.name}!
-        </h1>
-        <div className="flex items-center gap-2">
-          <p className="text-muted-foreground">
-            Bienvenido a tu panel de gestión de documentos
-          </p>
-          <Badge variant={roleBadgeVariant(user?.role ?? "")}>
-            {roleLabel(user?.role ?? "")}
-          </Badge>
-        </div>
-        {contextSubtitle && (
-          <p className="text-sm text-muted-foreground">{contextSubtitle}</p>
-        )}
-      </div>
+     <Section title="Acceso rápido"><div className="grid gap-3 sm:grid-cols-3"><QuickLink href="/dashboard/documents" icon={<FileText />} title="Documentos" desc="Ver y gestionar" /><RoleGuard roles={[UserRole.ADMIN, UserRole.RECTOR]}><QuickLink href="/dashboard/templates" icon={<Sparkles />} title="Plantillas" desc="Generar documentos" /></RoleGuard><QuickLink href="/dashboard/calendar" icon={<CalendarDays />} title="Calendario" desc="Vista por fecha" /></div></Section>
 
-      {/* ── KPI cards ── */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Resumen general</h2>
-        <div className="grid gap-4">
-          <StatCard
-            title="Total documentos"
-            value={stats?.totalDocuments ?? 0}
-            subtitle={`${formatBytes(stats?.totalSizeMB ?? "0.00")} usados`}
-            icon={<FileText className="h-4 w-4" />}
-            loading={statsLoading}
-            href="/dashboard/documents"
-          />
-        </div>
-      </div>
-
-      {/* ── Main content: actividad reciente ── */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Actividad reciente</h2>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard/documents">
-              Ver todos
-              <ArrowRight className="ml-1 h-3.5 w-3.5" />
-            </Link>
-          </Button>
-        </div>
-
-        <Card>
-          {recentLoading ? (
-            <CardContent className="pt-4 space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </CardContent>
-          ) : !recentDocs?.data.length ? (
-            <CardContent className="pt-6 pb-6 text-center text-muted-foreground text-sm">
-              No hay documentos todavía.{" "}
-              <Link
-                href="/dashboard/documents"
-                className="underline underline-offset-2"
-              >
-                Sube el primero
-              </Link>
-            </CardContent>
-          ) : (
-            <div className="divide-y">
-              {recentDocs.data.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
-                >
-                  {/* Icono */}
-                  <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-md shrink-0">
-                    <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      {((doc?.versions?.[0]?.filename) ?? '')}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {doc.uploadedBy.name}
-                      {doc.category && (
-                        <>
-                          {" · "}
-                          <span>{doc.category.name}</span>
-                        </>
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Estado workflow */}
-                  <div className="shrink-0">
-                    {doc.workflow
-                      ? workflowStatusBadge(doc.workflow.status)
-                      : null}
-                  </div>
-
-                  {/* Fecha */}
-                  <p className="text-xs text-muted-foreground shrink-0 hidden sm:block">
-                    {formatDistanceToNow(new Date(doc.createdAt), {
-                      addSuffix: true,
-                      locale: es,
-                    })}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* ── Acceso rápido ── */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3">Acceso rápido</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <QuickLink
-            href="/dashboard/documents"
-            icon={<FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
-            iconBg="bg-blue-100 dark:bg-blue-900"
-            title="Documentos"
-            desc="Ver y gestionar"
-          />
-          <QuickLink
-            href="/dashboard/templates"
-            icon={<Sparkles className="h-5 w-5 text-amber-600 dark:text-amber-400" />}
-            iconBg="bg-amber-100 dark:bg-amber-900"
-            title="Plantillas"
-            desc="Generar documentos"
-          />
-          <QuickLink
-            href="/dashboard/calendar"
-            icon={<CalendarDays className="h-5 w-5 text-green-600 dark:text-green-400" />}
-            iconBg="bg-green-100 dark:bg-green-900"
-            title="Calendario"
-            desc="Vista por fecha"
-          />
-        </div>
-      </div>
-
-      {/* ── Panel Admin ── */}
-      <RoleGuard roles={[UserRole.ADMIN, UserRole.RECTOR]}>
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
-          <CardContent className="pt-5 pb-5">
-            <div className="flex items-start gap-4">
-              <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full shrink-0">
-                <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-0.5">
-                  Panel de gestión
-                </h3>
-                <p className="text-blue-700 dark:text-blue-300 text-sm mb-3">
-                  Acceso a configuración avanzada y reportes del sistema.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild variant="default" size="sm">
-                    <Link href="/dashboard/users">
-                      <Users className="mr-1.5 h-3.5 w-3.5" />
-                      Usuarios
-                    </Link>
-                  </Button>
-                  <RoleGuard roles={[UserRole.ADMIN]}>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href="/dashboard/settings">
-                        <Settings className="mr-1.5 h-3.5 w-3.5" />
-                        Configuración
-                      </Link>
-                    </Button>
-                  </RoleGuard>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </RoleGuard>
-    </div>
-  );
+    <RoleGuard roles={[UserRole.ADMIN, UserRole.RECTOR]}><Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20"><CardContent className="pt-5"><div className="flex flex-wrap items-center gap-3"><Users className="h-5 w-5 text-blue-600" /><span className="font-semibold">Panel de gestión</span><Button asChild size="sm" variant="outline"><Link href="/dashboard/users">Usuarios</Link></Button><RoleGuard roles={[UserRole.ADMIN]}><Button asChild size="sm" variant="outline"><Link href="/dashboard/settings"><Settings className="mr-1 h-3.5 w-3.5" />Configuración</Link></Button></RoleGuard></div></CardContent></Card></RoleGuard>
+  </main>;
 }
 
-// ─── quick link card ────────────────────────────────────────────────────────
-
-function QuickLink({
-  href,
-  icon,
-  iconBg,
-  title,
-  desc,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  iconBg: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <Link href={href}>
-      <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-        <CardContent className="pt-4 pb-4">
-          <div className="flex items-center gap-3">
-            <div className={`${iconBg} p-2.5 rounded-lg shrink-0`}>{icon}</div>
-            <div className="min-w-0">
-              <p className="font-medium text-sm">{title}</p>
-              <p className="text-xs text-muted-foreground">{desc}</p>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground ml-auto shrink-0" />
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
+function QuickLink({ href, icon, title, desc }: { href: string; icon: React.ReactNode; title: string; desc: string }) {
+  return <Link href={href}><Card className="h-full motion-safe:transition-shadow motion-reduce:transition-none hover:shadow-md"><CardContent className="flex items-center gap-3 pt-4"><span className="rounded-lg bg-primary/10 p-2.5 text-primary">{icon}</span><span><span className="block text-sm font-medium">{title}</span><span className="block text-xs text-muted-foreground">{desc}</span></span><ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden="true" /></CardContent></Card></Link>;
 }

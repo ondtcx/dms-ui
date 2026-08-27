@@ -1,6 +1,8 @@
 "use client";
 
 import { Plus, FileText, Upload, Scan, FolderInput, Layers, PenLine } from "lucide-react";
+import { usePermissions } from "@/hooks/use-permissions";
+import { UserRole } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -17,6 +19,7 @@ interface NewDocumentButtonProps {
   onFromTemplate: () => void;
   onBatchGenerate?: () => void;
   onCreateInEditor?: () => void;
+  "aria-label"?: string;
 }
 
 export function NewDocumentButton({
@@ -25,11 +28,15 @@ export function NewDocumentButton({
   onFromTemplate,
   onBatchGenerate,
   onCreateInEditor,
+  "aria-label": ariaLabel,
 }: NewDocumentButtonProps) {
+  const { hasAnyRole } = usePermissions();
+  const canUseTemplateCreation = hasAnyRole([UserRole.ADMIN, UserRole.RECTOR]);
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="default" className="gap-2">
+        <Button size="default" className="gap-2 bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100" aria-label={ariaLabel}>
           <Plus className="h-4 w-4" />
           Nuevo
         </Button>
@@ -38,20 +45,24 @@ export function NewDocumentButton({
         <DropdownMenuLabel>Crear Documento</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem onClick={onFromTemplate}>
-          <FileText className="mr-2 h-4 w-4" />
-          <span>Desde Plantilla</span>
-        </DropdownMenuItem>
+        {canUseTemplateCreation && (
+          <DropdownMenuItem onClick={onFromTemplate}>
+            <FileText className="mr-2 h-4 w-4" />
+            <span>Desde Plantilla</span>
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuItem onClick={onCreateInEditor}>
           <PenLine className="mr-2 h-4 w-4" />
           <span>Crear en Editor</span>
         </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={onBatchGenerate}>
-          <Layers className="mr-2 h-4 w-4" />
-          <span>Generar en Lote</span>
-        </DropdownMenuItem>
+        {canUseTemplateCreation && (
+          <DropdownMenuItem onClick={onBatchGenerate}>
+            <Layers className="mr-2 h-4 w-4" />
+            <span>Generar en Lote</span>
+          </DropdownMenuItem>
+        )}
 
         <DropdownMenuSeparator />
 

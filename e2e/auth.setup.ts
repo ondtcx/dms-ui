@@ -1,4 +1,6 @@
-import { Page } from '@playwright/test';
+import { APIRequestContext, BrowserContext, Page, request } from '@playwright/test';
+
+export const API_BASE_URL = 'http://localhost:3001/api';
 
 /**
  * Shared auth helpers for E2E tests.
@@ -89,5 +91,40 @@ export async function loginViaApi(
       secure: false,
       sameSite: 'Strict',
     },
+  ]);
+}
+
+export async function getAccessToken(
+  api: APIRequestContext,
+  email: string,
+  password: string,
+): Promise<{ token: string; user: { id: string; email: string; role: string } }> {
+  const response = await api.post(`${API_BASE_URL}/auth/login`, {
+    data: { email, password },
+  });
+
+  if (!response.ok()) {
+    throw new Error(`Login failed for ${email}: ${response.status()} ${response.statusText()}`);
+  }
+
+  const body = await response.json();
+  return { token: body.access_token, user: body.user };
+}
+
+export async function createAuthenticatedApiContext(token: string): Promise<APIRequestContext> {
+  return request.newContext({
+    baseURL: API_BASE_URL,
+    extraHTTPHeaders: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function setAuthCookies(
+  context: BrowserContext,
+  token: string,
+  user: Record<string, unknown>,
+): Promise<void> {
+  await context.addCookies([
+    { name: 'token', value: token, domain: 'localhost', path: '/', httpOnly: false, secure: false, sameSite: 'Strict' },
+    { name: 'user', value: JSON.stringify(user), domain: 'localhost', path: '/', httpOnly: false, secure: false, sameSite: 'Strict' },
   ]);
 }

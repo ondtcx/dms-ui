@@ -208,6 +208,25 @@ export interface DocumentsResponse {
   };
 }
 
+export interface DashboardDocumentRow extends Pick<
+  Document,
+  "id" | "description" | "documentNumber" | "createdAt" | "updatedAt"
+> {
+  uploadedBy: Pick<Document["uploadedBy"], "id" | "name" | "email">;
+  category: Pick<Category, "id" | "name" | "color" | "icon"> | null;
+  versions: Pick<DocumentVersion, "id" | "version" | "filename" | "mimetype" | "size">[];
+  workflow: Pick<NonNullable<Document["workflow"]>, "id" | "status" | "currentState"> | null;
+}
+
+export interface DashboardSummary {
+  pendingOfficializationCount: number;
+  pendingOfficialization: DashboardDocumentRow[];
+  pendingHasMore: boolean;
+  recent: DashboardDocumentRow[];
+  recentHasMore: boolean;
+  generatedAt: string;
+}
+
 export interface UploadDocumentDto {
   description?: string;
   categoryId?: number;
