@@ -46,8 +46,14 @@ jest.mock("@/lib/contexts/SettingsContext", () => ({
   }),
 }));
 
+let visiblePermissions: Set<string> | null = null;
 jest.mock("@/hooks/use-permissions", () => ({
-  usePermissions: () => ({ hasRole: () => true, hasAnyRole: () => true, hasPermission: () => true, hasAnyPermission: () => true }),
+  usePermissions: () => ({
+    hasRole: () => true,
+    hasAnyRole: () => true,
+    hasPermission: (permission: string) => visiblePermissions === null || visiblePermissions.has(permission),
+    hasAnyPermission: (permissions: string[]) => permissions.some((permission) => visiblePermissions === null || visiblePermissions.has(permission)),
+  }),
 }));
 
 function renderSidebar() {
@@ -59,6 +65,10 @@ function renderSidebar() {
 }
 
 describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
+  afterEach(() => {
+    visiblePermissions = null;
+  });
+
   it("renders and reflects active state, account menu and icon collapsible", async () => {
     const { container } = renderSidebar();
 
@@ -88,6 +98,15 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     // (data-slot="sidebar"); the data-sidebar="sidebar" inner div does not.
     const sidebarRoot = container.querySelector("[data-collapsible]");
     expect(sidebarRoot).toHaveAttribute("data-collapsible", "icon");
+  });
+
+  it("shows Users under Settings for a roles.manage-only user", async () => {
+    visiblePermissions = new Set(["roles.manage"]);
+    renderSidebar();
+
+    await userEvent.click(screen.getByRole("button", { name: "Configuracion" }));
+    expect(screen.getByRole("link", { name: "Usuarios" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Roles" })).toBeInTheDocument();
   });
 
 });

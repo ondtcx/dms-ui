@@ -65,6 +65,7 @@ export interface MenuItem {
   requiredRole?: UserRole;
   requiredRoles?: UserRole[];
   requiredPermission?: string;
+  requiredPermissions?: string[];
   activationPaths?: string[];
 }
 
@@ -143,7 +144,7 @@ export const adminMenuItems: MenuItem[] = [
       "/dashboard/roles",
     ],
     items: [
-      { title: "Usuarios", icon: Users, url: "/dashboard/settings?section=users", requiredPermission: "users.manage", activationPaths: ["/dashboard/users"] },
+      { title: "Usuarios", icon: Users, url: "/dashboard/settings?section=users", requiredPermissions: ["users.manage", "roles.manage"], activationPaths: ["/dashboard/users"] },
       { title: "Categorias", icon: FolderKanban, url: "/dashboard/settings?section=categories", requiredPermission: "categories.manage", activationPaths: ["/dashboard/categories"] },
       { title: "Tipos de Documento", icon: Tags, url: "/dashboard/settings?section=document-types", requiredPermission: "document-types.manage", activationPaths: ["/dashboard/document-types"] },
       { title: "Plantillas", icon: FileType, url: "/dashboard/settings?section=templates", requiredPermission: "templates.manage", activationPaths: ["/dashboard/templates"] },

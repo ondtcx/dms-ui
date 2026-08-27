@@ -24,6 +24,7 @@ export function isNavItemActive(
 
 export function filterAuthorizedNavItems<T extends {
   requiredPermission?: string;
+  requiredPermissions?: readonly string[];
   items?: readonly T[];
 }>(items: readonly T[], permissions: ReadonlySet<string>): T[] {
   return items
@@ -35,6 +36,7 @@ export function filterAuthorizedNavItems<T extends {
     }))
     .filter((item) =>
       (!item.requiredPermission || permissions.has(item.requiredPermission)) &&
+      (!item.requiredPermissions || item.requiredPermissions.some((permission) => permissions.has(permission))) &&
       (!item.items || item.items.length > 0),
     );
 }

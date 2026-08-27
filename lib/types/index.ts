@@ -20,6 +20,48 @@ export interface User {
   updatedAt: string;
   permissions?: string[];
   roles?: string[];
+  catalogRoles?: Pick<CatalogRole, "id" | "key" | "label" | "isActive">[];
+  authRevision?: number;
+}
+
+export interface Permission {
+  id: number;
+  key: string;
+  label: string;
+  isActive: boolean;
+}
+
+export interface RolePermission extends Partial<Pick<Permission, 'id' | 'key' | 'label'>> {
+  permission?: Pick<Permission, 'id' | 'key' | 'label'>;
+}
+
+export interface CatalogRole {
+  id: number;
+  key: string;
+  label: string;
+  isActive: boolean;
+  assignmentCount?: number;
+  permissions?: RolePermission[];
+  _count?: { assignments?: number; users?: number };
+}
+
+export interface RoleAssignment {
+  userId: string;
+  roleId: number;
+}
+
+export interface RoleMutationDto {
+  key?: string;
+  label?: string;
+  isActive?: boolean;
+  permissionKeys?: string[];
+}
+
+export interface AuthorizationProfile {
+  user: User;
+  roles: string[];
+  permissions: string[];
+  authRevision: number;
 }
 
 export interface AuthResponse {
@@ -27,6 +69,7 @@ export interface AuthResponse {
   access_token: string;
   permissions?: string[];
   roles?: string[];
+  authRevision?: number;
 }
 
 export interface LoginDto {

@@ -1,5 +1,5 @@
 import api from "@/lib/axios";
-import { AuthResponse, ChangePasswordDto, LoginDto, RegisterDto, User } from "@/lib/types";
+import { AuthResponse, AuthorizationProfile, ChangePasswordDto, LoginDto, RegisterDto, User } from "@/lib/types";
 import Cookies from "js-cookie";
 
 export const authService = {
@@ -39,8 +39,8 @@ export const authService = {
     return response.data;
   },
 
-  async getProfile(): Promise<User> {
-    const response = await api.get<User>("/auth/profile");
+  async getProfile(): Promise<AuthorizationProfile> {
+    const response = await api.get<AuthorizationProfile>("/auth/profile");
     return response.data;
   },
 

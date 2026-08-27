@@ -39,6 +39,16 @@ export const usersService = {
     return response.data;
   },
 
+  async assignRole(userId: string, roleId: number): Promise<User> {
+    const response = await api.post<User>(`/roles/${roleId}/assign/${userId}`);
+    return response.data;
+  },
+
+  async unassignRole(userId: string, roleId: number): Promise<User> {
+    const response = await api.post<User>(`/roles/${roleId}/unassign/${userId}`);
+    return response.data;
+  },
+
   async delete(id: string): Promise<void> {
     await api.delete(`/users/${id}`);
   },

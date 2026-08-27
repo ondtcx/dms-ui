@@ -33,8 +33,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const loadUser = async () => {
       try {
         if (authService.isAuthenticated()) {
-          const userData = await authService.getProfile();
-          setUser(userData);
+          const profile = await authService.getProfile();
+          setUser({ ...profile.user, permissions: profile.permissions, roles: profile.roles, authRevision: profile.authRevision });
         }
       } catch (error) {
         console.error("Error loading user:", error);
@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const response = await authService.login({ email, password });
-    setUser({ ...response.user, permissions: response.permissions, roles: response.roles });
+    setUser({ ...response.user, permissions: response.permissions, roles: response.roles, authRevision: response.authRevision });
     router.push("/dashboard/home");
   };
 

@@ -44,7 +44,7 @@ function SettingsContent() {
   }
 
   const centralized: Record<string, React.ReactNode> = {};
-  if (hasPermission("users.manage")) centralized.users = <UsersManagementPage />;
+  if (hasPermission("users.manage") || hasPermission("roles.manage")) centralized.users = <UsersManagementPage />;
   if (hasPermission("categories.manage")) centralized.categories = <CategoriesPage />;
   if (hasPermission("document-types.manage")) centralized["document-types"] = <DocumentTypesPage />;
   if (hasPermission("templates.manage")) centralized.templates = <TemplatesPage />;

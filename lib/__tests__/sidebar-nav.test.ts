@@ -55,4 +55,14 @@ describe("isNavItemActive (REQ-1 / REQ-2)", () => {
     ];
     expect(filterAuthorizedNavItems(items, new Set(["categories.manage"]))).toEqual([items[1]]);
   });
+
+  it("shows a Users destination to either users.manage or roles.manage authorities", () => {
+    const users = {
+      url: "/dashboard/settings?section=users",
+      requiredPermissions: ["users.manage", "roles.manage"],
+    };
+
+    expect(filterAuthorizedNavItems([users], new Set(["roles.manage"]))).toEqual([users]);
+    expect(filterAuthorizedNavItems([users], new Set(["documents.read"]))).toEqual([]);
+  });
 });

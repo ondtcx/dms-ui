@@ -212,6 +212,7 @@ function UsersManagementContent() {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Rol</TableHead>
+                  <TableHead>Roles de catálogo</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -231,6 +232,13 @@ function UsersManagementContent() {
                       >
                         {ROLE_LABELS[user.role as UserRole] ?? user.role}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {user.catalogRoles?.length ? user.catalogRoles.map((catalogRole) => (
+                          <Badge key={catalogRole.id} variant="outline">{catalogRole.label}</Badge>
+                        )) : <span className="text-sm text-muted-foreground">Sin asignaciones</span>}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -451,7 +459,7 @@ function UsersManagementContent() {
 
 export default function UsersManagementPage() {
   return (
-    <ProtectedRoute requiredPermission="users.manage">
+    <ProtectedRoute requiredPermissions={["users.manage", "roles.manage"]}>
       <UsersManagementContent />
     </ProtectedRoute>
   );
