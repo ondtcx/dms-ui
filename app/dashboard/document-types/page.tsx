@@ -50,6 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import ProtectedRoute from "@/guards/ProtectedRoute";
 import {
   Table,
   TableBody,
@@ -164,7 +165,7 @@ function DocumentTypeForm({
   );
 }
 
-export default function DocumentTypesPage() {
+function DocumentTypesPageContent() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editingType, setEditingType] = useState<DocumentType | null>(null);
@@ -517,5 +518,13 @@ export default function DocumentTypesPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function DocumentTypesPage() {
+  return (
+    <ProtectedRoute requiredPermission="document-types.manage">
+      <DocumentTypesPageContent />
+    </ProtectedRoute>
   );
 }

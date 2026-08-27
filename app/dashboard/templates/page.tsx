@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { DocumentTemplate } from "@/lib/types";
 import { CreateTemplateDialog } from "@/components/templates/CreateTemplateDialog";
+import ProtectedRoute from "@/guards/ProtectedRoute";
 import { PreviewTemplateDialog } from "@/components/templates/PreviewTemplateDialog";
 import {
   Select,
@@ -46,7 +47,7 @@ import {
 
 type SortOption = "name" | "date" | "usage";
 
-export default function TemplatesPage() {
+function TemplatesPageContent() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
@@ -486,5 +487,13 @@ export default function TemplatesPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function TemplatesPage() {
+  return (
+    <ProtectedRoute requiredPermission="templates.manage">
+      <TemplatesPageContent />
+    </ProtectedRoute>
   );
 }

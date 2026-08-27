@@ -2,7 +2,6 @@
 "use client";
 
 import ProtectedRoute from "@/guards/ProtectedRoute";
-import { UserRole } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Building2, CalendarDays, Palette, FileText, Bell, ShieldCheck } from "lucide-react";
@@ -13,6 +12,13 @@ import { DocumentSettingsForm } from "@/components/settings/DocumentSettingsForm
 import { NotificationsForm } from "@/components/settings/NotificationsForm";
 import { SecurityForm } from "@/components/settings/SecurityForm";
 import { useSettings } from "@/lib/contexts/SettingsContext";
+import { useSearchParams } from "next/navigation";
+import UsersManagementPage from "@/app/dashboard/users/page";
+import CategoriesPage from "@/app/dashboard/categories/page";
+import DocumentTypesPage from "@/app/dashboard/document-types/page";
+import TemplatesPage from "@/app/dashboard/templates/page";
+import { RolesManagement } from "@/components/settings/RolesManagement";
+import { usePermissions } from "@/hooks/use-permissions";
 
 const TABS = [
   { value: "institution", label: "Institución", icon: Building2 },
@@ -25,6 +31,8 @@ const TABS = [
 
 function SettingsContent() {
   const { isLoading } = useSettings();
+  const section = useSearchParams().get("section");
+  const { hasPermission } = usePermissions();
 
   if (isLoading) {
     return (
@@ -33,6 +41,16 @@ function SettingsContent() {
         <Skeleton className="h-96 w-full" />
       </div>
     );
+  }
+
+  const centralized: Record<string, React.ReactNode> = {};
+  if (hasPermission("users.manage")) centralized.users = <UsersManagementPage />;
+  if (hasPermission("categories.manage")) centralized.categories = <CategoriesPage />;
+  if (hasPermission("document-types.manage")) centralized["document-types"] = <DocumentTypesPage />;
+  if (hasPermission("templates.manage")) centralized.templates = <TemplatesPage />;
+  if (hasPermission("roles.manage")) centralized.roles = <RolesManagement />;
+  if (section && centralized[section]) {
+    return <div className="p-6">{centralized[section]}</div>;
   }
 
   return (
@@ -88,7 +106,7 @@ function SettingsContent() {
 
 export default function SettingsPage() {
   return (
-    <ProtectedRoute requiredRole={UserRole.ADMIN}>
+    <ProtectedRoute requiredPermissions={["users.manage", "categories.manage", "document-types.manage", "templates.manage", "roles.manage"]}>
       <SettingsContent />
     </ProtectedRoute>
   );

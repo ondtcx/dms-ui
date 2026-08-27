@@ -18,11 +18,15 @@ export interface User {
   role: UserRole;
   createdAt: string;
   updatedAt: string;
+  permissions?: string[];
+  roles?: string[];
 }
 
 export interface AuthResponse {
   user: User;
   access_token: string;
+  permissions?: string[];
+  roles?: string[];
 }
 
 export interface LoginDto {

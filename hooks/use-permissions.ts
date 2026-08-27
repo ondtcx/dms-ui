@@ -25,6 +25,14 @@ export function usePermissions() {
     return user?.role === UserRole.USER;
   };
 
+  const hasPermission = (permission: string): boolean => {
+    if (user?.permissions) return user.permissions.includes(permission);
+    return user?.role === UserRole.ADMIN;
+  };
+
+  const hasAnyPermission = (permissions: string[]): boolean =>
+    permissions.some(hasPermission);
+
   const canAccessRoute = (route: string): boolean => {
     // Define qué rutas necesitan qué roles
     const routePermissions: { [key: string]: UserRole[] } = {
@@ -51,5 +59,7 @@ export function usePermissions() {
     isModerator,
     isUser,
     canAccessRoute,
+    hasPermission,
+    hasAnyPermission,
   };
 }

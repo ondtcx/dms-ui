@@ -451,7 +451,7 @@ function UsersManagementContent() {
 
 export default function UsersManagementPage() {
   return (
-    <ProtectedRoute requiredRole={UserRole.ADMIN}>
+    <ProtectedRoute requiredPermission="users.manage">
       <UsersManagementContent />
     </ProtectedRoute>
   );

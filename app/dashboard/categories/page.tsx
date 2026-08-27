@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import ProtectedRoute from "@/guards/ProtectedRoute";
 import {
   Table,
   TableBody,
@@ -44,7 +45,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export default function CategoriesPage() {
+function CategoriesPageContent() {
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
@@ -391,5 +392,13 @@ export default function CategoriesPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function CategoriesPage() {
+  return (
+    <ProtectedRoute requiredPermission="categories.manage">
+      <CategoriesPageContent />
+    </ProtectedRoute>
   );
 }

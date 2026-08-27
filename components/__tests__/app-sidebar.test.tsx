@@ -47,7 +47,7 @@ jest.mock("@/lib/contexts/SettingsContext", () => ({
 }));
 
 jest.mock("@/hooks/use-permissions", () => ({
-  usePermissions: () => ({ hasRole: () => true, hasAnyRole: () => true }),
+  usePermissions: () => ({ hasRole: () => true, hasAnyRole: () => true, hasPermission: () => true, hasAnyPermission: () => true }),
 }));
 
 function renderSidebar() {
@@ -64,6 +64,12 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
 
     // a) Documentos is present (REQ-1/REQ-2 integration)
     expect(screen.getByText("Documentos")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Configuracion" }));
+    expect(screen.getByRole("link", { name: "Categorias" })).toHaveAttribute(
+      "href",
+      "/dashboard/settings?section=categories",
+    );
+    expect(screen.getByRole("link", { name: "Roles" })).toBeInTheDocument();
 
     // b) the Documentos nav link is active on its exact route
     const docLink = screen.getByRole("link", { name: "Documentos" });
@@ -83,4 +89,5 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     const sidebarRoot = container.querySelector("[data-collapsible]");
     expect(sidebarRoot).toHaveAttribute("data-collapsible", "icon");
   });
+
 });

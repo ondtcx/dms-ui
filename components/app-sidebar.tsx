@@ -54,7 +54,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@/lib/types";
 import { LucideIcon } from "lucide-react";
-import { isNavItemActive } from "@/lib/sidebar-nav";
+import { filterAuthorizedNavItems, isNavItemActive } from "@/lib/sidebar-nav";
 
 export interface MenuItem {
   title: string;
@@ -64,6 +64,8 @@ export interface MenuItem {
   items?: MenuItem[];
   requiredRole?: UserRole;
   requiredRoles?: UserRole[];
+  requiredPermission?: string;
+  activationPaths?: string[];
 }
 
 export const mainMenuItems: MenuItem[] = [
@@ -128,35 +130,24 @@ export const accountMenuItems: MenuItem[] = [
 
 export const adminMenuItems: MenuItem[] = [
   {
-    title: "Usuarios",
-    icon: Users,
-    url: "/dashboard/users",
-    requiredRole: UserRole.ADMIN,
-  },
-  {
-    title: "Categorias",
-    icon: FolderKanban,
-    url: "/dashboard/categories",
-    requiredRole: UserRole.ADMIN,
-  },
-  {
-    title: "Tipos de Documento",
-    icon: Tags,
-    url: "/dashboard/document-types",
-    requiredRole: UserRole.ADMIN,
-  },
-  {
-    title: "Plantillas",
-    icon: FileType,
-    url: "/dashboard/templates",
-    requiredRole: UserRole.ADMIN,
-  },
-  {
     title: "Configuracion",
     icon: Settings,
     url: "/dashboard/settings",
-    requiredRole: UserRole.ADMIN,
+    activationPaths: [
+      "/dashboard/settings",
+      "/dashboard/academic-years",
+      "/dashboard/users",
+      "/dashboard/categories",
+      "/dashboard/document-types",
+      "/dashboard/templates",
+      "/dashboard/roles",
+    ],
     items: [
+      { title: "Usuarios", icon: Users, url: "/dashboard/settings?section=users", requiredPermission: "users.manage", activationPaths: ["/dashboard/users"] },
+      { title: "Categorias", icon: FolderKanban, url: "/dashboard/settings?section=categories", requiredPermission: "categories.manage", activationPaths: ["/dashboard/categories"] },
+      { title: "Tipos de Documento", icon: Tags, url: "/dashboard/settings?section=document-types", requiredPermission: "document-types.manage", activationPaths: ["/dashboard/document-types"] },
+      { title: "Plantillas", icon: FileType, url: "/dashboard/settings?section=templates", requiredPermission: "templates.manage", activationPaths: ["/dashboard/templates"] },
+      { title: "Roles", icon: UserRound, url: "/dashboard/settings?section=roles", requiredPermission: "roles.manage", activationPaths: ["/dashboard/roles"] },
       {
         title: "Años Lectivos",
         icon: GraduationCap,
@@ -180,7 +171,7 @@ function getRoleBadgeColor(role: string) {
 
 export function AppSidebar() {
   const { user, logout } = useAuth();
-  const { hasRole, hasAnyRole } = usePermissions();
+  const { hasRole, hasAnyRole, hasPermission, hasAnyPermission } = usePermissions();
   const pathname = usePathname();
   const { settings } = useSettings();
 
@@ -206,6 +197,9 @@ export function AppSidebar() {
       return false;
     }
     if (item.requiredRoles && !hasAnyRole(item.requiredRoles)) {
+      return false;
+    }
+    if (item.requiredPermission && !hasPermission(item.requiredPermission)) {
       return false;
     }
     return true;
@@ -327,24 +321,21 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Menu de Administracion */}
-        {shouldShowMenuItem({
-          title: "",
-          icon: Home,
-          url: "",
-          requiredRoles: [
-            UserRole.ADMIN,
-            UserRole.RECTOR,
-            UserRole.VICERRECTOR,
-            UserRole.COORDINADOR,
-          ],
-        }) && (
+        {(hasAnyPermission([
+          "users.manage",
+          "categories.manage",
+          "document-types.manage",
+          "templates.manage",
+          "roles.manage",
+        ]) || hasAnyRole([UserRole.ADMIN, UserRole.RECTOR, UserRole.VICERRECTOR, UserRole.COORDINADOR])) && (
           <SidebarGroup>
             <SidebarGroupLabel>Administracion</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminMenuItems.map((item) => {
-                  const visibleSubItems =
-                    item.items?.filter(shouldShowMenuItem) ?? [];
+                {filterAuthorizedNavItems(adminMenuItems, new Set(
+                  ["users.manage", "categories.manage", "document-types.manage", "templates.manage", "roles.manage"].filter(hasPermission),
+                )).map((item) => {
+                  const visibleSubItems = item.items?.filter(shouldShowMenuItem) ?? [];
 
                   if (item.items && visibleSubItems.length === 0) {
                     return null;
@@ -357,7 +348,7 @@ export function AppSidebar() {
                     return (
                       <Collapsible
                         key={item.title}
-                        defaultOpen={pathname.startsWith(item.url + "/")}
+                        defaultOpen={isNavItemActive(item, pathname)}
                         className="group/collapsible"
                       >
                         <SidebarMenuItem>

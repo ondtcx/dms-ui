@@ -1,4 +1,4 @@
-import { isNavItemActive } from "@/lib/sidebar-nav";
+import { isNavItemActive, filterAuthorizedNavItems } from "@/lib/sidebar-nav";
 
 describe("isNavItemActive (REQ-1 / REQ-2)", () => {
   it("matches a leaf item by exact pathname", () => {
@@ -30,5 +30,29 @@ describe("isNavItemActive (REQ-1 / REQ-2)", () => {
 
   it("does not treat a dashboard leaf as active on a deeper route", () => {
     expect(isNavItemActive({ url: "/dashboard" }, "/dashboard/documents")).toBe(false);
+  });
+
+  it("matches Settings only at slash boundaries and its legacy paths", () => {
+    const settings = {
+      url: "/dashboard/settings",
+      activationPaths: [
+        "/dashboard/settings",
+        "/dashboard/academic-years",
+        "/dashboard/categories",
+      ],
+      items: [{}],
+    };
+    expect(isNavItemActive(settings, "/dashboard/settings")).toBe(true);
+    expect(isNavItemActive(settings, "/dashboard/categories/edit")).toBe(true);
+    expect(isNavItemActive(settings, "/dashboard/settings-extra")).toBe(false);
+    expect(isNavItemActive(settings, "/dashboard")).toBe(false);
+  });
+
+  it("filters destinations by permission without hiding independently authorized items", () => {
+    const items = [
+      { url: "/dashboard/users", requiredPermission: "users.manage" },
+      { url: "/dashboard/categories", requiredPermission: "categories.manage" },
+    ];
+    expect(filterAuthorizedNavItems(items, new Set(["categories.manage"]))).toEqual([items[1]]);
   });
 });
