@@ -74,24 +74,20 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
 
     // a) Documentos is present (REQ-1/REQ-2 integration)
     expect(screen.getByText("Documentos")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Configuracion" }));
-    expect(screen.getByRole("link", { name: "Categorias" })).toHaveAttribute(
-      "href",
-      "/dashboard/settings?section=categories",
-    );
-    expect(screen.getByRole("link", { name: "Roles" })).toBeInTheDocument();
+    const settingsLink = screen.getByRole("link", { name: "Configuración" });
+    expect(settingsLink).toHaveAttribute("href", "/dashboard/settings");
+    expect(screen.queryByRole("button", { name: "Configuración" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Categorías" })).not.toBeInTheDocument();
 
     // b) the Documentos nav link is active on its exact route
     const docLink = screen.getByRole("link", { name: "Documentos" });
     expect(docLink).toHaveAttribute("data-active", "true");
 
-    // c) account menu reveals "Mi Cuenta" and "Cerrar Sesión" (REQ-4).
-    // "Mi Cuenta" also exists as a sidebar nav link, so assert it appears
-    // and use the dropdown-unique "Cerrar Sesión" to confirm the menu opened.
+    // c) account menu reveals only the session action (REQ-4).
     const trigger = screen.getByLabelText("Abrir menú de cuenta");
     await userEvent.click(trigger);
     expect(await screen.findByText("Cerrar Sesión")).toBeInTheDocument();
-    expect((await screen.findAllByText("Mi Cuenta")).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Mi Cuenta")).not.toBeInTheDocument();
 
     // d) sidebar root uses icon collapsible (REQ-5).
     // The element carrying data-collapsible is the sidebar wrapper
@@ -100,13 +96,15 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     expect(sidebarRoot).toHaveAttribute("data-collapsible", "icon");
   });
 
-  it("shows Users under Settings for a roles.manage-only user", async () => {
+  it("keeps Configuration as a single destination for a roles.manage-only user", async () => {
     visiblePermissions = new Set(["roles.manage"]);
     renderSidebar();
 
-    await userEvent.click(screen.getByRole("button", { name: "Configuracion" }));
-    expect(screen.getByRole("link", { name: "Usuarios" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Roles" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Configuración" })).toHaveAttribute(
+      "href",
+      "/dashboard/settings",
+    );
+    expect(screen.queryByRole("link", { name: "Usuarios" })).not.toBeInTheDocument();
   });
 
 });

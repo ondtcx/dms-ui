@@ -56,6 +56,10 @@ function formatDate(dateString: string): string {
   });
 }
 
+function getOwnerName(doc: Document): string {
+  return doc.uploadedBy?.name?.trim() || "Propietario no disponible";
+}
+
 function getFilePreviewContent(doc: Document): string {
   if (doc.description) {
     return doc.description.length > 150
@@ -66,7 +70,7 @@ function getFilePreviewContent(doc: Document): string {
     return `Documento generado desde plantilla "${doc.template.name}"${doc.template.documentType ? ` • Tipo: ${doc.template.documentType.name}` : ""}`;
   }
   const fileType = formatMimeType(((doc?.versions?.[0]?.mimetype) ?? ''));
-  const uploadInfo = `Subido por ${doc.uploadedBy.name} el ${formatDate(doc.createdAt)}`;
+  const uploadInfo = `Subido por ${getOwnerName(doc)} el ${formatDate(doc.createdAt)}`;
   return `Archivo ${fileType} • ${uploadInfo}`;
 }
 
@@ -109,12 +113,15 @@ export function DocumentListItem({
 }: DocumentListItemProps) {
   const FileIcon = getFileIcon(((doc?.versions?.[0]?.mimetype) ?? ''), !!doc.template);
   const previewContent = getFilePreviewContent(doc);
-  const ownerInitials = doc.uploadedBy.name
-    .split(" ")
-    .slice(0, 2)
-    .map((n: string) => n[0])
-    .join("")
-    .toUpperCase();
+  const ownerName = getOwnerName(doc);
+  const ownerInitials = doc.uploadedBy?.name?.trim()
+    ? ownerName
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((name) => name[0])
+        .join("")
+        .toUpperCase()
+    : "?";
 
   return (
     <div>
@@ -143,7 +150,7 @@ export function DocumentListItem({
             {!isOwn && (
               <div
                 className="absolute bottom-1 right-1 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-[9px] font-bold ring-2 ring-background"
-                title={doc.uploadedBy.name}
+                title={ownerName}
               >
                 {ownerInitials}
               </div>
@@ -284,8 +291,8 @@ export function DocumentListItem({
                 <span className="text-primary font-medium">Tú</span>
               ) : (
                 <>
-                  {doc.uploadedBy.name}
-                  {doc.uploadedBy.role && (
+                  {ownerName}
+                  {doc.uploadedBy?.role && (
                     <span className="text-muted-foreground/60">· {formatRole(doc.uploadedBy.role)}</span>
                   )}
                 </>

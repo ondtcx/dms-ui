@@ -1,16 +1,22 @@
-// src/app/dashboard/settings/page.tsx
 "use client";
 
 import ProtectedRoute from "@/guards/ProtectedRoute";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Building2, CalendarDays, Palette, FileText, Bell, ShieldCheck } from "lucide-react";
-import { InstitutionForm } from "@/components/settings/InstitutionForm";
-import { SchoolYearForm } from "@/components/settings/SchoolYearForm";
-import { AppearanceForm } from "@/components/settings/AppearanceForm";
-import { DocumentSettingsForm } from "@/components/settings/DocumentSettingsForm";
-import { NotificationsForm } from "@/components/settings/NotificationsForm";
-import { SecurityForm } from "@/components/settings/SecurityForm";
+import {
+  Bell,
+  Building2,
+  CalendarDays,
+  FileText,
+  FileType,
+  FolderKanban,
+  GraduationCap,
+  Palette,
+  ShieldCheck,
+  Tags,
+  UserRound,
+  Users,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useSettings } from "@/lib/contexts/SettingsContext";
 import { useSearchParams } from "next/navigation";
 import UsersManagementPage from "@/app/dashboard/users/page";
@@ -18,21 +24,47 @@ import CategoriesPage from "@/app/dashboard/categories/page";
 import DocumentTypesPage from "@/app/dashboard/document-types/page";
 import TemplatesPage from "@/app/dashboard/templates/page";
 import { RolesManagement } from "@/components/settings/RolesManagement";
+import { InstitutionForm } from "@/components/settings/InstitutionForm";
+import { SchoolYearForm } from "@/components/settings/SchoolYearForm";
+import { AppearanceForm } from "@/components/settings/AppearanceForm";
+import { DocumentSettingsForm } from "@/components/settings/DocumentSettingsForm";
+import { NotificationsForm } from "@/components/settings/NotificationsForm";
+import { SecurityForm } from "@/components/settings/SecurityForm";
 import { usePermissions } from "@/hooks/use-permissions";
+import { UserRole } from "@/lib/types";
+import Link from "next/link";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const TABS = [
-  { value: "institution", label: "Institución", icon: Building2 },
-  { value: "schoolYear", label: "Ciclo Escolar", icon: CalendarDays },
-  { value: "appearance", label: "Apariencia", icon: Palette },
-  { value: "documents", label: "Documentos", icon: FileText },
-  { value: "notifications", label: "Notificaciones", icon: Bell },
-  { value: "security", label: "Seguridad", icon: ShieldCheck },
-] as const;
+interface SettingsCategory {
+  value: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  href?: string;
+  permissions?: string[];
+  roles?: UserRole[];
+}
+
+const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
+  { value: "institution", label: "Institución", description: "Datos y logotipo de la institución", icon: Building2 },
+  { value: "schoolYear", label: "Año lectivo", description: "Período académico de la institución", icon: CalendarDays },
+  { value: "appearance", label: "Apariencia", description: "Colores y preferencias visuales", icon: Palette },
+  { value: "documents", label: "Documentos", description: "Opciones generales de documentos", icon: FileText },
+  { value: "notifications", label: "Notificaciones", description: "Preferencias de avisos del sistema", icon: Bell },
+  { value: "security", label: "Seguridad", description: "Configuración de seguridad", icon: ShieldCheck },
+  { value: "my-account", label: "Mi cuenta", description: "Administra tus datos y contraseña", icon: UserRound, href: "/dashboard/mi-cuenta" },
+  { value: "users", label: "Usuarios", description: "Administra los usuarios del sistema", icon: Users, permissions: ["users.manage", "roles.manage"] },
+  { value: "categories", label: "Categorías", description: "Organiza los documentos por categorías", icon: FolderKanban, permissions: ["categories.manage"] },
+  { value: "document-types", label: "Tipos de documento", description: "Administra los tipos de documento", icon: Tags, permissions: ["document-types.manage"] },
+  { value: "templates", label: "Plantillas", description: "Crea y gestiona plantillas", icon: FileType, permissions: ["templates.manage"] },
+  { value: "roles", label: "Roles", description: "Administra roles y permisos", icon: UserRound, permissions: ["roles.manage"] },
+  { value: "academic-years", label: "Años lectivos", description: "Administra los años lectivos", icon: GraduationCap, href: "/dashboard/academic-years", roles: [UserRole.ADMIN, UserRole.RECTOR] },
+];
 
 function SettingsContent() {
   const { isLoading } = useSettings();
   const section = useSearchParams().get("section");
-  const { hasPermission } = usePermissions();
+  const { hasPermission, hasRole } = usePermissions();
 
   if (isLoading) {
     return (
@@ -43,7 +75,14 @@ function SettingsContent() {
     );
   }
 
-  const centralized: Record<string, React.ReactNode> = {};
+  const centralized: Record<string, React.ReactNode> = {
+    institution: <InstitutionForm />,
+    schoolYear: <SchoolYearForm />,
+    appearance: <AppearanceForm />,
+    documents: <DocumentSettingsForm />,
+    notifications: <NotificationsForm />,
+    security: <SecurityForm />,
+  };
   if (hasPermission("users.manage") || hasPermission("roles.manage")) centralized.users = <UsersManagementPage />;
   if (hasPermission("categories.manage")) centralized.categories = <CategoriesPage />;
   if (hasPermission("document-types.manage")) centralized["document-types"] = <DocumentTypesPage />;
@@ -62,44 +101,26 @@ function SettingsContent() {
         </p>
       </div>
 
-      <Tabs defaultValue="institution" className="space-y-6">
-        <TabsList className="flex flex-wrap gap-1 h-auto p-1 w-full sm:w-fit">
-          {TABS.map(({ value, label, icon: Icon }) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className="flex items-center gap-1.5 text-xs sm:text-sm"
-            >
-              <Icon className="h-4 w-4" />
-              <span>{label}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        <TabsContent value="institution">
-          <InstitutionForm />
-        </TabsContent>
-
-        <TabsContent value="schoolYear">
-          <SchoolYearForm />
-        </TabsContent>
-
-        <TabsContent value="appearance">
-          <AppearanceForm />
-        </TabsContent>
-
-        <TabsContent value="documents">
-          <DocumentSettingsForm />
-        </TabsContent>
-
-        <TabsContent value="notifications">
-          <NotificationsForm />
-        </TabsContent>
-
-        <TabsContent value="security">
-          <SecurityForm />
-        </TabsContent>
-      </Tabs>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {SETTINGS_CATEGORIES.filter(({ permissions, roles }) =>
+          (!permissions || permissions.some(hasPermission)) &&
+          (!roles || roles.some((role) => hasRole(role)))
+        ).map(({ value, label, description, icon: Icon, href }) => (
+          <Link
+            key={value}
+            href={href ?? `/dashboard/settings?section=${value}`}
+            className="group rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Card className="h-full transition-colors group-hover:border-primary group-hover:bg-accent/40">
+              <CardHeader className="p-3">
+                <Icon className="h-5 w-5 text-primary" />
+                <CardTitle className="mt-1 text-sm">{label}</CardTitle>
+                <CardDescription className="line-clamp-2 text-xs">{description}</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

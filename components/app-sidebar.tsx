@@ -36,19 +36,13 @@ import {
 import {
   Home,
   FileText,
-  Users,
   Settings,
-  FolderKanban,
   Trash2,
-  FileType,
   Calendar,
   Minus,
   Plus,
   Building2,
   Archive,
-  GraduationCap,
-  Tags,
-  UserRound,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -121,41 +115,11 @@ export const mainMenuItems: MenuItem[] = [
   },
 ];
 
-export const accountMenuItems: MenuItem[] = [
-  {
-    title: "Mi Cuenta",
-    icon: UserRound,
-    url: "/dashboard/mi-cuenta",
-  },
-];
-
 export const adminMenuItems: MenuItem[] = [
   {
-    title: "Configuracion",
+    title: "Configuración",
     icon: Settings,
     url: "/dashboard/settings",
-    activationPaths: [
-      "/dashboard/settings",
-      "/dashboard/academic-years",
-      "/dashboard/users",
-      "/dashboard/categories",
-      "/dashboard/document-types",
-      "/dashboard/templates",
-      "/dashboard/roles",
-    ],
-    items: [
-      { title: "Usuarios", icon: Users, url: "/dashboard/settings?section=users", requiredPermissions: ["users.manage", "roles.manage"], activationPaths: ["/dashboard/users"] },
-      { title: "Categorias", icon: FolderKanban, url: "/dashboard/settings?section=categories", requiredPermission: "categories.manage", activationPaths: ["/dashboard/categories"] },
-      { title: "Tipos de Documento", icon: Tags, url: "/dashboard/settings?section=document-types", requiredPermission: "document-types.manage", activationPaths: ["/dashboard/document-types"] },
-      { title: "Plantillas", icon: FileType, url: "/dashboard/settings?section=templates", requiredPermission: "templates.manage", activationPaths: ["/dashboard/templates"] },
-      { title: "Roles", icon: UserRound, url: "/dashboard/settings?section=roles", requiredPermission: "roles.manage", activationPaths: ["/dashboard/roles"] },
-      {
-        title: "Años Lectivos",
-        icon: GraduationCap,
-        url: "/dashboard/academic-years",
-        requiredRoles: [UserRole.ADMIN, UserRole.RECTOR],
-      },
-    ],
   },
 ];
 
@@ -297,30 +261,6 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Menu de Cuenta */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Cuenta</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {accountMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isNavItemActive(item, pathname)}
-                    tooltip={item.title}
-                    className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
-                  >
-                    <Link href={item.url} className="flex items-center">
-                      <item.icon className="h-4 w-4 mr-2" />
-                      {item.title}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
         {/* Menu de Administracion */}
         {(hasAnyPermission([
           "users.manage",
@@ -445,9 +385,6 @@ export function AppSidebar() {
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/mi-cuenta">Mi Cuenta</Link>
-            </DropdownMenuItem>
             <DropdownMenuItem onClick={logout}>Cerrar Sesión</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
