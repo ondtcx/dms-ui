@@ -43,6 +43,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { UserRole } from '@/lib/types';
+import { DirectoryNavigation } from '@/components/documents/DirectoryNavigation';
 
 export default function DocumentDetailPage() {
   const params = useParams();
@@ -190,6 +191,13 @@ export default function DocumentDetailPage() {
 
   return (
     <div className="space-y-6 p-8">
+      {doc.directoryId !== undefined && (
+        <DirectoryNavigation
+          value={doc.directoryId ?? null}
+          onChange={(directoryId) => router.push(`/dashboard/documents${directoryId === null ? '' : `?directoryId=${directoryId}`}`)}
+          picker
+        />
+      )}
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">

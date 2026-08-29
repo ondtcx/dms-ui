@@ -35,6 +35,9 @@ import { BatchListSection } from "@/components/documents/BatchListSection";
 import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
 import { useAcademicYearStore } from "@/components/structure/AcademicYearSelector";
 import { Layers } from "lucide-react";
+import { DirectoryNavigation } from "@/components/documents/DirectoryNavigation";
+import { DirectoryVisitRecorder } from "@/components/documents/DirectoryVisitRecorder";
+import { invalidateDirectoryQueries } from "@/lib/directory-cache";
 
 // Shadcn imports
 import { Button } from "@/components/ui/button";
@@ -120,6 +123,14 @@ export default function DocumentsPage() {
     documentTypeId?: number;
   }>({ title: "", fileType: "docx" });
   const [creatingInEditor, setCreatingInEditor] = useState(false);
+  const [directoryId, setDirectoryId] = useState<number | null>(null);
+  const [movingDocument, setMovingDocument] = useState<Document | null>(null);
+  const [moveDestination, setMoveDestination] = useState<number | null>(null);
+
+  useEffect(() => {
+    const value = new URLSearchParams(window.location.search).get("directoryId");
+    setDirectoryId(value ? Number(value) : null);
+  }, []);
 
   // Queries
   const {
@@ -128,13 +139,14 @@ export default function DocumentsPage() {
     error: documentsError,
     refetch: refetchDocuments,
   } = useQuery({
-    queryKey: ["documents", searchTerm, categoryFilter, onlyMine, currentYearId],
+    queryKey: ["documents", searchTerm, categoryFilter, onlyMine, currentYearId, directoryId],
     queryFn: () =>
       documentsService.getAll({
         search: searchTerm || undefined,
         categoryId: categoryFilter,
         onlyMine: onlyMine || undefined,
         academicYearId: currentYearId ?? undefined,
+        directoryId,
         excludeBatched: true,
         page: 1,
         limit: 50,
@@ -162,7 +174,7 @@ export default function DocumentsPage() {
   const deleteMutation = useMutation({
     mutationFn: documentsService.delete,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
+       invalidateDirectoryQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       toast.success("Documento eliminado exitosamente");
     },
@@ -224,7 +236,7 @@ export default function DocumentsPage() {
         isPublic: false,
       });
       setShowUploadModal(false);
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      invalidateDirectoryQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
     } catch (error) {
@@ -260,7 +272,7 @@ export default function DocumentsPage() {
         isPublic: false,
       });
       setShowUploadMultipleModal(false);
-      queryClient.invalidateQueries({ queryKey: ["documents"] });
+      invalidateDirectoryQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
     } catch (error) {
@@ -293,6 +305,16 @@ export default function DocumentsPage() {
   const handleDelete = (id: number) => {
     setDeleteConfirmId(id);
   };
+
+  const moveMutation = useMutation({
+    mutationFn: () => documentsService.moveToDirectory(movingDocument!.id, moveDestination),
+    onSuccess: () => {
+       invalidateDirectoryQueries(queryClient);
+      setMovingDocument(null);
+      toast.success("Documento movido exitosamente");
+    },
+    onError: () => toast.error("No se pudo mover el documento"),
+  });
 
   const handlePreview = async (doc: Document) => {
     setPreviewDocument(doc);
@@ -337,7 +359,7 @@ export default function DocumentsPage() {
 
   const handleBatchSuccess = () => {
     setSelectedDocuments([]);
-    queryClient.invalidateQueries({ queryKey: ["documents"] });
+    invalidateDirectoryQueries(queryClient);
     queryClient.invalidateQueries({ queryKey: ["stats"] });
   };
 
@@ -364,6 +386,10 @@ export default function DocumentsPage() {
 
   return (
     <div className="bg-background">
+      <DirectoryVisitRecorder
+        directoryId={directoryId}
+        navigationSucceeded={directoryId !== null && !loadingDocuments && !documentsError && documents !== undefined}
+      />
       <div className="mx-auto max-w-7xl space-y-6">
         {/* Estadísticas compactas */}
         {stats && (
@@ -396,7 +422,13 @@ export default function DocumentsPage() {
           </div>
         )}
 
-        {/* Barra de acciones */}
+         {/* Barra de acciones */}
+        <Card>
+          <CardContent className="pt-6">
+            <DirectoryNavigation value={directoryId} onChange={setDirectoryId} />
+          </CardContent>
+        </Card>
+
         <Card>
           <CardContent>
             <div className="flex flex-col md:flex-row gap-4">
@@ -444,9 +476,9 @@ export default function DocumentsPage() {
               </div>
 
               {/* Botón Nuevo */}
-              <NewDocumentButton
-                onUploadSingle={() => setShowUploadModal(true)}
-                onUploadMultiple={() => setShowUploadMultipleModal(true)}
+               <NewDocumentButton
+                 onUploadSingle={() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadModal(true); }}
+                 onUploadMultiple={() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadMultipleModal(true); }}
                 onFromTemplate={() => router.push("/dashboard/templates")}
                 onBatchGenerate={() => setShowBatchSelectDialog(true)}
                 onCreateInEditor={() => setShowCreateInEditorDialog(true)}
@@ -577,8 +609,9 @@ export default function DocumentsPage() {
                     onDelete={handleDelete}
                     canDelete={isAdmin() || doc.uploadedById === String(user?.id)}
                     isOwn={doc.uploadedById === user?.id}
-                    isDeleting={deleteMutation.isPending}
-                  />
+                     isDeleting={deleteMutation.isPending}
+                     onMove={(document) => { setMovingDocument(document); setMoveDestination(document.directoryId ?? null); }}
+                   />
                 ))}
               </div>
             )}
@@ -618,7 +651,7 @@ export default function DocumentsPage() {
                 )}
               </div>
 
-              <DocumentMetadataForm
+               <DocumentMetadataForm
                 value={uploadData}
                 onChange={setUploadData}
                 categories={categories}
@@ -631,8 +664,13 @@ export default function DocumentsPage() {
                 userRole={user?.role}
                 descriptionLabel="Descripción"
                 visibilityLabel="Hacer público (visible para todos los usuarios)"
-                isPublicCheckboxId="isPublic"
-              />
+                 isPublicCheckboxId="isPublic"
+               />
+               <DirectoryNavigation
+                 value={uploadData.directoryId ?? null}
+                 onChange={(value) => setUploadData((previous) => ({ ...previous, directoryId: value }))}
+                 picker
+               />
             </div>
 
             <DialogFooter>
@@ -773,7 +811,7 @@ export default function DocumentsPage() {
                 )}
               </div>
 
-              <DocumentMetadataForm
+               <DocumentMetadataForm
                 value={uploadData}
                 onChange={setUploadData}
                 categories={categories}
@@ -786,8 +824,13 @@ export default function DocumentsPage() {
                 userRole={user?.role}
                 descriptionLabel="Descripción (opcional)"
                 visibilityLabel="Hacer públicos (visible para todos los usuarios)"
-                isPublicCheckboxId="isPublicMultiple"
-              />
+                 isPublicCheckboxId="isPublicMultiple"
+               />
+               <DirectoryNavigation
+                 value={uploadData.directoryId ?? null}
+                 onChange={(value) => setUploadData((previous) => ({ ...previous, directoryId: value }))}
+                 picker
+               />
             </div>
 
             <DialogFooter>
@@ -938,6 +981,20 @@ export default function DocumentsPage() {
             setDeleteConfirmId(null);
           }}
         />
+
+        <Dialog open={movingDocument !== null} onOpenChange={(open) => !open && setMovingDocument(null)}>
+          <DialogContent className="sm:max-w-[700px]">
+            <DialogHeader>
+              <DialogTitle>Mover documento</DialogTitle>
+              <DialogDescription>Selecciona el directorio de destino.</DialogDescription>
+            </DialogHeader>
+            <DirectoryNavigation value={moveDestination} onChange={setMoveDestination} picker />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMovingDocument(null)}>Cancelar</Button>
+              <Button onClick={() => moveMutation.mutate()} disabled={moveMutation.isPending}>Mover aquí</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

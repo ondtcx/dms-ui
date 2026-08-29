@@ -243,6 +243,46 @@ export interface Document {
   templateData?: DocumentTemplateData | null;
   createdAt: string;
   updatedAt: string;
+  directoryId?: number | null;
+  directory?: Directory | null;
+}
+
+export interface Directory {
+  id: number;
+  name: string;
+  parentId: number | null;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DirectoryNavigationSummary {
+  recent: Directory[];
+  mostUsed: Directory[];
+}
+
+export interface AccessibleDirectoriesResponse {
+  data: Directory[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface RecordDirectoryVisitDto {
+  eventId: string;
+}
+
+export interface CreateDirectoryDto {
+  name: string;
+  parentId?: number | null;
+}
+
+export interface UpdateDirectoryDto {
+  name?: string;
+  parentId?: number | null;
 }
 
 export interface DocumentsResponse {
@@ -282,6 +322,7 @@ export interface UploadDocumentDto {
   subjectId?: number;
   isPublic?: boolean;
   academicYearId?: number;
+  directoryId?: number | null;
 }
 
 export interface CategoryCount {
@@ -653,6 +694,7 @@ export interface UploadMetadata {
   documentTypeId: number | undefined;
   description: string;
   isPublic: boolean;
+  directoryId?: number | null;
 }
 
 export const EMPTY_UPLOAD_METADATA: UploadMetadata = {
@@ -663,4 +705,5 @@ export const EMPTY_UPLOAD_METADATA: UploadMetadata = {
   documentTypeId: undefined,
   description: "",
   isPublic: false,
+  directoryId: null,
 };

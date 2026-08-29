@@ -2,6 +2,15 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { documentsService } from "@/lib/services/documents.service";
+
+jest.mock("@/lib/services/documents.service", () => ({
+  documentsService: {
+    getDirectoryNavigationSummary: jest.fn().mockResolvedValue({ recent: [], mostUsed: [] }),
+  },
+  directoryQueryKeys: { summary: ["directory-navigation-summary"] },
+}));
 
 // jsdom does not implement matchMedia; useIsMobile relies on it.
 Object.defineProperty(window, "matchMedia", {
@@ -18,8 +27,9 @@ Object.defineProperty(window, "matchMedia", {
   }),
 });
 
+let currentPathname = "/dashboard/documents";
 jest.mock("next/navigation", () => ({
-  usePathname: () => "/dashboard/documents",
+  usePathname: () => currentPathname,
 }));
 
 // app-sidebar imports Link as a DEFAULT import, so the mock must expose a
@@ -57,14 +67,23 @@ jest.mock("@/hooks/use-permissions", () => ({
 }));
 
 function renderSidebar() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <SidebarProvider defaultOpen={false}>
-      <AppSidebar />
-    </SidebarProvider>,
+    <QueryClientProvider client={queryClient}>
+      <SidebarProvider defaultOpen={false}>
+        <AppSidebar />
+      </SidebarProvider>
+    </QueryClientProvider>,
   );
 }
 
 describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
+  beforeEach(() => {
+    currentPathname = "/dashboard/documents";
+    jest.mocked(documentsService.getDirectoryNavigationSummary).mockReset();
+    jest.mocked(documentsService.getDirectoryNavigationSummary).mockResolvedValue({ recent: [], mostUsed: [] });
+  });
+
   afterEach(() => {
     visiblePermissions = null;
   });
@@ -105,6 +124,29 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
       "/dashboard/settings",
     );
     expect(screen.queryByRole("link", { name: "Usuarios" })).not.toBeInTheDocument();
+  });
+
+  it("renders loading, empty, and error states for directory navigation", async () => {
+    currentPathname = "/dashboard/directories";
+    jest.mocked(documentsService.getDirectoryNavigationSummary).mockImplementation(() => new Promise(() => {}));
+    renderSidebar();
+    expect(await screen.findByText("Cargando...")).toBeInTheDocument();
+
+    jest.mocked(documentsService.getDirectoryNavigationSummary).mockResolvedValue({ recent: [], mostUsed: [] });
+    renderSidebar();
+    expect(await screen.findByText("Sin directorios recientes")).toBeInTheDocument();
+
+    jest.mocked(documentsService.getDirectoryNavigationSummary).mockRejectedValue(new Error("offline"));
+    renderSidebar();
+    expect(await screen.findByRole("button", { name: /no se pudieron cargar/i })).toBeInTheDocument();
+  });
+
+  it("marks the active directory creation route while the sidebar is icon-collapsed", async () => {
+    currentPathname = "/dashboard/directories/new";
+    renderSidebar();
+
+    expect(screen.getByRole("button", { name: "Directorios" })).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("link", { name: "Crear nuevo" })).toHaveAttribute("data-active", "true");
   });
 
 });

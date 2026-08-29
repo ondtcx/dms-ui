@@ -1,4 +1,4 @@
-import { isNavItemActive, filterAuthorizedNavItems } from "@/lib/sidebar-nav";
+import { isNavItemActive, filterAuthorizedNavItems, mergeDirectoryNavigation } from "@/lib/sidebar-nav";
 
 describe("isNavItemActive (REQ-1 / REQ-2)", () => {
   it("matches a leaf item by exact pathname", () => {
@@ -64,5 +64,16 @@ describe("isNavItemActive (REQ-1 / REQ-2)", () => {
 
     expect(filterAuthorizedNavItems([users], new Set(["roles.manage"]))).toEqual([users]);
     expect(filterAuthorizedNavItems([users], new Set(["documents.read"]))).toEqual([]);
+  });
+});
+
+describe("mergeDirectoryNavigation", () => {
+  const directory = (id: number) => ({
+    id, name: `Directory ${id}`, parentId: null, createdById: "user", createdAt: "", updatedAt: "",
+  });
+
+  it("keeps recent order, deduplicates most-used entries, and caps the result", () => {
+    expect(mergeDirectoryNavigation([directory(1), directory(2)], [directory(2), directory(3)], 3).map((item) => item.id))
+      .toEqual([1, 2, 3]);
   });
 });

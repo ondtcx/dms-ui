@@ -1,4 +1,5 @@
 import type { MenuItem } from "@/components/app-sidebar";
+import type { Directory } from "@/lib/types";
 
 /**
  * Pure decision for whether a nav item should render as active.
@@ -39,4 +40,21 @@ export function filterAuthorizedNavItems<T extends {
       (!item.requiredPermissions || item.requiredPermissions.some((permission) => permissions.has(permission))) &&
       (!item.items || item.items.length > 0),
     );
+}
+
+/** Merge ranked lists without exposing duplicate entries or an unbounded sidebar. */
+export function mergeDirectoryNavigation(
+  recent: readonly Directory[] = [],
+  mostUsed: readonly Directory[] = [],
+  limit = 10,
+): Directory[] {
+  const merged: Directory[] = [];
+  const seen = new Set<number>();
+  for (const directory of [...recent, ...mostUsed]) {
+    if (seen.has(directory.id)) continue;
+    seen.add(directory.id);
+    merged.push(directory);
+    if (merged.length >= limit) break;
+  }
+  return merged;
 }

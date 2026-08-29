@@ -6,7 +6,17 @@ import {
   DocumentVersion,
   ArchiveStats,
   DashboardSummary,
+  Directory,
+  CreateDirectoryDto,
+  UpdateDirectoryDto,
+  AccessibleDirectoriesResponse,
+  DirectoryNavigationSummary,
 } from "@/lib/types";
+
+export const directoryQueryKeys = {
+  summary: ["directory-navigation-summary"] as const,
+  accessible: ["directory-accessible"] as const,
+};
 
 export const documentsService = {
   async getAll(params?: {
@@ -21,6 +31,7 @@ export const documentsService = {
     batchId?: string;
     academicYearId?: number;
     excludeComposites?: boolean;
+    directoryId?: number | null;
   }): Promise<DocumentsResponse> {
     const response = await api.get<DocumentsResponse>("/documents", { params });
     return response.data;
@@ -42,6 +53,7 @@ export const documentsService = {
 
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
+    if (data.directoryId !== undefined && data.directoryId !== null) formData.append("directoryId", String(data.directoryId));
     
     // Group academic fields into a nested object and stringify it
     if (data.courseId || data.subjectId || data.academicYearId) {
@@ -78,6 +90,7 @@ export const documentsService = {
 
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
+    if (data.directoryId !== undefined && data.directoryId !== null) formData.append("directoryId", String(data.directoryId));
 
     if (data.courseId || data.subjectId || data.academicYearId) {
       formData.append("academic", JSON.stringify({
@@ -127,6 +140,51 @@ export const documentsService = {
 
   async delete(id: number): Promise<void> {
     await api.delete(`/documents/${id}`);
+  },
+
+  async listDirectories(parentId?: number | null): Promise<Directory[]> {
+    const response = await api.get<Directory[]>("/directories", {
+      params: parentId === undefined ? undefined : { parentId },
+    });
+    return response.data;
+  },
+
+  async getDirectoryNavigationSummary(): Promise<DirectoryNavigationSummary> {
+    const response = await api.get<DirectoryNavigationSummary>("/directories/summary");
+    return response.data;
+  },
+
+  async getAccessibleDirectories(params?: { page?: number; limit?: number }): Promise<AccessibleDirectoriesResponse> {
+    const response = await api.get<AccessibleDirectoriesResponse>("/directories/accessible", { params });
+    return response.data;
+  },
+
+  async recordDirectoryVisit(id: number, eventId: string): Promise<void> {
+    await api.post<void>(`/directories/${id}/visits`, { eventId });
+  },
+
+  async getDirectoryBreadcrumb(id: number): Promise<Directory[]> {
+    const response = await api.get<Directory[]>(`/directories/${id}/breadcrumb`);
+    return response.data;
+  },
+
+  async createDirectory(data: CreateDirectoryDto): Promise<Directory> {
+    const response = await api.post<Directory>("/directories", data);
+    return response.data;
+  },
+
+  async updateDirectory(id: number, data: UpdateDirectoryDto): Promise<Directory> {
+    const response = await api.patch<Directory>(`/directories/${id}`, data);
+    return response.data;
+  },
+
+  async deleteDirectory(id: number): Promise<void> {
+    await api.delete(`/directories/${id}`);
+  },
+
+  async moveToDirectory(id: number, directoryId: number | null): Promise<Document> {
+    const response = await api.patch<Document>(`/documents/${id}/directory`, { directoryId });
+    return response.data;
   },
 
   async download(id: number): Promise<Blob> {

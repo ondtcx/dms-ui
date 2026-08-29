@@ -43,10 +43,14 @@ import {
   Plus,
   Building2,
   Archive,
+  Folder,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserRole } from "@/lib/types";
+import { documentsService, directoryQueryKeys } from "@/lib/services/documents.service";
+import { mergeDirectoryNavigation } from "@/lib/sidebar-nav";
 import { LucideIcon } from "lucide-react";
 import { filterAuthorizedNavItems, isNavItemActive } from "@/lib/sidebar-nav";
 
@@ -139,6 +143,12 @@ export function AppSidebar() {
   const { hasRole, hasAnyRole, hasPermission, hasAnyPermission } = usePermissions();
   const pathname = usePathname();
   const { settings } = useSettings();
+  const directorySummary = useQuery({
+    queryKey: directoryQueryKeys.summary,
+    queryFn: documentsService.getDirectoryNavigationSummary,
+    enabled: Boolean(user),
+    staleTime: 60_000,
+  });
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ?? "";
   const logoUrl = settings?.institution?.logoPath
@@ -153,6 +163,10 @@ export function AppSidebar() {
     .map((name) => name[0])
     .join("")
     .toUpperCase() || "US";
+  const highlightedDirectories = mergeDirectoryNavigation(
+    directorySummary.data?.recent,
+    directorySummary.data?.mostUsed,
+  );
 
   const shouldShowMenuItem = (item: MenuItem): boolean => {
     if (!item.requiredRole && !item.requiredRoles) {
@@ -257,6 +271,63 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 ),
               )}
+              <Collapsible
+                defaultOpen={isNavItemActive({ url: "/dashboard/directories", items: [{}] }, pathname)}
+                className="group/collapsible"
+              >
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      isActive={isNavItemActive({ url: "/dashboard/directories", items: [{}] }, pathname)}
+                      tooltip="Directorios"
+                      className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
+                    >
+                      <Folder className="h-4 w-4 mr-2" />
+                      Directorios
+                      <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
+                      <Minus className="ml-auto group-data-[state=closed]/collapsible:hidden" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {directorySummary.isLoading ? (
+                        <SidebarMenuSubItem><span className="px-2 text-xs text-muted-foreground">Cargando...</span></SidebarMenuSubItem>
+                      ) : directorySummary.isError ? (
+                        <SidebarMenuSubItem>
+                          <button
+                            type="button"
+                            className="px-2 text-left text-xs text-destructive hover:underline"
+                            onClick={() => directorySummary.refetch()}
+                          >
+                            No se pudieron cargar. Reintentar
+                          </button>
+                        </SidebarMenuSubItem>
+                      ) : highlightedDirectories.length === 0 ? (
+                        <SidebarMenuSubItem><span className="px-2 text-xs text-muted-foreground">Sin directorios recientes</span></SidebarMenuSubItem>
+                      ) : highlightedDirectories.map((directory) => (
+                        <SidebarMenuSubItem key={directory.id}>
+                          <SidebarMenuSubButton asChild isActive={false}>
+                            <Link href={`/dashboard/documents?directoryId=${directory.id}`} title={directory.name}>
+                              <Folder className="h-4 w-4" />
+                              <span>{directory.name}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={isNavItemActive({ url: "/dashboard/directories" }, pathname)}>
+                          <Link href="/dashboard/directories"><Folder className="h-4 w-4" /><span>Todos</span></Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={isNavItemActive({ url: "/dashboard/directories/new" }, pathname)}>
+                          <Link href="/dashboard/directories/new"><Plus className="h-4 w-4" /><span>Crear nuevo</span></Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

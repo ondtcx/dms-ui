@@ -20,6 +20,7 @@ import {
   Lock,
   Unlock,
   Calendar,
+  FolderInput,
 } from "lucide-react";
 import { Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +92,7 @@ interface DocumentListItemProps {
   canDelete: boolean;
   isOwn: boolean;
   isDeleting: boolean;
+  onMove: (doc: Document) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -110,6 +112,7 @@ export function DocumentListItem({
   canDelete,
   isOwn,
   isDeleting,
+  onMove,
 }: DocumentListItemProps) {
   const FileIcon = getFileIcon(((doc?.versions?.[0]?.mimetype) ?? ''), !!doc.template);
   const previewContent = getFilePreviewContent(doc);
@@ -223,6 +226,10 @@ export function DocumentListItem({
                       </DropdownMenuItem>
                     </>
                   )}
+                  <DropdownMenuItem onClick={() => onMove(doc)}>
+                    <FolderInput className="mr-2 h-4 w-4" />
+                    Mover a directorio
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
