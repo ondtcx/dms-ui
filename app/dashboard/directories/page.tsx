@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Folder, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Folder, FolderRoot, RefreshCw } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +42,16 @@ export default function DirectoriesPage() {
             <p className="text-muted-foreground">No hay directorios accesibles.</p>
           ) : null}
           <div className="grid gap-3 sm:grid-cols-2">
+            <Link
+              href="/dashboard/documents"
+              className="flex items-center gap-3 rounded-lg border border-dashed border-primary/50 bg-primary/5 p-4 hover:bg-accent"
+            >
+              <FolderRoot className="h-5 w-5 text-primary" />
+              <span>
+                <span className="block font-medium">Raíz virtual</span>
+                <span className="block text-sm text-muted-foreground">Todos los documentos, incluidos los que no tienen directorio.</span>
+              </span>
+            </Link>
             {directories.data?.data.map((directory) => (
               <Link
                 key={directory.id}

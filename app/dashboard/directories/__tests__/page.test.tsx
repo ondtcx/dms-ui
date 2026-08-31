@@ -44,6 +44,17 @@ describe("directories pages", () => {
     expect(screen.queryByText("Privado")).not.toBeInTheDocument();
   });
 
+  it("links the virtual root to all documents without a directory filter", async () => {
+    jest.mocked(documentsService.getAccessibleDirectories).mockResolvedValue({
+      data: [], meta: { page: 1, limit: 50, total: 0, totalPages: 0 },
+    });
+    renderPage(<DirectoriesPage />);
+
+    const rootLink = await screen.findByRole("link", { name: /raíz virtual/i });
+    expect(rootLink).toHaveAttribute("href", "/dashboard/documents");
+    expect(rootLink).toHaveTextContent("Todos los documentos, incluidos los que no tienen directorio.");
+  });
+
   it("renders empty and API error states with retry", async () => {
     jest.mocked(documentsService.getAccessibleDirectories).mockResolvedValue({ data: [], meta: { page: 1, limit: 50, total: 0, totalPages: 0 } });
     renderPage(<DirectoriesPage />);

@@ -58,6 +58,15 @@ describe("useDocumentThumbnails", () => {
     expect(getThumbnailMock).toHaveBeenCalledWith(2, doc.updatedAt);
   });
 
+  it("does not request a thumbnail for a document without versions", async () => {
+    const doc = { ...makeDoc(4, "application/pdf"), versions: [] };
+
+    renderHook(() => useDocumentThumbnails([doc]));
+    await act(async () => {});
+
+    expect(getThumbnailMock).not.toHaveBeenCalled();
+  });
+
   it("skips the fetch when the cached updatedAt matches", async () => {
     const doc = makeDoc(3, "application/pdf");
 

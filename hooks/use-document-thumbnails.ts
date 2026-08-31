@@ -21,6 +21,7 @@ export function useDocumentThumbnails(documents: Document[] | undefined) {
       if (!documents) return;
 
       for (const doc of documents) {
+        if (!doc.versions?.[0]) continue;
         if (thumbnailUrls[doc.id]?.updatedAt === doc.updatedAt) continue;
 
         try {
