@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Document } from "@/lib/types";
 import { formatMimeType, formatRole, formatFileSize } from "@/lib/utils";
+import { WORKFLOW_STATUS_CONFIG } from "@/lib/workflow-status-config";
 
 // ─── Helpers (solo usados en este componente) ─────────────────────────────────
 
@@ -259,6 +260,10 @@ export function DocumentListItem({
                 Informe Compuesto
               </Badge>
             )}
+            {doc.workflow && (() => {
+              const workflowStatus = WORKFLOW_STATUS_CONFIG[doc.workflow.status];
+              return workflowStatus ? <Badge variant={workflowStatus.variant}>{workflowStatus.label}</Badge> : null;
+            })()}
             {doc.isPublic ? (
               <Badge variant="outline" className="gap-1">
                 <Unlock className="h-3 w-3" />

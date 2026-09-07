@@ -44,6 +44,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { UserRole } from '@/lib/types';
 import { DirectoryNavigation } from '@/components/documents/DirectoryNavigation';
+import { DocumentWorkflowPanel } from '@/components/workflows/DocumentWorkflowPanel';
 
 export default function DocumentDetailPage() {
   const params = useParams();
@@ -323,8 +324,13 @@ export default function DocumentDetailPage() {
         </div>
 
         {/* Panel lateral de información */}
-        <div className="space-y-6">
-          {/* Información del documento */}
+         <div className="space-y-6">
+           <DocumentWorkflowPanel
+             documentId={doc.id}
+             documentOwnerId={doc.uploadedById}
+             documentVersionId={doc.versions?.[0]?.id}
+           />
+           {/* Información del documento */}
           <Card>
             <CardHeader>
               <CardTitle>Información del Documento</CardTitle>

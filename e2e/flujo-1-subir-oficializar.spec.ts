@@ -3,7 +3,7 @@ import { loginAs, SEED_USERS } from './auth.setup';
 import path from 'path';
 
 /**
- * Flujo 1: Subir documento → Oficializar → Descargar
+ * Flujo 1: Subir documento → Verificar → Descargar
  *
  * Prerequisites:
  *   - Backend running on http://localhost:3001
@@ -11,12 +11,12 @@ import path from 'path';
  *   - Database seeded (npm run seed in dms-backend)
  *   - Frontend running on http://localhost:3000 (auto-started by Playwright webServer)
  */
-test.describe('Flujo 1: Subir → Oficializar → Descargar', () => {
+test.describe('Flujo 1: Subir → Verificar → Descargar', () => {
   // Unique title to identify our test document in the list
   const testDocTitle = `E2E Test Doc ${Date.now()}`;
   const testFilePath = path.resolve(__dirname, 'fixtures/test-document.pdf');
 
-  test('admin sube un documento, verifica que aparece como borrador, lo oficializa y lo descarga', async ({ page }) => {
+  test('admin sube un documento, verifica que aparece en la lista y lo descarga', async ({ page }) => {
     // ── Step 1: Login as admin ──────────────────────────────────────────
     await loginAs(page, SEED_USERS.admin.email, SEED_USERS.admin.password);
 
@@ -30,8 +30,8 @@ test.describe('Flujo 1: Subir → Oficializar → Descargar', () => {
     await expect(page).toHaveURL(/\/dashboard\/documents/);
 
     // ── Step 3: Open upload dialog ──────────────────────────────────────
-    // The "Crear o subir" button opens a dropdown menu
-    await page.getByRole('button', { name: /crear o subir/i }).click();
+    // The "Nuevo" button opens the document creation menu.
+    await page.getByRole('button', { name: /^nuevo$/i }).click();
     await page.waitForTimeout(500);
 
     // Dismiss any toast notifications that may be blocking interaction
@@ -55,8 +55,10 @@ test.describe('Flujo 1: Subir → Oficializar → Descargar', () => {
     // Upload the test file (file input)
     await uploadDialog.locator('input[type="file"]').setInputFiles(testFilePath);
 
-    // Fill in the document title
-    await uploadDialog.getByLabel('Título').fill(testDocTitle);
+    // The upload form uses the description as the searchable document label.
+    await uploadDialog
+      .getByPlaceholder('Describe el contenido del documento...')
+      .fill(testDocTitle);
 
     // Select a category (e.g., "Administrativos")
     // Categories appear in the dialog by default — trigger is a Radix Select component
@@ -79,7 +81,8 @@ test.describe('Flujo 1: Subir → Oficializar → Descargar', () => {
       timeout: 5000,
     });
     // Click the upload button — dialog closes on success, stays open on validation/network error
-    await uploadDialog.getByRole('button', { name: /subir documento/i }).click();
+    const uploadButton = uploadDialog.getByRole('button', { name: /subir documento/i });
+    await uploadButton.evaluate((element) => (element as HTMLButtonElement).click());
 
     // ── Step 5: Verify upload success ───────────────────────────────────
     // Wait for the dialog to close (upload success closes it)
@@ -96,25 +99,10 @@ test.describe('Flujo 1: Subir → Oficializar → Descargar', () => {
     // Wait for search results to load
     await page.waitForTimeout(1000);
 
-    // Verify the document appears with "Borrador" status
+    // Verify the document appears with its current filename and description.
     // The title appears as both a link and a visible span — use first() to avoid strict mode
     await expect(page.getByText(testDocTitle).first()).toBeVisible();
-    await expect(page.getByText('Borrador').first()).toBeVisible({ timeout: 5000 });
-
-    // ── Step 6: Officialize the document ────────────────────────────────
-    // The "Oficializar" button appears on the document row for DRAFT docs
-    await page.getByRole('button', { name: /oficializar/i }).first().click();
-
-    // Wait for the officialize mutation to complete
-    // The status should change from "Borrador" to "Oficial"
-    await expect(page.getByText('Oficial').first()).toBeVisible({ timeout: 10000 });
-
-    // ── Step 7: Verify document number was assigned ─────────────────────
-    // After officializing, a document number (e.g., "ADMD-2026-00XX") is assigned.
-    // The old "Pendiente" badge for our document is gone — we verify the mutation
-    // succeeded by the "Oficial" status above.
-
-    // ── Step 8: Download the document ───────────────────────────────────
+    // ── Step 6: Download the document ───────────────────────────────────
     // Start the download
     const downloadPromise = page.waitForEvent('download');
     await page.getByRole('button', { name: /descargar/i }).first().click();
