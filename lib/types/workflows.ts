@@ -30,6 +30,7 @@ export interface WorkflowDefinitionVersion {
   publishedAt?: string | null;
   snapshot: Record<string, unknown>;
   stages: WorkflowStage[];
+  executionCount?: number | null;
 }
 
 export interface WorkflowDefinition {
@@ -41,6 +42,41 @@ export interface WorkflowDefinition {
   isActive: boolean;
   versions: WorkflowDefinitionVersion[];
 }
+
+export interface WorkflowValidationIssue {
+  path: string;
+  message: string;
+  code?: string;
+}
+
+export interface WorkflowValidationResult {
+  versionId: number;
+  valid: boolean;
+  issues: WorkflowValidationIssue[];
+}
+
+export interface WorkflowUsage {
+  executionCount: number | null;
+  activeCount: number | null;
+}
+
+export interface WorkflowDefinitionCounts {
+  versions: number | null;
+  executions: number | null;
+  usage: number | null;
+  executionHistory: number | null;
+}
+
+export interface WorkflowDefinitionDetail extends WorkflowDefinition {
+  counts?: WorkflowDefinitionCounts | null;
+  usage?: WorkflowUsage | null;
+  history?: ReadonlyArray<WorkflowExecution> | null;
+}
+
+export type ApplicableWorkflowDefinition = WorkflowDefinition & {
+  isActive: true;
+  versions: Array<WorkflowDefinitionVersion & { isActive: true }>;
+};
 
 export interface WorkflowAssignment {
   id: number;
@@ -105,6 +141,23 @@ export interface CreateWorkflowDefinitionDto {
 
 export type CreateWorkflowVersionDto = Partial<CreateWorkflowDefinitionDto>;
 
+export interface UpdateWorkflowDefinitionMetadataDto {
+  name?: string;
+  description?: string;
+  categoryId?: number;
+  allowedInitiatorRoles?: string[];
+}
+
+export interface CreateWorkflowVersionAdminDto extends UpdateWorkflowDefinitionMetadataDto {
+  baseVersionId: number;
+  stages?: WorkflowStage[];
+}
+
+export interface ValidateWorkflowVersionDto {
+  versionId: number;
+  mode?: string;
+}
+
 export interface StartWorkflowDto {
   versionId?: number;
   comment?: string;
@@ -144,5 +197,5 @@ export function getWorkflowActionState(status: WorkflowStatus, assignedToCurrent
 export function workflowErrorMessage(error: unknown): string {
   const response = error as { response?: { data?: { message?: string | string[] } } };
   const message = response.response?.data?.message;
-  return Array.isArray(message) ? message.join(", ") : message || "No se pudo actualizar el workflow";
+  return Array.isArray(message) ? message.join(", ") : message || "No se pudo actualizar el flujo de trabajo";
 }

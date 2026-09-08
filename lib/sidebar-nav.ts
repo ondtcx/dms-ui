@@ -17,7 +17,7 @@ export function isNavItemActive(
   pathname: string,
 ): boolean {
   const paths = item.activationPaths ?? [item.url];
-  if (item.items && item.items.length > 0) {
+  if (item.activationPaths || (item.items && item.items.length > 0)) {
     return paths.some((path) => pathname === path || pathname.startsWith(path + "/"));
   }
   return pathname === item.url;

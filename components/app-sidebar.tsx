@@ -124,6 +124,16 @@ export const adminMenuItems: MenuItem[] = [
     title: "Configuración",
     icon: Settings,
     url: "/dashboard/settings",
+    activationPaths: [
+      "/dashboard/settings",
+      "/dashboard/users",
+      "/dashboard/categories",
+      "/dashboard/document-types",
+      "/dashboard/templates",
+      "/dashboard/roles",
+      "/dashboard/academic-years",
+      "/dashboard/workflows",
+    ],
   },
 ];
 
@@ -343,13 +353,14 @@ export function AppSidebar() {
           "document-types.manage",
           "templates.manage",
           "roles.manage",
+          "workflow.templates.manage",
         ]) || hasAnyRole([UserRole.ADMIN, UserRole.RECTOR, UserRole.VICERRECTOR, UserRole.COORDINADOR])) && (
           <SidebarGroup>
             <SidebarGroupLabel>Administración</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filterAuthorizedNavItems(adminMenuItems, new Set(
-                  ["users.manage", "categories.manage", "document-types.manage", "templates.manage", "roles.manage"].filter(hasPermission),
+                    ["users.manage", "categories.manage", "document-types.manage", "templates.manage", "roles.manage", "workflow.templates.manage"].filter(hasPermission),
                 )).map((item) => {
                   const visibleSubItems = item.items?.filter(shouldShowMenuItem) ?? [];
 

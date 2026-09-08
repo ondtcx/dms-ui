@@ -37,14 +37,27 @@ describe("isNavItemActive (REQ-1 / REQ-2)", () => {
       url: "/dashboard/settings",
       activationPaths: [
         "/dashboard/settings",
+        "/dashboard/users",
         "/dashboard/academic-years",
         "/dashboard/categories",
+        "/dashboard/document-types",
+        "/dashboard/templates",
+        "/dashboard/roles",
+        "/dashboard/workflows",
       ],
-      items: [{}],
     };
     expect(isNavItemActive(settings, "/dashboard/settings")).toBe(true);
+    expect(isNavItemActive(settings, "/dashboard/users/42")).toBe(true);
     expect(isNavItemActive(settings, "/dashboard/categories/edit")).toBe(true);
+    expect(isNavItemActive(settings, "/dashboard/document-types/new")).toBe(true);
+    expect(isNavItemActive(settings, "/dashboard/templates/7")).toBe(true);
+    expect(isNavItemActive(settings, "/dashboard/roles/7")).toBe(true);
+    expect(isNavItemActive(settings, "/dashboard/academic-years/2026")).toBe(true);
+    expect(isNavItemActive(settings, "/dashboard/workflows")).toBe(true);
+    expect(isNavItemActive(settings, "/dashboard/workflows/definition/1")).toBe(true);
     expect(isNavItemActive(settings, "/dashboard/settings-extra")).toBe(false);
+    expect(isNavItemActive(settings, "/dashboard/workflow-settings")).toBe(false);
+    expect(isNavItemActive(settings, "/dashboard/templates-extra")).toBe(false);
     expect(isNavItemActive(settings, "/dashboard")).toBe(false);
   });
 

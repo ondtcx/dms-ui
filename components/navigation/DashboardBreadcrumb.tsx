@@ -20,7 +20,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   templates: "Plantillas",
   categories: "Categorías",
   sections: "Secciones",
-  workflows: "Workflows",
+  workflows: "Flujos de trabajo",
   trash: "Papelera",
   archive: "Archivo",
   reports: "Reportes",

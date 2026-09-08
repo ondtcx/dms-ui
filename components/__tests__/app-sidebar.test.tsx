@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -62,10 +62,11 @@ jest.mock("@/lib/contexts/SettingsContext", () => ({
 }));
 
 let visiblePermissions: Set<string> | null = null;
+let visibleRoles = true;
 jest.mock("@/hooks/use-permissions", () => ({
   usePermissions: () => ({
-    hasRole: () => true,
-    hasAnyRole: () => true,
+    hasRole: () => visibleRoles,
+    hasAnyRole: () => visibleRoles,
     hasPermission: (permission: string) => visiblePermissions === null || visiblePermissions.has(permission),
     hasAnyPermission: (permissions: string[]) => permissions.some((permission) => visiblePermissions === null || visiblePermissions.has(permission)),
   }),
@@ -93,6 +94,7 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
 
   afterEach(() => {
     visiblePermissions = null;
+    visibleRoles = true;
   });
 
   it("renders and reflects active state, account menu and icon collapsible", async () => {
@@ -131,6 +133,33 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
       "/dashboard/settings",
     );
     expect(screen.queryByRole("link", { name: "Usuarios" })).not.toBeInTheDocument();
+  });
+
+  it("routes template managers through Settings without a duplicate workflow item", () => {
+    visiblePermissions = new Set(["workflow.templates.manage"]);
+    currentPathname = "/dashboard/workflows/definition/7";
+    renderSidebar();
+
+    const settingsLink = screen.getByRole("link", { name: "Configuración" });
+    expect(settingsLink).toHaveAttribute("href", "/dashboard/settings");
+    expect(settingsLink).toHaveAttribute("data-active", "true");
+    expect(screen.queryByRole("link", { name: "Flujos de trabajo" })).not.toBeInTheDocument();
+
+    cleanup();
+    visiblePermissions = new Set(["roles.manage"]);
+    renderSidebar();
+
+    expect(screen.queryByRole("link", { name: "Flujos de trabajo" })).not.toBeInTheDocument();
+  });
+
+  it("does not expose Settings workflow ownership to users without its permission", () => {
+    visiblePermissions = new Set(["documents.read"]);
+    visibleRoles = false;
+    currentPathname = "/dashboard/workflows";
+    renderSidebar();
+
+    expect(screen.queryByRole("link", { name: "Flujos de trabajo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Configuración" })).not.toBeInTheDocument();
   });
 
   it("renders loading, empty, and error states for directory navigation", async () => {
