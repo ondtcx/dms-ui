@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WORKFLOW_STATUS_CONFIG } from "@/lib/workflow-status-config";
 import { workflowsService } from "@/lib/services/workflows.service";
 import {
@@ -33,7 +34,7 @@ const ACTION_LABELS: Record<WorkflowTransitionAction, string> = {
   APPROVE: "Aprobar",
   REQUEST_CHANGES: "Solicitar cambios",
   REJECT: "Rechazar",
-  CANCEL: "Cancelar workflow",
+  CANCEL: "Cancelar flujo de trabajo",
   SUBMIT: "Reenviar versión corregida",
 };
 
@@ -63,7 +64,21 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
   const state = execution
     ? getWorkflowActionState(execution.status, assigned)
     : { canApprove: false, canRequestChanges: false, canReject: false, canCancel: false, canSubmit: false };
-  const canStart = !execution?.active && user?.id === documentOwnerId && hasPermission("workflow.start");
+  const canStart = !execution?.active && !!user && (user.id === documentOwnerId || isAdmin()) && hasPermission("workflow.start");
+  const definitionsQuery = useQuery({
+    queryKey: ["document-workflow-definitions", documentId],
+    queryFn: () => workflowsService.getStartableDefinitions(documentId),
+    enabled: canStart,
+  });
+  const availableVersions = definitionsQuery.data?.flatMap((definition) =>
+    definition.versions.map((version) => ({
+      id: version.id,
+      label: `${definition.name} · versión ${version.version}`,
+      description: definition.description,
+      stages: version.stages,
+    })),
+  ) ?? [];
+  const [selectedVersionId, setSelectedVersionId] = useState("");
 
   const transitionMutation = useMutation({
     mutationFn: (action: WorkflowTransitionAction) => workflowsService.transition(execution!.id, {
@@ -76,18 +91,22 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
       setComment("");
       queryClient.invalidateQueries({ queryKey: ["document-workflows", documentId] });
       queryClient.invalidateQueries({ queryKey: ["document", documentId] });
-      toast.success("Workflow actualizado");
+      toast.success("Flujo de trabajo actualizado");
     },
     onError: (error) => toast.error(workflowErrorMessage(error)),
   });
   const startMutation = useMutation({
-    mutationFn: () => workflowsService.start(documentId, { comment: comment.trim() || undefined }),
+    mutationFn: () => workflowsService.start(documentId, {
+      versionId: Number(selectedVersionId),
+      comment: comment.trim() || undefined,
+    }),
     onSuccess: () => {
       setDialogAction(null);
       setComment("");
+      setSelectedVersionId("");
       queryClient.invalidateQueries({ queryKey: ["document-workflows", documentId] });
       queryClient.invalidateQueries({ queryKey: ["document", documentId] });
-      toast.success("Workflow iniciado");
+      toast.success("Flujo de trabajo iniciado");
     },
     onError: (error) => toast.error(workflowErrorMessage(error)),
   });
@@ -113,16 +132,19 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2">
-          <span className="flex items-center gap-2"><History className="h-5 w-5" /> Flujo de aprobación</span>
+          <span className="flex items-center gap-2"><History className="h-5 w-5" /> Flujo de trabajo</span>
           {status && <Badge variant={status.variant}>{status.label}</Badge>}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {historyQuery.isLoading ? <p className="text-sm text-muted-foreground">Cargando flujo...</p> : null}
-        {historyQuery.isError ? <p className="text-sm text-destructive">No se pudo cargar el historial del workflow.</p> : null}
-        {!historyQuery.isLoading && !execution && (
-          <div className="space-y-2"><p className="text-sm text-muted-foreground">Este documento aún no tiene un workflow.</p>
-            {canStart && <Button onClick={() => openAction(WorkflowTransitionAction.SUBMIT)}>Iniciar workflow</Button>}
+        {historyQuery.isLoading ? <p className="text-sm text-muted-foreground">Cargando flujo de trabajo...</p> : null}
+        {historyQuery.isError ? <p className="text-sm text-destructive">No se pudo cargar el historial del flujo de trabajo.</p> : null}
+        {!historyQuery.isLoading && !historyQuery.isError && !execution && (
+          <div className="space-y-2"><p className="text-sm text-muted-foreground">Este documento aún no participa en un flujo de trabajo.</p>
+            {canStart && definitionsQuery.isLoading && <p className="text-sm text-muted-foreground">Buscando flujos de trabajo aplicables...</p>}
+            {canStart && definitionsQuery.isError && <p className="text-sm text-destructive">No se pudieron cargar los flujos de trabajo aplicables.</p>}
+            {canStart && !definitionsQuery.isLoading && !definitionsQuery.isError && availableVersions.length === 0 && <p className="text-sm text-muted-foreground">No hay flujos de trabajo activos compatibles con este documento.</p>}
+            {canStart && availableVersions.length > 0 && <Button onClick={() => openAction(WorkflowTransitionAction.SUBMIT)}>Iniciar flujo de trabajo</Button>}
           </div>
         )}
         {execution && (
@@ -144,27 +166,33 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
               {state.canApprove && hasPermission("workflow.approve") && <Button onClick={() => openAction(WorkflowTransitionAction.APPROVE)}><Check className="mr-2 h-4 w-4" />Aprobar</Button>}
               {state.canRequestChanges && hasPermission("workflow.request_changes") && <Button variant="outline" onClick={() => openAction(WorkflowTransitionAction.REQUEST_CHANGES)}><MessageSquare className="mr-2 h-4 w-4" />Solicitar cambios</Button>}
               {state.canReject && hasPermission("workflow.reject") && <Button variant="destructive" onClick={() => openAction(WorkflowTransitionAction.REJECT)}>Rechazar</Button>}
-              {state.canCancel && hasPermission("workflow.cancel") && <Button variant="outline" onClick={() => openAction(WorkflowTransitionAction.CANCEL)}>Cancelar workflow</Button>}
+               {state.canCancel && hasPermission("workflow.cancel") && <Button variant="outline" onClick={() => openAction(WorkflowTransitionAction.CANCEL)}>Cancelar flujo de trabajo</Button>}
               {state.canSubmit && user?.id === documentOwnerId && hasPermission("workflow.start") && <Button onClick={() => openAction(WorkflowTransitionAction.SUBMIT)}>Reenviar versión corregida</Button>}
             </div>
             <div className="space-y-2 border-t pt-3"><h3 className="text-sm font-medium">Historial de transiciones</h3>
                {execution.transitions.length ? execution.transitions.map((transition) => {
                  const traceability = getWorkflowTraceability({ action: transition.action, performedBy: transition.performedById, createdAt: transition.createdAt });
                  return <div key={transition.id} className="text-sm text-muted-foreground"><strong>{traceability.label}</strong> · {traceability.actor} · {traceability.time === 'Fecha no disponible' ? traceability.time : new Date(traceability.time).toLocaleString("es-ES")}{transition.comment ? ` · ${transition.comment}` : ""}</div>;
-               }) : <p className="text-sm text-muted-foreground">Historial de workflow no disponible.</p>}
+               }) : <p className="text-sm text-muted-foreground">Historial de flujo de trabajo no disponible.</p>}
             </div>
           </>
         )}
       </CardContent>
-      <Dialog open={dialogAction !== null} onOpenChange={(open) => !open && setDialogAction(null)}>
+      <Dialog open={dialogAction !== null} onOpenChange={(open) => {
+        if (!open) {
+          setDialogAction(null);
+          setSelectedVersionId("");
+        }
+      }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{dialogAction === "SUBMIT" && !execution ? "Iniciar workflow" : ACTION_LABELS[dialogAction ?? "APPROVE"]}</DialogTitle><DialogDescription>Confirma la acción sobre el workflow del documento.</DialogDescription></DialogHeader>
+          <DialogHeader><DialogTitle>{dialogAction === "SUBMIT" && !execution ? "Iniciar flujo de trabajo" : ACTION_LABELS[dialogAction ?? "APPROVE"]}</DialogTitle><DialogDescription>Confirma la acción sobre el flujo de trabajo del documento.</DialogDescription></DialogHeader>
+          {dialogAction === "SUBMIT" && !execution && <div className="space-y-2"><p className="text-sm font-medium">Flujo de trabajo aplicable</p><Select value={selectedVersionId} onValueChange={setSelectedVersionId}><SelectTrigger><SelectValue placeholder="Selecciona una definición" /></SelectTrigger><SelectContent>{availableVersions.map((version) => <SelectItem key={version.id} value={String(version.id)}>{version.label}</SelectItem>)}</SelectContent></Select>{selectedVersionId && (() => { const version = availableVersions.find((item) => item.id === Number(selectedVersionId)); return version ? <p className="text-sm text-muted-foreground">{version.description || "Sin descripción"} · {version.stages.map((stage) => stage.roleKey).join(" → ")}</p> : null; })()}</div>}
           <Textarea placeholder={dialogAction && requiresWorkflowComment(dialogAction) ? "Comentario obligatorio" : "Comentario (opcional)"} value={comment} onChange={(event) => setComment(event.target.value)} />
-          <DialogFooter><Button variant="outline" onClick={() => setDialogAction(null)}>Cancelar</Button><Button disabled={(dialogAction ? requiresWorkflowComment(dialogAction) && !comment.trim() : true) || startMutation.isPending || transitionMutation.isPending} onClick={() => dialogAction === "SUBMIT" && !execution ? startMutation.mutate() : dialogAction && transitionMutation.mutate(dialogAction)}>{(startMutation.isPending || transitionMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Confirmar</Button></DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setDialogAction(null)}>Cancelar</Button><Button disabled={(dialogAction ? requiresWorkflowComment(dialogAction) && !comment.trim() : true) || (dialogAction === "SUBMIT" && !execution && !selectedVersionId) || startMutation.isPending || transitionMutation.isPending} onClick={() => dialogAction === "SUBMIT" && !execution ? startMutation.mutate() : dialogAction && transitionMutation.mutate(dialogAction)}>{(startMutation.isPending || transitionMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Confirmar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
       <Dialog open={reassigning !== null} onOpenChange={(open) => !open && setReassigning(null)}>
-        <DialogContent><DialogHeader><DialogTitle>Reasignar etapa</DialogTitle><DialogDescription>La reasignación queda registrada en el historial.</DialogDescription></DialogHeader><div className="space-y-3"><Input placeholder="ID del usuario" value={targetUserId} onChange={(event) => setTargetUserId(event.target.value)} /><Textarea placeholder="Motivo obligatorio" value={reassignmentReason} onChange={(event) => setReassignmentReason(event.target.value)} /></div><DialogFooter><Button variant="outline" onClick={() => setReassigning(null)}>Cancelar</Button><Button disabled={!targetUserId.trim() || !reassignmentReason.trim() || reassignMutation.isPending} onClick={() => reassignMutation.mutate()}>Reasignar</Button></DialogFooter></DialogContent>
+        <DialogContent><DialogHeader><DialogTitle>Reasignar etapa</DialogTitle><DialogDescription>La reasignación queda registrada en el historial del flujo de trabajo.</DialogDescription></DialogHeader><div className="space-y-3"><Input placeholder="ID del usuario" value={targetUserId} onChange={(event) => setTargetUserId(event.target.value)} /><Textarea placeholder="Motivo obligatorio" value={reassignmentReason} onChange={(event) => setReassignmentReason(event.target.value)} /></div><DialogFooter><Button variant="outline" onClick={() => setReassigning(null)}>Cancelar</Button><Button disabled={!targetUserId.trim() || !reassignmentReason.trim() || reassignMutation.isPending} onClick={() => reassignMutation.mutate()}>Reasignar</Button></DialogFooter></DialogContent>
       </Dialog>
     </Card>
   );
