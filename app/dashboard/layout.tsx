@@ -19,13 +19,13 @@ export default function DashboardLayout({
         {/* Main Content with Header */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <header className="border-b bg-background sticky top-0 z-40">
-            <div className="flex h-16 items-center justify-between px-6">
-              <div className="flex items-center gap-4">
+          <header aria-label="Encabezado principal" className="sticky top-0 z-40 border-b bg-background">
+            <div className="flex h-16 min-w-0 items-center justify-between px-4 sm:px-6">
+              <div className="flex min-w-0 items-center gap-2 sm:gap-4">
                 <SidebarTrigger />
-                <DashboardBreadcrumb />
+                <div className="min-w-0 truncate"><DashboardBreadcrumb /></div>
               </div>
-              <div className="flex-1 max-w-md mx-6">
+              <div className="mx-2 min-w-0 max-w-md flex-1 sm:mx-6">
                 <SearchBar />
               </div>
             </div>

@@ -16,6 +16,9 @@ export function DashboardDocumentRow({ document, pending = false }: DashboardDoc
   const filename = document.versions?.[0]?.filename || "Documento sin nombre";
   const owner = document.uploadedBy?.name || "Propietario no disponible";
   const category = document.category?.name || "Sin categoría";
+  const documentNumber = document.documentNumber || "Número no disponible";
+  const currentVersion = document.versions?.[0]?.version;
+  const versionLabel = currentVersion ? `Versión ${currentVersion}` : "Versión no disponible";
   const status = document.workflow?.status === "DRAFT" ? "Borrador" : document.workflow?.status;
   const href = `/dashboard/documents/${document.id}`;
 
@@ -33,7 +36,7 @@ export function DashboardDocumentRow({ document, pending = false }: DashboardDoc
           {filename}
         </span>
         <span className="block truncate text-xs text-muted-foreground">
-          {document.documentNumber || "Sin número"} · {owner} · {category}
+          {documentNumber} · {versionLabel} · {owner} · {category}
         </span>
       </span>
       <span className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">

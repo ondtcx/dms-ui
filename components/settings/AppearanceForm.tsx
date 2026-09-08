@@ -92,6 +92,7 @@ export function AppearanceForm() {
                   key={c}
                   type="button"
                   onClick={() => setForm({ ...form, primaryColor: c })}
+                  aria-label={`Seleccionar color primario ${c}`}
                   className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
                   style={{
                     backgroundColor: c,
@@ -126,6 +127,7 @@ export function AppearanceForm() {
                   key={c}
                   type="button"
                   onClick={() => setForm({ ...form, secondaryColor: c })}
+                  aria-label={`Seleccionar color secundario ${c}`}
                   className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
                   style={{
                     backgroundColor: c,

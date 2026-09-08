@@ -90,7 +90,7 @@ export function InstitutionForm() {
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium">Logo institucional</p>
-            <p className="text-xs text-gray-500">PNG, JPG, SVG. Máx 5 MB.</p>
+             <p className="text-xs text-gray-500">PNG, JPG o SVG. Tamaño máximo: 5 MB.</p>
             <Button
               type="button"
               variant="outline"
@@ -132,8 +132,8 @@ export function InstitutionForm() {
                 placeholder="+52 55 1234 5678"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="inst-email">Email institucional</Label>
+             <div className="space-y-2">
+              <Label htmlFor="inst-email">Correo electrónico institucional</Label>
               <Input
                 id="inst-email"
                 type="email"

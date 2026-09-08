@@ -15,7 +15,7 @@ import { documentsService } from "@/lib/services/documents.service";
 import { batchService } from "@/lib/services/batch.service";
 
 const SEGMENT_LABELS: Record<string, string> = {
-  dashboard: "Dashboard",
+  dashboard: "Inicio",
   documents: "Documentos",
   templates: "Plantillas",
   categories: "Categorías",
@@ -99,7 +99,7 @@ export function DashboardBreadcrumb() {
     const seg = segments[i];
     path += `/${seg}`;
 
-    const label = seg === "dashboard" ? "Dashboard" : resolveSegmentLabel(seg, i);
+    const label = resolveSegmentLabel(seg, i);
     const href = path;
 
     items.push({ label, href });
@@ -110,7 +110,7 @@ export function DashboardBreadcrumb() {
   }
 
   return (
-    <Breadcrumb>
+    <Breadcrumb aria-label="Ruta de navegación">
       <BreadcrumbList>
         {items.map((item, idx) => {
           const isLast = idx === items.length - 1;

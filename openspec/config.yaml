@@ -1,0 +1,54 @@
+schema: spec-driven
+
+context: |
+  Project: dms-ui frontend, maintained as a separate Git repository.
+  Stack: Next.js 15.3.5 App Router, React 19, TypeScript 5, Tailwind CSS 4.
+  Architecture: Client/server-rendered Next.js UI with REST services, TanStack Query, and Radix UI primitives.
+  Testing: Jest 30 with jsdom and React Testing Library; Playwright E2E tests are configured separately.
+  Quality: ESLint with Next core web vitals and TypeScript presets; TypeScript strict mode; no formatter script detected.
+  Language: Technical artifacts in English; existing UI text and comments are Spanish.
+
+strict_tdd: true
+
+projects:
+  - path: .
+    stack: Next.js 15.3.5, React 19, TypeScript 5, Tailwind CSS 4
+    test_command: npm test
+    test_framework: Jest 30, React Testing Library
+    e2e_command: npx playwright test
+    coverage_command: npm run test:coverage
+    lint_command: npm run lint
+    typecheck_command: npx tsc --noEmit
+    formatter_command: —
+
+testing:
+  strict_tdd: true
+  workspace_test_command: npm test
+  unit: Jest with jsdom and React Testing Library
+  integration: Not separately configured
+  e2e: Playwright Test with Chromium; requires frontend and backend web servers
+  coverage: npm run test:coverage (V8)
+  lint: npm run lint
+  typecheck: npx tsc --noEmit
+  formatter: Not configured
+
+rules:
+  proposal:
+    - Keep proposals under 450 words and include rollback planning for risky changes.
+  specs:
+    - Use Given/When/Then scenarios and RFC 2119 keywords.
+  design:
+    - Document architecture decisions and preserve existing frontend/backend contracts.
+  tasks:
+    - Group tasks by phase with hierarchical numbering; keep each task completable in one session.
+  apply:
+    guidelines:
+      - Follow existing Next.js, React, Tailwind, and service-layer patterns.
+    tdd: true
+    test_command: npm test
+  verify:
+    test_command: npm test
+    build_command: npm run build
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas.

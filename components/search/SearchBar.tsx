@@ -85,6 +85,7 @@ export function SearchBar() {
             }}
             onFocus={() => setOpen(true)}
             onKeyDown={handleKeyDown}
+            aria-label="Buscar documentos"
             placeholder="Buscar documentos..."
             className="pl-9 pr-8 h-9 bg-muted/50 border-0 focus-visible:ring-1"
           />

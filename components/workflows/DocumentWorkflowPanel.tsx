@@ -21,6 +21,7 @@ import {
   WorkflowStatus,
   workflowErrorMessage,
 } from "@/lib/types/workflows";
+import { getWorkflowTraceability } from "@/lib/document-traceability";
 
 interface DocumentWorkflowPanelProps {
   documentId: number;
@@ -147,7 +148,10 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
               {state.canSubmit && user?.id === documentOwnerId && hasPermission("workflow.start") && <Button onClick={() => openAction(WorkflowTransitionAction.SUBMIT)}>Reenviar versión corregida</Button>}
             </div>
             <div className="space-y-2 border-t pt-3"><h3 className="text-sm font-medium">Historial de transiciones</h3>
-              {execution.transitions.map((transition) => <div key={transition.id} className="text-sm text-muted-foreground"><strong>{ACTION_LABELS[transition.action]}</strong> · {new Date(transition.createdAt).toLocaleString("es-ES")}{transition.comment ? ` · ${transition.comment}` : ""}</div>)}
+               {execution.transitions.length ? execution.transitions.map((transition) => {
+                 const traceability = getWorkflowTraceability({ action: transition.action, performedBy: transition.performedById, createdAt: transition.createdAt });
+                 return <div key={transition.id} className="text-sm text-muted-foreground"><strong>{traceability.label}</strong> · {traceability.actor} · {traceability.time === 'Fecha no disponible' ? traceability.time : new Date(traceability.time).toLocaleString("es-ES")}{transition.comment ? ` · ${transition.comment}` : ""}</div>;
+               }) : <p className="text-sm text-muted-foreground">Historial de workflow no disponible.</p>}
             </div>
           </>
         )}

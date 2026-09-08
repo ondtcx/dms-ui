@@ -4,11 +4,30 @@ import { createContext, useContext, useEffect, ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsService, SystemSettings } from "@/lib/services/settings.service";
 import { useAuth } from "@/lib/contexts/AuthContext";
+import type { AppearanceSettings } from "@/lib/services/settings.service";
 
 interface SettingsContextType {
   settings: SystemSettings | null;
   isLoading: boolean;
   refresh: () => void;
+}
+
+export const DEFAULT_APPEARANCE: AppearanceSettings = {
+  primaryColor: "#1d4ed8",
+  secondaryColor: "#047857",
+  theme: "system",
+};
+
+export function resolveAppearanceColors(
+  appearance?: Partial<AppearanceSettings> | null,
+): AppearanceSettings {
+  return {
+    ...DEFAULT_APPEARANCE,
+    ...appearance,
+    primaryColor: appearance?.primaryColor || DEFAULT_APPEARANCE.primaryColor,
+    secondaryColor: appearance?.secondaryColor || DEFAULT_APPEARANCE.secondaryColor,
+    theme: appearance?.theme || DEFAULT_APPEARANCE.theme,
+  };
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -67,7 +86,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // Aplicar colores al DOM cuando cargue la configuración
   useEffect(() => {
     if (!settings) return;
-    const { primaryColor, secondaryColor } = settings.appearance;
+    const { primaryColor, secondaryColor } = resolveAppearanceColors(settings.appearance);
 
     const primaryOklch = hexToOklch(primaryColor);
     const secondaryOklch = hexToOklch(secondaryColor);
@@ -77,6 +96,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     document.documentElement.style.setProperty("--ring", primaryOklch);
     document.documentElement.style.setProperty("--sidebar-primary", primaryOklch);
     document.documentElement.style.setProperty("--accent", secondaryOklch);
+    document.documentElement.style.setProperty("--institution-primary", primaryOklch);
+    document.documentElement.style.setProperty("--institution-secondary", secondaryOklch);
 
     // También conservar los valores hex originales para uso directo en CSS
     document.documentElement.style.setProperty("--settings-primary", primaryColor);

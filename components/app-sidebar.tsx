@@ -69,7 +69,7 @@ export interface MenuItem {
 
 export const mainMenuItems: MenuItem[] = [
   {
-    title: "Dashboard",
+    title: "Inicio",
     icon: Home,
     url: "/dashboard",
     isActive: true,
@@ -154,7 +154,8 @@ export function AppSidebar() {
   const logoUrl = settings?.institution?.logoPath
     ? `${apiBase}${settings.institution.logoPath}`
     : null;
-  const institutionName = settings?.institution?.name ?? "DMS";
+  const institutionName = settings?.institution?.name?.trim() || "Institución no configurada";
+  const schoolYearName = settings?.schoolYear?.name?.trim() || "Año lectivo no disponible";
   const userInitials = (user?.name ?? "")
     .trim()
     .split(/\s+/)
@@ -198,7 +199,10 @@ export function AppSidebar() {
           ) : (
             <Building2 className="h-6 w-6 shrink-0" />
           )}
-          <span className="font-semibold truncate">{institutionName}</span>
+          <div className="min-w-0">
+            <span className="block truncate font-semibold">{institutionName}</span>
+            <span className="block truncate text-xs text-sidebar-foreground/70">{schoolYearName}</span>
+          </div>
         </div>
       </SidebarHeader>
 
@@ -341,7 +345,7 @@ export function AppSidebar() {
           "roles.manage",
         ]) || hasAnyRole([UserRole.ADMIN, UserRole.RECTOR, UserRole.VICERRECTOR, UserRole.COORDINADOR])) && (
           <SidebarGroup>
-            <SidebarGroupLabel>Administracion</SidebarGroupLabel>
+            <SidebarGroupLabel>Administración</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {filterAuthorizedNavItems(adminMenuItems, new Set(
@@ -456,7 +460,7 @@ export function AppSidebar() {
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout}>Cerrar Sesión</DropdownMenuItem>
+            <DropdownMenuItem onClick={logout}>Cerrar sesión</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarFooter>

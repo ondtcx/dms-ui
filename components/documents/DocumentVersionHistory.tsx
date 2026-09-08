@@ -29,6 +29,7 @@ import {
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { LucideIcon } from "lucide-react";
+import { getVersionTraceability } from "@/lib/document-traceability";
 
 interface DocumentVersionHistoryProps {
   documentId: number;
@@ -154,16 +155,12 @@ export function DocumentVersionHistory({
                       <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
                         <div className="flex items-center gap-1">
                           <Calendar className="h-4 w-4" />
-                          <span>
-                            {format(new Date(version.createdAt), "PPp", {
-                              locale: es,
-                            })}
-                          </span>
+                           <span>{getVersionTraceability(version).time === 'Fecha no disponible' ? 'Fecha no disponible' : format(new Date(version.createdAt), "PPp", { locale: es })}</span>
                         </div>
 
                         <div className="flex items-center gap-1">
                           <User className="h-4 w-4" />
-                          <span>{version.createdBy.name}</span>
+                           <span>{getVersionTraceability(version).actor}</span>
                         </div>
 
                         <div className="flex items-center gap-1">

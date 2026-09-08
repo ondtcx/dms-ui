@@ -265,4 +265,30 @@ describe("DashboardHomePage", () => {
     await user.tab();
     expect(document.activeElement).toHaveAccessibleName(/notas\.docx/i);
   });
+
+  it("exposes supplied document number and current version metadata", async () => {
+    jest.mocked(documentsService.getDashboardSummary).mockResolvedValue({
+      ...summary,
+      recent: [{ ...summary.recent[0], documentNumber: "DOC-8", versions: [{ id: 8, version: 3, filename: "acta.pdf", mimetype: "application/pdf", size: 10 }] }],
+    } as never);
+
+    renderPage();
+
+    const row = await screen.findByRole("link", { name: /acta\.pdf/i });
+    expect(row).toHaveTextContent("DOC-8");
+    expect(row).toHaveTextContent("Versión 3");
+  });
+
+  it("uses explicit unavailable fallbacks when number and version are absent", async () => {
+    jest.mocked(documentsService.getDashboardSummary).mockResolvedValue({
+      ...summary,
+      recent: [{ ...summary.recent[0], documentNumber: null, versions: [] }],
+    } as never);
+
+    renderPage();
+
+    const row = await screen.findByRole("link", { name: /documento sin nombre/i });
+    expect(row).toHaveTextContent("Número no disponible");
+    expect(row).toHaveTextContent("Versión no disponible");
+  });
 });

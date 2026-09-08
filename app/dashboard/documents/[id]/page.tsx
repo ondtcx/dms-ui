@@ -45,6 +45,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { UserRole } from '@/lib/types';
 import { DirectoryNavigation } from '@/components/documents/DirectoryNavigation';
 import { DocumentWorkflowPanel } from '@/components/workflows/DocumentWorkflowPanel';
+import { getDocumentTraceability } from '@/lib/document-traceability';
 
 export default function DocumentDetailPage() {
   const params = useParams();
@@ -213,17 +214,15 @@ export default function DocumentDetailPage() {
             <div className="flex items-center gap-3">
               <FileText className="h-8 w-8 text-primary" />
               <div>
-                {doc.documentNumber && (
-                  <p className="font-mono text-sm text-muted-foreground mb-0.5">{doc.documentNumber}</p>
-                )}
+                <p className="font-mono text-sm text-muted-foreground mb-0.5">{getDocumentTraceability(doc).number}</p>
                 <h1 className="text-3xl font-bold">{((doc?.versions?.[0]?.filename) ?? '')}</h1>
-              </div>
-            </div>
-            <p className="text-muted-foreground mt-1">
-              {doc.description || 'Sin descripción'}
-            </p>
+                  </div>
+           <p className="text-muted-foreground mt-1">
+             {doc.description || 'Sin descripción'}
+           </p>
           </div>
         </div>
+      </div>
 
         <div className="flex items-center gap-2">
           {canEdit && (
@@ -341,25 +340,31 @@ export default function DocumentDetailPage() {
                   <Hash className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">Número de documento</p>
-                    {doc.documentNumber ? (
-                      <p className="text-sm font-mono text-foreground">{doc.documentNumber}</p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground italic">Sin asignar</p>
-                    )}
+                    <p className="text-sm font-mono text-foreground">{getDocumentTraceability(doc).number}</p>
                   </div>
-                </div>
 
-                <Separator />
+                  <Separator />
 
-                <div className="flex items-start gap-3">
-                  <FileType className="h-5 w-5 text-muted-foreground mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Tipo de archivo</p>
-                    <p className="text-sm text-muted-foreground">{formatMimeType(((doc?.versions?.[0]?.mimetype) ?? ''))}</p>
-                  </div>
-                </div>
+                 <div className="flex items-start gap-3">
+                   <FileType className="h-5 w-5 text-muted-foreground mt-0.5" />
+                   <div className="flex-1">
+                     <p className="text-sm font-medium">Tipo de archivo</p>
+                     <p className="text-sm text-muted-foreground">{formatMimeType(((doc?.versions?.[0]?.mimetype) ?? ''))}</p>
+                   </div>
+                 </div>
 
-                <Separator />
+                 <Separator />
+
+                 <div className="flex items-start gap-3">
+                   <History className="h-5 w-5 text-muted-foreground mt-0.5" />
+                   <div className="flex-1">
+                     <p className="text-sm font-medium">Versión actual</p>
+                     <p className="text-sm text-muted-foreground">{getDocumentTraceability(doc).version}</p>
+                   </div>
+                 </div>
+                 </div>
+
+                 <Separator />
 
                 <div className="flex items-start gap-3">
                   <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
