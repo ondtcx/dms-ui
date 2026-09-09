@@ -7,20 +7,32 @@ import type { Directory } from "@/lib/types";
  * - Parent items (those that own sub-items) are active on any sub-route,
  *   using a slash boundary so `/dashboard/academic` does NOT match
  *   `/dashboard/academic-years`.
- * - Leaf items require an exact pathname match.
+ * - Leaf items require an exact pathname match; query-backed leaves also
+ *   require their declared query values.
  */
 export function isNavItemActive(
   item: Pick<MenuItem, "url"> & {
     items?: readonly unknown[];
     activationPaths?: readonly string[];
   },
-  pathname: string,
+  currentUrl: string,
 ): boolean {
-  const paths = item.activationPaths ?? [item.url];
+  const [currentPath, currentQueryString = ""] = currentUrl.split("?", 2);
+  const paths = (item.activationPaths ?? [item.url]).map((path) => path.split("?", 1)[0]);
   if (item.activationPaths || (item.items && item.items.length > 0)) {
-    return paths.some((path) => pathname === path || pathname.startsWith(path + "/"));
+    return paths.some((path) => currentPath === path || currentPath.startsWith(path + "/"));
   }
-  return pathname === item.url;
+
+  const [itemPath, itemQueryString] = item.url.split("?", 2);
+  if (itemQueryString === undefined) return currentPath === itemPath;
+
+  const itemQuery = new URLSearchParams(itemQueryString);
+  const currentQuery = new URLSearchParams(currentQueryString);
+  for (const [key, value] of itemQuery) {
+    if (currentQuery.get(key) !== value) return false;
+  }
+
+  return currentPath === itemPath;
 }
 
 export function filterAuthorizedNavItems<T extends {

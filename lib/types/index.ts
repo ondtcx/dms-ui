@@ -295,6 +295,12 @@ export interface DocumentsResponse {
   };
 }
 
+export type DocumentListView =
+  | "recent-accessed"
+  | "recent-created"
+  | "all"
+  | "trash";
+
 export interface DashboardDocumentRow extends Pick<
   Document,
   "id" | "description" | "documentNumber" | "createdAt" | "updatedAt"

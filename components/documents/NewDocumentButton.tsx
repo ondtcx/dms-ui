@@ -20,6 +20,8 @@ interface NewDocumentButtonProps {
   onBatchGenerate?: () => void;
   onCreateInEditor?: () => void;
   "aria-label"?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function NewDocumentButton({
@@ -29,12 +31,14 @@ export function NewDocumentButton({
   onBatchGenerate,
   onCreateInEditor,
   "aria-label": ariaLabel,
+  open,
+  onOpenChange,
 }: NewDocumentButtonProps) {
   const { hasAnyRole } = usePermissions();
   const canUseTemplateCreation = hasAnyRole([UserRole.ADMIN, UserRole.RECTOR]);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button size="default" className="gap-2 bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100" aria-label={ariaLabel}>
           <Plus className="h-4 w-4" />

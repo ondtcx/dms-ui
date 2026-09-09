@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -14,7 +15,9 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <AppSidebar />
+        <Suspense fallback={null}>
+          <AppSidebar />
+        </Suspense>
 
         {/* Main Content with Header */}
         <div className="flex-1 flex flex-col overflow-hidden">

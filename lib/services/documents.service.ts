@@ -6,6 +6,7 @@ import {
   DocumentVersion,
   ArchiveStats,
   DashboardSummary,
+  DocumentListView,
   Directory,
   CreateDirectoryDto,
   UpdateDirectoryDto,
@@ -32,6 +33,7 @@ export const documentsService = {
     academicYearId?: number;
     excludeComposites?: boolean;
     directoryId?: number | null;
+    view?: DocumentListView;
   }): Promise<DocumentsResponse> {
     const response = await api.get<DocumentsResponse>("/documents", { params });
     return response.data;

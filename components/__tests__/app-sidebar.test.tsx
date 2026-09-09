@@ -28,6 +28,7 @@ Object.defineProperty(window, "matchMedia", {
 });
 
 let currentPathname = "/dashboard/documents";
+let currentSearch = "";
 let mockSettings: {
   institution: { name: string; logoPath: string | null };
   schoolYear?: { name: string; isActive: boolean };
@@ -35,6 +36,7 @@ let mockSettings: {
 const mockLogout = jest.fn();
 jest.mock("next/navigation", () => ({
   usePathname: () => currentPathname,
+  useSearchParams: () => new URLSearchParams(currentSearch),
 }));
 
 // app-sidebar imports Link as a DEFAULT import, so the mock must expose a
@@ -86,6 +88,7 @@ function renderSidebar() {
 describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
   beforeEach(() => {
     currentPathname = "/dashboard/documents";
+    currentSearch = "";
     mockSettings = { institution: { name: "Colegio", logoPath: null } };
     mockLogout.mockReset();
     jest.mocked(documentsService.getDirectoryNavigationSummary).mockReset();
@@ -102,16 +105,39 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
 
     // a) Documentos is present (REQ-1/REQ-2 integration)
     expect(screen.getByText("Documentos")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Documentos/ })).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("link", { name: "Recientemente accedido" })).toHaveAttribute(
+      "href",
+      "/dashboard/documents?view=recent-accessed",
+    );
+    expect(screen.getByRole("link", { name: "Recientemente creado" })).toHaveAttribute(
+      "href",
+      "/dashboard/documents?view=recent-created",
+    );
+    expect(screen.getByRole("link", { name: "Todos los documentos" })).toHaveAttribute(
+      "href",
+      "/dashboard/documents?view=all",
+    );
+    expect(screen.getByRole("link", { name: "Papelera" })).toHaveAttribute(
+      "href",
+      "/dashboard/documents?view=trash",
+    );
+    expect(screen.getByRole("link", { name: "Nuevo Documento" })).toHaveAttribute(
+      "href",
+      "/dashboard/documents?action=new",
+    );
+    expect(screen.queryByRole("link", { name: "Documentos" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Papelera", hidden: true })).not.toHaveAttribute(
+      "href",
+      "/dashboard/trash",
+    );
+    expect(screen.queryByRole("link", { name: "Calendario" })).not.toBeInTheDocument();
     const settingsLink = screen.getByRole("link", { name: "Configuración" });
     expect(settingsLink).toHaveAttribute("href", "/dashboard/settings");
     expect(screen.queryByRole("button", { name: "Configuración" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Categorías" })).not.toBeInTheDocument();
 
-    // b) the Documentos nav link is active on its exact route
-    const docLink = screen.getByRole("link", { name: "Documentos" });
-    expect(docLink).toHaveAttribute("data-active", "true");
-
-    // c) account menu reveals only the session action (REQ-4).
+    // b) account menu reveals only the session action (REQ-4).
     const trigger = screen.getByLabelText("Abrir menú de cuenta");
     await userEvent.click(trigger);
     expect(await screen.findByText("Cerrar sesión")).toBeInTheDocument();
@@ -122,6 +148,52 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     // (data-slot="sidebar"); the data-sidebar="sidebar" inner div does not.
     const sidebarRoot = container.querySelector("[data-collapsible]");
     expect(sidebarRoot).toHaveAttribute("data-collapsible", "icon");
+  });
+
+  it.each([
+    ["view=recent-accessed", "Recientemente accedido"],
+    ["view=recent-created", "Recientemente creado"],
+    ["view=all", "Todos los documentos"],
+    ["view=trash", "Papelera"],
+    ["action=new", "Nuevo Documento"],
+  ])("marks the %s Documents query destination as active", (query, title) => {
+    currentSearch = query;
+    renderSidebar();
+
+    expect(screen.getByRole("button", { name: /Documentos/ })).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("link", { name: title })).toHaveAttribute("data-active", "true");
+  });
+
+  it("uses wrapping-safe structure only for Documents submenu entries", () => {
+    renderSidebar();
+
+    for (const title of [
+      "Recientemente accedido",
+      "Recientemente creado",
+      "Todos los documentos",
+      "Papelera",
+      "Nuevo Documento",
+    ]) {
+      const link = screen.getByRole("link", { name: title });
+
+      expect(link).toHaveClass("min-h-7", "h-auto", "items-start", "overflow-visible");
+      expect(link).toHaveClass(
+        "[&>span:last-child]:whitespace-normal",
+        "[&>span:last-child]:break-words",
+        "[&>span:last-child]:leading-tight",
+        "[&>span:last-child]:overflow-visible",
+        "[&>span:last-child]:text-clip",
+      );
+      expect(link.querySelector("span")).toHaveClass(
+        "min-w-0",
+        "flex-1",
+        "whitespace-normal",
+        "break-words",
+        "leading-tight",
+      );
+    }
+
+    expect(screen.getByRole("link", { name: "Archivo" })).not.toHaveClass("min-h-7");
   });
 
   it("keeps Configuration as a single destination for a roles.manage-only user", async () => {

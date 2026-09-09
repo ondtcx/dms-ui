@@ -7,6 +7,8 @@ import type { Document } from "@/lib/types";
 
 const user = { id: "user-1", role: "admin" };
 const push = jest.fn();
+const replace = jest.fn();
+let currentSearch = "";
 
 jest.mock("@/lib/contexts/AuthContext", () => ({
   useAuth: () => ({ user }),
@@ -35,7 +37,8 @@ jest.mock("@/components/structure/AcademicYearSelector", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace }),
+  useSearchParams: () => new URLSearchParams(currentSearch),
 }));
 
 jest.mock("react-hot-toast", () => ({
@@ -62,7 +65,11 @@ jest.mock("@/lib/services/onlyoffice.service", () => ({
 }));
 
 jest.mock("@/components/documents/DirectoryNavigation", () => ({
-  DirectoryNavigation: () => <div>Directory navigation</div>,
+  DirectoryNavigation: ({ compact }: { compact?: boolean }) => compact ? (
+    <div data-testid="compact-directory-navigation">
+      <a href="/dashboard/directories">Administrar directorios</a>
+    </div>
+  ) : <div>Directory navigation</div>,
 }));
 
 jest.mock("@/components/documents/DirectoryVisitRecorder", () => ({
@@ -70,7 +77,16 @@ jest.mock("@/components/documents/DirectoryVisitRecorder", () => ({
 }));
 
 jest.mock("@/components/documents/NewDocumentButton", () => ({
-  NewDocumentButton: () => <button type="button">Nuevo documento</button>,
+  NewDocumentButton: ({ open, onOpenChange }: { open?: boolean; onOpenChange?: (open: boolean) => void }) => (
+    <div>
+      <button type="button" onClick={() => onOpenChange?.(!open)}>Nuevo documento</button>
+      {open && <div role="menu">Crear Documento</div>}
+    </div>
+  ),
+}));
+
+jest.mock("@/components/documents/TrashView", () => ({
+  TrashView: () => <div>Vista de papelera</div>,
 }));
 
 jest.mock("@/components/documents/batch-actions-bar", () => ({
@@ -182,14 +198,25 @@ function renderPage() {
 describe("DocumentsPage presentation switching", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    currentSearch = "";
     jest.mocked(documentsService.getAll).mockResolvedValue({
-      data: documents,
+      data: documents as unknown as Document[],
       meta: { total: documents.length, page: 1, limit: 50, totalPages: 1 },
     });
     jest.mocked(documentsService.getStats).mockResolvedValue({
       totalDocuments: documents.length,
-      totalSizeMB: 6,
+      totalSize: 6,
+      totalSizeMB: "6",
     });
+  });
+
+  it("uses compact directory navigation with a management link", () => {
+    renderPage();
+
+    const navigation = screen.getByTestId("compact-directory-navigation");
+    expect(navigation).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: "Administrar directorios" })).toHaveAttribute("href", "/dashboard/directories");
+    expect(within(navigation).queryByRole("button", { name: /renombrar|eliminar/i })).not.toBeInTheDocument();
   });
 
   it("defaults to cards and renders every filtered document", async () => {
@@ -201,6 +228,85 @@ describe("DocumentsPage presentation switching", () => {
     expect(screen.getByRole("button", { name: "Vista de tarjetas" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Vista de lista" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByTestId("document-list-item")).not.toBeInTheDocument();
+  });
+
+  it("excludes residual workflow PDFs while keeping normal documents visible", async () => {
+    const residualDocument = {
+      ...documents[0],
+      id: 44,
+      versions: [{
+        ...documents[0].versions[0],
+        id: 102,
+        documentId: 44,
+        filename: "Workflow-1788839333360-WP4WBR.PDF",
+      }],
+    };
+    jest.mocked(documentsService.getAll).mockResolvedValue({
+      data: [...documents, residualDocument],
+      meta: { total: 3, page: 1, limit: 50, totalPages: 1 },
+    } as never);
+
+    renderPage();
+
+    const cardList = await screen.findByRole("list", { name: "Documentos" });
+    expect(within(cardList).getAllByTestId("document-card")).toHaveLength(2);
+    expect(within(cardList).getByText("First document.pdf")).toBeInTheDocument();
+    expect(within(cardList).getByText("Second document.docx")).toBeInTheDocument();
+    expect(within(cardList).queryByText("Workflow-1788839333360-WP4WBR.PDF")).not.toBeInTheDocument();
+    expect(screen.getByText("2 documento(s) encontrado(s)")).toBeInTheDocument();
+  });
+
+  it("requests recent accessed documents without automatic list exclusions", async () => {
+    currentSearch = "view=recent-accessed";
+    renderPage();
+
+    await screen.findByRole("list", { name: "Documentos" });
+
+    expect(documentsService.getAll).toHaveBeenCalledWith(expect.objectContaining({
+      view: "recent-accessed",
+    }));
+    const request = jest.mocked(documentsService.getAll).mock.calls[0][0];
+    expect(request).not.toHaveProperty("academicYearId");
+    expect(request).not.toHaveProperty("excludeBatched");
+  });
+
+  it("keeps residual filenames in the explicit all-documents view", async () => {
+    currentSearch = "view=all";
+    const residualDocument = {
+      ...documents[0],
+      id: 44,
+      versions: [{
+        ...documents[0].versions[0],
+        id: 102,
+        documentId: 44,
+        filename: "Workflow-1788839333360-WP4WBR.PDF",
+      }],
+    };
+    jest.mocked(documentsService.getAll).mockResolvedValue({
+      data: [...documents, residualDocument],
+      meta: { total: 3, page: 1, limit: 50, totalPages: 1 },
+    } as never);
+
+    renderPage();
+
+    const cardList = await screen.findByRole("list", { name: "Documentos" });
+    expect(within(cardList).getAllByTestId("document-card")).toHaveLength(3);
+    expect(within(cardList).getByText("Workflow-1788839333360-WP4WBR.PDF")).toBeInTheDocument();
+  });
+
+  it("opens the creation menu from the URL-backed new action", async () => {
+    currentSearch = "action=new";
+    renderPage();
+
+    expect(await screen.findByRole("menu")).toHaveTextContent("Crear Documento");
+  });
+
+  it("renders the trash view on the canonical Documents route", async () => {
+    currentSearch = "view=trash";
+    renderPage();
+
+    expect(await screen.findByText("Vista de papelera")).toBeInTheDocument();
+    expect(documentsService.getAll).not.toHaveBeenCalled();
   });
 
   it("updates selected state and switches between the same card and list documents", async () => {

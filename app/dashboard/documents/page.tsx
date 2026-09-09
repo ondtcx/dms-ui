@@ -8,7 +8,7 @@ import { useDocumentThumbnails } from "@/hooks/use-document-thumbnails";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
 import { onlyofficeService } from "@/lib/services/onlyoffice.service";
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import {
   FileText,
@@ -23,13 +23,19 @@ import {
   LayoutGrid,
   List,
 } from "lucide-react";
-import { Document, UploadMetadata, EMPTY_UPLOAD_METADATA } from "@/lib/types";
+import {
+  Document,
+  DocumentListView,
+  UploadMetadata,
+  EMPTY_UPLOAD_METADATA,
+} from "@/lib/types";
 import { formatFileSize } from "@/lib/utils";
 import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
 import { DocumentCard } from "@/components/documents/DocumentCard";
 import { DocumentListItem } from "@/components/documents/DocumentListItem";
 import { DocumentMetadataForm } from "@/components/documents/DocumentMetadataForm";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { TrashView } from "@/components/documents/TrashView";
 import { DocumentVersionHistory } from "@/components/documents/DocumentVersionHistory";
 import { ReplaceFileDialog } from "@/components/documents/ReplaceFileDialog";
 import { EditDocumentDialog } from "@/components/documents/EditDocumentDialog";
@@ -41,6 +47,7 @@ import { Layers } from "lucide-react";
 import { DirectoryNavigation } from "@/components/documents/DirectoryNavigation";
 import { DirectoryVisitRecorder } from "@/components/documents/DirectoryVisitRecorder";
 import { invalidateDirectoryQueries } from "@/lib/directory-cache";
+import { isResidualWorkflowFilename } from "@/lib/document-visibility";
 
 // Shadcn imports
 import { Button } from "@/components/ui/button";
@@ -75,12 +82,50 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Helper para obtener el componente de icono desde el string
 
+const DOCUMENT_LIST_VIEWS: DocumentListView[] = [
+  "recent-accessed",
+  "recent-created",
+  "all",
+  "trash",
+];
+
+function parseDocumentView(value: string | null): DocumentListView | undefined {
+  return DOCUMENT_LIST_VIEWS.includes(value as DocumentListView)
+    ? (value as DocumentListView)
+    : undefined;
+}
+
 export default function DocumentsPage() {
+  return (
+    <Suspense fallback={<div className="p-8">Cargando documentos...</div>}>
+      <DocumentsPageContent />
+    </Suspense>
+  );
+}
+
+function DocumentsPageContent() {
   const { user } = useAuth();
   const { isAdmin } = usePermissions();
   const { currentYearId } = useAcademicYearStore();
   const queryClient = useQueryClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
+  const newActionRequested = searchParams.get("action") === "new";
+  const documentView = parseDocumentView(searchParams.get("view"));
+  const isTrashView = documentView === "trash";
+  const isUnfilteredView =
+    documentView === "recent-accessed" ||
+    documentView === "recent-created" ||
+    documentView === "all";
+  const documentViewTitle =
+    documentView === "recent-accessed"
+      ? "Recientemente accedido"
+      : documentView === "recent-created"
+        ? "Recientemente creado"
+        : documentView === "all"
+          ? "Todos los documentos"
+          : "Documentos";
 
   // Estados
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -130,11 +175,17 @@ export default function DocumentsPage() {
   const [directoryId, setDirectoryId] = useState<number | null>(null);
   const [movingDocument, setMovingDocument] = useState<Document | null>(null);
   const [moveDestination, setMoveDestination] = useState<number | null>(null);
+  const [newMenuOpen, setNewMenuOpen] = useState(false);
+  const skipNewMenuCloseRef = useRef(false);
 
   useEffect(() => {
     const value = new URLSearchParams(window.location.search).get("directoryId");
     setDirectoryId(value ? Number(value) : null);
   }, []);
+
+  useEffect(() => {
+    setNewMenuOpen(newActionRequested);
+  }, [newActionRequested]);
 
   // Queries
   const {
@@ -143,25 +194,45 @@ export default function DocumentsPage() {
     error: documentsError,
     refetch: refetchDocuments,
   } = useQuery({
-    queryKey: ["documents", searchTerm, categoryFilter, onlyMine, currentYearId, directoryId],
+    queryKey: [
+      "documents",
+      searchTerm,
+      categoryFilter,
+      onlyMine,
+      currentYearId,
+      directoryId,
+      documentView,
+    ],
     queryFn: () =>
       documentsService.getAll({
         search: searchTerm || undefined,
         categoryId: categoryFilter,
         onlyMine: onlyMine || undefined,
-        academicYearId: currentYearId ?? undefined,
         directoryId,
-        excludeBatched: true,
+        ...(isUnfilteredView
+          ? { view: documentView }
+          : {
+              academicYearId: currentYearId ?? undefined,
+              excludeBatched: true,
+            }),
         page: 1,
         limit: 50,
       }),
+    enabled: !isTrashView,
   });
 
-  const { thumbnailUrls } = useDocumentThumbnails(documents?.data);
+  const filteredDocuments = documents?.data.filter(
+    (document) =>
+      documentView === "all" ||
+      !isResidualWorkflowFilename(document.versions?.[0]?.filename),
+  ) ?? [];
+
+  const { thumbnailUrls } = useDocumentThumbnails(filteredDocuments);
 
   const { data: stats } = useQuery({
     queryKey: ["stats"],
     queryFn: () => documentsService.getStats(),
+    enabled: !isTrashView,
   });
 
   const {
@@ -386,7 +457,41 @@ export default function DocumentsPage() {
     setShowReplaceFile(true);
   };
 
-  const filteredDocuments = documents?.data ?? [];
+  const handleNewMenuOpenChange = (open: boolean) => {
+    if (!open && skipNewMenuCloseRef.current) {
+      skipNewMenuCloseRef.current = false;
+      setNewMenuOpen(false);
+      return;
+    }
+
+    setNewMenuOpen(open);
+    const nextSearchParams = new URLSearchParams(queryString);
+    if (open) {
+      nextSearchParams.set("action", "new");
+    } else {
+      nextSearchParams.delete("action");
+    }
+    const nextQuery = nextSearchParams.toString();
+    router.replace(`/dashboard/documents${nextQuery ? `?${nextQuery}` : ""}`, {
+      scroll: false,
+    });
+  };
+
+  const handleNewMenuSelection = (callback: () => void) => {
+    skipNewMenuCloseRef.current = true;
+    setNewMenuOpen(false);
+    const nextSearchParams = new URLSearchParams(queryString);
+    nextSearchParams.delete("action");
+    const nextQuery = nextSearchParams.toString();
+    router.replace(`/dashboard/documents${nextQuery ? `?${nextQuery}` : ""}`, {
+      scroll: false,
+    });
+    callback();
+  };
+
+  if (isTrashView) {
+    return <TrashView />;
+  }
 
   return (
     <div className="bg-background">
@@ -427,11 +532,9 @@ export default function DocumentsPage() {
         )}
 
          {/* Barra de acciones */}
-        <Card>
-          <CardContent className="pt-6">
-            <DirectoryNavigation value={directoryId} onChange={setDirectoryId} />
-          </CardContent>
-        </Card>
+          <div className="rounded-lg border border-border bg-card/50 p-2">
+            <DirectoryNavigation value={directoryId} onChange={setDirectoryId} compact />
+          </div>
 
         <Card>
           <CardContent>
@@ -480,12 +583,14 @@ export default function DocumentsPage() {
               </div>
 
               {/* Botón Nuevo */}
-               <NewDocumentButton
-                 onUploadSingle={() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadModal(true); }}
-                 onUploadMultiple={() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadMultipleModal(true); }}
-                onFromTemplate={() => router.push("/dashboard/templates")}
-                onBatchGenerate={() => setShowBatchSelectDialog(true)}
-                onCreateInEditor={() => setShowCreateInEditorDialog(true)}
+                <NewDocumentButton
+                  onUploadSingle={() => handleNewMenuSelection(() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadModal(true); })}
+                  onUploadMultiple={() => handleNewMenuSelection(() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadMultipleModal(true); })}
+                 onFromTemplate={() => handleNewMenuSelection(() => router.push("/dashboard/templates"))}
+                 onBatchGenerate={() => handleNewMenuSelection(() => setShowBatchSelectDialog(true))}
+                 onCreateInEditor={() => handleNewMenuSelection(() => setShowCreateInEditorDialog(true))}
+                open={newMenuOpen}
+                onOpenChange={handleNewMenuOpenChange}
               />
             </div>
           </CardContent>
@@ -510,7 +615,7 @@ export default function DocumentsPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Documentos</CardTitle>
+                 <CardTitle>{documentViewTitle}</CardTitle>
                 <CardDescription>
                   {filteredDocuments.length} documento(s) encontrado(s)
                   {selectedDocuments.length > 0 && (
