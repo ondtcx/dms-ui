@@ -20,10 +20,13 @@ import {
   FolderOpen,
   AlertCircle,
   RefreshCw,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { Document, UploadMetadata, EMPTY_UPLOAD_METADATA } from "@/lib/types";
 import { formatFileSize } from "@/lib/utils";
 import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
+import { DocumentCard } from "@/components/documents/DocumentCard";
 import { DocumentListItem } from "@/components/documents/DocumentListItem";
 import { DocumentMetadataForm } from "@/components/documents/DocumentMetadataForm";
 import { useRouter } from "next/navigation";
@@ -108,6 +111,7 @@ export default function DocumentsPage() {
 
   // Estados para batch actions
   const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([]);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   // Tab principal: documentos individuales vs lotes
   const [mainTab, setMainTab] = useState<'documents' | 'batches'>('documents');
@@ -518,6 +522,36 @@ export default function DocumentsPage() {
                 </CardDescription>
               </div>
               <div className="flex items-center gap-3">
+                <div
+                  className="flex items-center gap-1 rounded-md border bg-muted p-1"
+                  role="group"
+                  aria-label="Cambiar vista"
+                >
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={viewMode === "grid" ? "default" : "ghost"}
+                    className="h-7 px-2 text-xs focus-visible:ring-2"
+                    aria-label="Vista de tarjetas"
+                    aria-pressed={viewMode === "grid"}
+                    onClick={() => setViewMode("grid")}
+                  >
+                    <LayoutGrid className="h-3.5 w-3.5" />
+                    <span className="sr-only">Tarjetas</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={viewMode === "list" ? "default" : "ghost"}
+                    className="h-7 px-2 text-xs focus-visible:ring-2"
+                    aria-label="Vista de lista"
+                    aria-pressed={viewMode === "list"}
+                    onClick={() => setViewMode("list")}
+                  >
+                    <List className="h-3.5 w-3.5" />
+                    <span className="sr-only">Lista</span>
+                  </Button>
+                </div>
                 {/* Control segmentado Todos / Mis documentos */}
                 <div className="flex items-center rounded-md border bg-muted p-1 gap-1">
                   <Button
@@ -592,28 +626,55 @@ export default function DocumentsPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {filteredDocuments.map((doc, index) => (
-                  <DocumentListItem
-                    key={doc.id}
-                    doc={doc}
-                    index={index}
-                    isSelected={selectedDocuments.some((d) => d.id === doc.id)}
-                    onToggle={handleToggleDocument}
-                    thumbnailUrl={thumbnailUrls[doc.id]?.url}
-                    onPreview={handlePreview}
-                    onDownload={handleDownload}
-                    onShowVersionHistory={handleShowVersionHistory}
-                    onEdit={(d) => { setEditingDocument(d); setShowEditDialog(true); }}
-                    onReplaceFile={handleShowReplaceFile}
-                    onDelete={handleDelete}
-                    canDelete={isAdmin() || doc.uploadedById === String(user?.id)}
-                    isOwn={doc.uploadedById === user?.id}
-                     isDeleting={deleteMutation.isPending}
-                     onMove={(document) => { setMovingDocument(document); setMoveDestination(document.directoryId ?? null); }}
-                   />
-                ))}
-              </div>
+              viewMode === "grid" ? (
+                <ul
+                  aria-label="Documentos"
+                  className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+                >
+                  {filteredDocuments.map((doc) => (
+                    <DocumentCard
+                      key={doc.id}
+                      doc={doc}
+                      isSelected={selectedDocuments.some((d) => d.id === doc.id)}
+                      onToggle={handleToggleDocument}
+                      thumbnailUrl={thumbnailUrls[doc.id]?.url}
+                      onPreview={handlePreview}
+                      onDownload={handleDownload}
+                      onShowVersionHistory={handleShowVersionHistory}
+                      onEdit={(d) => { setEditingDocument(d); setShowEditDialog(true); }}
+                      onReplaceFile={handleShowReplaceFile}
+                      onDelete={handleDelete}
+                      canDelete={isAdmin() || doc.uploadedById === String(user?.id)}
+                      isOwn={doc.uploadedById === user?.id}
+                      isDeleting={deleteMutation.isPending}
+                      onMove={(document) => { setMovingDocument(document); setMoveDestination(document.directoryId ?? null); }}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <div className="space-y-4">
+                  {filteredDocuments.map((doc, index) => (
+                    <DocumentListItem
+                      key={doc.id}
+                      doc={doc}
+                      index={index}
+                      isSelected={selectedDocuments.some((d) => d.id === doc.id)}
+                      onToggle={handleToggleDocument}
+                      thumbnailUrl={thumbnailUrls[doc.id]?.url}
+                      onPreview={handlePreview}
+                      onDownload={handleDownload}
+                      onShowVersionHistory={handleShowVersionHistory}
+                      onEdit={(d) => { setEditingDocument(d); setShowEditDialog(true); }}
+                      onReplaceFile={handleShowReplaceFile}
+                      onDelete={handleDelete}
+                      canDelete={isAdmin() || doc.uploadedById === String(user?.id)}
+                      isOwn={doc.uploadedById === user?.id}
+                      isDeleting={deleteMutation.isPending}
+                      onMove={(document) => { setMovingDocument(document); setMoveDestination(document.directoryId ?? null); }}
+                    />
+                  ))}
+                </div>
+              )
             )}
           </CardContent>
         </Card>
