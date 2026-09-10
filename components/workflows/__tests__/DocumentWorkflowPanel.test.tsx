@@ -59,6 +59,8 @@ const definitions: ApplicableWorkflowDefinition[] = [{
   }],
 }];
 
+const originalWorkflowFeatureValue = process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED;
+
 function renderPanel() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -88,10 +90,31 @@ describe("workflow event traceability", () => {
 
 describe("document workflow initiation", () => {
   beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = "true";
     hasPermission.mockReturnValue(true);
     jest.mocked(workflowsService.history).mockResolvedValue([]);
     jest.mocked(workflowsService.getStartableDefinitions).mockResolvedValue(definitions);
     jest.mocked(workflowsService.start).mockResolvedValue({} as any);
+  });
+
+  afterEach(() => {
+    if (originalWorkflowFeatureValue === undefined) {
+      delete process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED;
+    } else {
+      process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = originalWorkflowFeatureValue;
+    }
+  });
+
+  it("does not request workflow data when the feature is disabled", async () => {
+    process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = "false";
+
+    renderPanel();
+
+    expect(await screen.findByText("Los flujos de trabajo están desactivados para este entorno.")).toBeInTheDocument();
+    expect(workflowsService.history).not.toHaveBeenCalled();
+    expect(workflowsService.getStartableDefinitions).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Iniciar flujo de trabajo" })).not.toBeInTheDocument();
   });
 
   it("keeps a single applicable version unselected until the user explicitly selects it", async () => {

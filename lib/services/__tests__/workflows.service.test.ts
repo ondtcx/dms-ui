@@ -42,9 +42,10 @@ describe("workflow UI contracts", () => {
   });
 
   it("uses the document-scoped applicable-definition endpoint", async () => {
-    jest.mocked(api.get).mockResolvedValue({ data: [] });
+    const definitions = [{ id: 7, name: "Aprobación", versions: [] }];
+    jest.mocked(api.get).mockResolvedValue({ data: definitions });
 
-    await workflowsService.getStartableDefinitions(123);
+    await expect(workflowsService.getStartableDefinitions(123)).resolves.toEqual(definitions);
 
     expect(api.get).toHaveBeenCalledWith("/documents/123/workflow-definitions");
   });

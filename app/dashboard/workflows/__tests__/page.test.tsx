@@ -57,6 +57,8 @@ const definitions = [
   },
 ];
 
+const originalWorkflowFeatureValue = process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED;
+
 function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -71,11 +73,20 @@ function renderPage() {
 describe("Workflow administration definition states", () => {
   beforeEach(() => {
     canManage = true;
+    process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = "true";
     jest.mocked(workflowsService.getDefinitions).mockReset();
     jest.mocked(workflowsService.getDefinition).mockReset();
     jest
       .mocked(workflowsService.getDefinition)
       .mockResolvedValue(definitions[0]);
+  });
+
+  afterEach(() => {
+    if (originalWorkflowFeatureValue === undefined) {
+      delete process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED;
+    } else {
+      process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = originalWorkflowFeatureValue;
+    }
   });
 
   it("keeps workflow data and mutation controls absent for an unauthorized bookmark", () => {

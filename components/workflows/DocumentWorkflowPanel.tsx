@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { WORKFLOW_STATUS_CONFIG } from "@/lib/workflow-status-config";
 import { workflowsService } from "@/lib/services/workflows.service";
+import { isWorkflowFeatureEnabled } from "@/lib/workflow-feature";
 import {
   getWorkflowActionState,
   requiresWorkflowComment,
@@ -46,6 +47,7 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
   const { user } = useAuth();
   const { hasPermission, isAdmin } = usePermissions();
   const queryClient = useQueryClient();
+  const workflowFeatureEnabled = isWorkflowFeatureEnabled();
   const [dialogAction, setDialogAction] = useState<WorkflowTransitionAction | null>(null);
   const [comment, setComment] = useState("");
   const [reassigning, setReassigning] = useState<number | null>(null);
@@ -55,8 +57,9 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
   const historyQuery = useQuery({
     queryKey: ["document-workflows", documentId],
     queryFn: () => workflowsService.history(documentId),
+    enabled: workflowFeatureEnabled,
   });
-  const executions = historyQuery.data ?? [];
+  const executions = workflowFeatureEnabled ? historyQuery.data ?? [] : [];
   const execution = executions.find((item) => item.active) ?? executions[0];
   const assigned = !!user && execution?.assignments.some(
     (item) => item.userId === user.id && item.status === "PENDING" && item.stageDefinition.order === execution.currentStateOrder,
@@ -64,11 +67,11 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
   const state = execution
     ? getWorkflowActionState(execution.status, assigned)
     : { canApprove: false, canRequestChanges: false, canReject: false, canCancel: false, canSubmit: false };
-  const canStart = !execution?.active && !!user && (user.id === documentOwnerId || isAdmin()) && hasPermission("workflow.start");
+  const canStart = workflowFeatureEnabled && !execution?.active && !!user && (user.id === documentOwnerId || isAdmin()) && hasPermission("workflow.start");
   const definitionsQuery = useQuery({
     queryKey: ["document-workflow-definitions", documentId],
     queryFn: () => workflowsService.getStartableDefinitions(documentId),
-    enabled: canStart,
+    enabled: workflowFeatureEnabled && canStart,
   });
   const availableVersions = definitionsQuery.data?.flatMap((definition) =>
     definition.versions.map((version) => ({
@@ -137,6 +140,8 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!workflowFeatureEnabled && <p className="text-sm text-muted-foreground">Los flujos de trabajo están desactivados para este entorno.</p>}
+        {workflowFeatureEnabled && <>
         {historyQuery.isLoading ? <p className="text-sm text-muted-foreground">Cargando flujo de trabajo...</p> : null}
         {historyQuery.isError ? <p className="text-sm text-destructive">No se pudo cargar el historial del flujo de trabajo.</p> : null}
         {!historyQuery.isLoading && !historyQuery.isError && !execution && (
@@ -177,6 +182,7 @@ export function DocumentWorkflowPanel({ documentId, documentOwnerId, documentVer
             </div>
           </>
         )}
+        </>}
       </CardContent>
       <Dialog open={dialogAction !== null} onOpenChange={(open) => {
         if (!open) {

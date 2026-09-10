@@ -52,6 +52,8 @@ const detail = {
   history: [{ id: 99, status: "APPROVED", currentState: "Finalizado" }],
 } as unknown as WorkflowDefinitionDetail;
 
+const originalWorkflowFeatureValue = process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED;
+
 function renderSurface() {
   return render(
     <QueryClientProvider
@@ -66,12 +68,31 @@ function renderSurface() {
 
 describe("WorkflowAdministration", () => {
   beforeEach(() => {
+    process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = "true";
     jest.mocked(workflowsService.getDefinitions).mockReset();
     jest.mocked(workflowsService.getDefinition).mockReset();
     jest.mocked(workflowsService.createVersion).mockReset();
     jest.mocked(workflowsService.validate).mockReset();
     jest.mocked(workflowsService.activate).mockReset();
     jest.mocked(workflowsService.deactivate).mockReset();
+  });
+
+  afterEach(() => {
+    if (originalWorkflowFeatureValue === undefined) {
+      delete process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED;
+    } else {
+      process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = originalWorkflowFeatureValue;
+    }
+  });
+
+  it("does not query workflow definitions when the feature is disabled", async () => {
+    process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = "false";
+
+    renderSurface();
+
+    expect(await screen.findByText("Los flujos de trabajo están desactivados para este entorno.")).toBeInTheDocument();
+    expect(workflowsService.getDefinitions).not.toHaveBeenCalled();
+    expect(workflowsService.getDefinition).not.toHaveBeenCalled();
   });
 
   it("renders the selected definition detail with ordered stages and read-only history", async () => {
