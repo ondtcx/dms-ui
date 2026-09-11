@@ -3,26 +3,34 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CalendarDays, FileText, Settings, Sparkles, Users } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { useSettings } from "@/lib/contexts/SettingsContext";
-import { RoleGuard } from "@/guards/RoleGuard";
 import { documentsService } from "@/lib/services/documents.service";
-import { UserRole } from "@/lib/types";
 import { DashboardDocumentRow } from "@/components/documents/DashboardDocumentRow";
 import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const ROTATING_MESSAGES = [
+  "¡Qué gusto verte!",
+  "¡Que tengas un gran día!",
+  "¡Mucho éxito hoy!",
+  "¡Qué bueno tenerte aquí!",
+  "¡Te damos la bienvenida!",
+  "¡Que todo marche muy bien!",
+  "¡Excelente jornada!",
+  "¡Listos para ayudarte!",
+  "¡A comenzar con energía!",
+  "¡Que disfrutes tu jornada!",
+];
+
+const MESSAGE_INDEX_STORAGE_KEY = "dashboard-message-index";
+
 function getGreeting() {
   const hour = new Date().getHours();
   return hour < 12 ? "¡Buenos días" : hour < 19 ? "¡Buenas tardes" : "¡Buenas noches";
-}
-
-function roleLabel(role: string) {
-  return ({ admin: "Administrador", rector: "Rector", vicerrector: "Vicerrector", coordinador: "Coordinador", profesor: "Profesor", secretario: "Secretario", padre: "Padre/Tutor", estudiante: "Estudiante", moderador: "Moderador", user: "Usuario" } as Record<string, string>)[role] ?? role;
 }
 
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
@@ -41,16 +49,30 @@ function isPermissionDenied(error: unknown) {
 
 export default function DashboardHomePage() {
   const { user } = useAuth();
-  const { settings } = useSettings();
   const router = useRouter();
+  const [messageIndex, setMessageIndex] = useState(0);
+  const hasRotatedMessage = useRef(false);
   const summary = useQuery({ queryKey: ["documents", "dashboard-summary"], queryFn: documentsService.getDashboardSummary });
-  const context = [settings?.institution?.name, settings?.schoolYear?.isActive ? settings.schoolYear.name : null].filter(Boolean).join(" · ");
   const goToDocuments = () => router.push("/dashboard/documents");
   const permissionDenied = isPermissionDenied(summary.error);
 
+  useEffect(() => {
+    if (hasRotatedMessage.current) return;
+    hasRotatedMessage.current = true;
+
+    const storedIndex = window.sessionStorage.getItem(MESSAGE_INDEX_STORAGE_KEY);
+    const previousIndex = storedIndex === null ? -1 : Number(storedIndex);
+    const nextIndex = Number.isInteger(previousIndex)
+      ? (previousIndex + 1) % ROTATING_MESSAGES.length
+      : 0;
+
+    setMessageIndex(nextIndex);
+    window.sessionStorage.setItem(MESSAGE_INDEX_STORAGE_KEY, String(nextIndex));
+  }, []);
+
   return <main className="mx-auto max-w-7xl space-y-8 overflow-x-hidden p-4 sm:p-8">
     <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div className="space-y-1"><h1 className="text-3xl font-bold tracking-tight">{getGreeting()}, {user?.name}!</h1><div className="flex flex-wrap items-center gap-2"><p className="text-muted-foreground">Bienvenido a tu panel de gestión de documentos</p><Badge variant="secondary">{roleLabel(user?.role ?? "")}</Badge></div>{context && <p className="text-sm text-muted-foreground">{context}</p>}</div>
+      <div><h1 className="text-3xl font-bold tracking-tight">{getGreeting()}, {user?.name}!</h1><p className="mt-1 text-muted-foreground" aria-live="polite">{ROTATING_MESSAGES[messageIndex]}</p></div>
       <NewDocumentButton aria-label="Nuevo documento" onUploadSingle={goToDocuments} onUploadMultiple={goToDocuments} onFromTemplate={goToDocuments} onBatchGenerate={goToDocuments} onCreateInEditor={goToDocuments} />
     </header>
 
@@ -65,12 +87,5 @@ export default function DashboardHomePage() {
       <Card><CardContent className="pt-4">{summary.isLoading ? <div className="space-y-3" role="status" aria-live="polite" aria-busy="true" aria-label="Cargando documentos">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-14 w-full motion-reduce:animate-none" />)}</div> : summary.isError ? <p className="text-sm text-muted-foreground" role="status">{permissionDenied ? "Los documentos recientes no están disponibles por permisos insuficientes." : "Los documentos recientes no están disponibles."}</p> : summary.data?.recent.length ? <div className="divide-y">{summary.data.recent.map((document) => <DashboardDocumentRow key={document.id} document={document} />)}</div> : <p className="py-6 text-center text-sm text-muted-foreground">No hay documentos recientes.</p>}</CardContent></Card>
     </Section>
 
-     <Section title="Acceso rápido"><div className="grid gap-3 sm:grid-cols-3"><QuickLink href="/dashboard/documents" icon={<FileText />} title="Documentos" desc="Ver y gestionar" /><RoleGuard roles={[UserRole.ADMIN, UserRole.RECTOR]}><QuickLink href="/dashboard/templates" icon={<Sparkles />} title="Plantillas" desc="Generar documentos" /></RoleGuard><QuickLink href="/dashboard/calendar" icon={<CalendarDays />} title="Calendario" desc="Vista por fecha" /></div></Section>
-
-    <RoleGuard roles={[UserRole.ADMIN, UserRole.RECTOR]}><Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20"><CardContent className="pt-5"><div className="flex flex-wrap items-center gap-3"><Users className="h-5 w-5 text-blue-600" /><span className="font-semibold">Panel de gestión</span><Button asChild size="sm" variant="outline"><Link href="/dashboard/users">Usuarios</Link></Button><RoleGuard roles={[UserRole.ADMIN]}><Button asChild size="sm" variant="outline"><Link href="/dashboard/settings"><Settings className="mr-1 h-3.5 w-3.5" />Configuración</Link></Button></RoleGuard></div></CardContent></Card></RoleGuard>
   </main>;
-}
-
-function QuickLink({ href, icon, title, desc }: { href: string; icon: React.ReactNode; title: string; desc: string }) {
-  return <Link href={href}><Card className="h-full motion-safe:transition-shadow motion-reduce:transition-none hover:shadow-md"><CardContent className="flex items-center gap-3 pt-4"><span className="rounded-lg bg-primary/10 p-2.5 text-primary">{icon}</span><span><span className="block text-sm font-medium">{title}</span><span className="block text-xs text-muted-foreground">{desc}</span></span><ArrowRight className="ml-auto h-4 w-4 text-muted-foreground" aria-hidden="true" /></CardContent></Card></Link>;
 }
