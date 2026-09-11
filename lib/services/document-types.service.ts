@@ -22,6 +22,11 @@ export const documentTypesService = {
     return response.data;
   },
 
+  async getDefault(): Promise<DocumentType | null> {
+    const response = await api.get<DocumentType | null>("/document-types/default");
+    return response.data;
+  },
+
   async getOne(id: number): Promise<DocumentType> {
     const response = await api.get<DocumentType>(`/document-types/${id}`);
     return response.data;

@@ -19,6 +19,7 @@ export interface DocumentType {
   description: string | null;
   categoryId: number;
   isActive: boolean;
+  isDefault: boolean;
   createdAt: string;
   updatedAt: string;
   category?: { id: number; name: string; color: string; icon: string } | null;
@@ -30,6 +31,7 @@ export interface CreateDocumentTypeDto {
   description?: string;
   categoryId: number;
   isActive?: boolean;
+  isDefault?: boolean;
 }
 
 export interface UpdateDocumentTypeDto {
@@ -37,6 +39,7 @@ export interface UpdateDocumentTypeDto {
   description?: string;
   categoryId?: number;
   isActive?: boolean;
+  isDefault?: boolean;
 }
 
 export interface DocumentTemplate {

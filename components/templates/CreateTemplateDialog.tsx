@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
 import { categoriesService } from "@/lib/services/categories.service";
@@ -94,6 +94,7 @@ export function CreateTemplateDialog({
 }: CreateTemplateDialogProps) {
   const queryClient = useQueryClient();
   const isEditing = !!template;
+  const defaultAppliedForOpen = useRef(false);
 
   const [name, setName] = useState("");
   const [documentTypeId, setDocumentTypeId] = useState<number | undefined>(undefined);
@@ -111,6 +112,11 @@ export function CreateTemplateDialog({
     queryKey: ["document-types", "active", categoryId],
     queryFn: () => documentTypesService.getActive(categoryId),
     enabled: !!categoryId,
+  });
+
+  const { data: defaultDocumentType } = useQuery({
+    queryKey: ["document-types", "default"],
+    queryFn: () => documentTypesService.getDefault(),
   });
 
   // Nuevos campos
@@ -138,6 +144,18 @@ export function CreateTemplateDialog({
       resetForm();
     }
   }, [template]);
+
+  useEffect(() => {
+    if (!open) {
+      defaultAppliedForOpen.current = false;
+      return;
+    }
+    if (!isEditing && !defaultAppliedForOpen.current && defaultDocumentType) {
+      setCategoryId(defaultDocumentType.categoryId);
+      setDocumentTypeId(defaultDocumentType.id);
+      defaultAppliedForOpen.current = true;
+    }
+  }, [open, isEditing, defaultDocumentType]);
 
   const createMutation = useMutation({
     mutationFn: templatesService.create,

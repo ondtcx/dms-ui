@@ -79,6 +79,7 @@ function DocumentTypeForm({
   const [description, setDescription] = useState(initialValues?.description ?? "");
   const [categoryId, setCategoryId] = useState<number | undefined>(initialValues?.categoryId);
   const [isActive, setIsActive] = useState(initialValues?.isActive ?? true);
+  const [isDefault, setIsDefault] = useState(initialValues?.isDefault ?? false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +91,13 @@ function DocumentTypeForm({
       toast.error("La categoría es requerida");
       return;
     }
-    onSubmit({ name: name.trim(), description: description.trim() || undefined, categoryId, isActive });
+    onSubmit({
+      name: name.trim(),
+      description: description.trim() || undefined,
+      categoryId,
+      isActive,
+      isDefault,
+    });
   };
 
   return (
@@ -143,13 +150,32 @@ function DocumentTypeForm({
         <Checkbox
           id="dt-isActive"
           checked={isActive}
-          onCheckedChange={(checked) => setIsActive(checked as boolean)}
+          onCheckedChange={(checked) => {
+            const active = checked as boolean;
+            setIsActive(active);
+            if (!active) setIsDefault(false);
+          }}
         />
         <label
           htmlFor="dt-isActive"
           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
         >
           Activo
+        </label>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="dt-isDefault"
+          checked={isDefault}
+          disabled={!isActive}
+          onCheckedChange={(checked) => setIsDefault(checked as boolean)}
+        />
+        <label
+          htmlFor="dt-isDefault"
+          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        >
+          Tipo predeterminado global
         </label>
       </div>
 
@@ -202,9 +228,9 @@ function DocumentTypesPageContent() {
 
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentTypeDto) => documentTypesService.create(data),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["document-types"] });
-      toast.success("Subtipo creado exitosamente");
+       toast.success(data?.isDefault ? "Tipo predeterminado establecido" : "Subtipo creado exitosamente");
       setShowModal(false);
     },
     onError: (error: { response?: { data?: { message?: string } } }) => {
@@ -215,9 +241,15 @@ function DocumentTypesPageContent() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateDocumentTypeDto }) =>
       documentTypesService.update(id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["document-types"] });
-      toast.success("Subtipo actualizado exitosamente");
+     onSuccess: (_data, variables) => {
+       queryClient.invalidateQueries({ queryKey: ["document-types"] });
+       toast.success(
+         variables.data.isDefault === true
+           ? "Tipo predeterminado establecido"
+           : variables.data.isDefault === false
+             ? "Tipo predeterminado retirado"
+             : "Subtipo actualizado exitosamente",
+       );
       setEditingType(null);
       setShowModal(false);
     },
@@ -375,6 +407,7 @@ function DocumentTypesPageContent() {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Categoría</TableHead>
                   <TableHead>Descripción</TableHead>
+                  <TableHead>Predeterminado</TableHead>
                   <TableHead>Plantillas</TableHead>
                   <TableHead>Documentos</TableHead>
                   <TableHead>Estado</TableHead>
@@ -384,7 +417,7 @@ function DocumentTypesPageContent() {
               <TableBody>
                 {filteredTypes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No hay subtipos
                     </TableCell>
                   </TableRow>
@@ -410,6 +443,15 @@ function DocumentTypesPageContent() {
                         <span className="text-sm text-muted-foreground truncate max-w-[200px] block">
                           {dt.description || "—"}
                         </span>
+                      </TableCell>
+                      <TableCell>
+                        {dt.isDefault ? (
+                          <Badge variant="outline" className="border-primary text-primary">
+                            Predeterminado
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className="text-sm tabular-nums">{dt._count?.documentTemplates ?? 0}</span>

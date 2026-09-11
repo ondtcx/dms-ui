@@ -24,7 +24,6 @@ jest.mock("@/hooks/use-upload-metadata", () => ({
     loadingCategories: false,
     academicYears: [],
     uploadDocumentTypes: [{ id: 12, name: "Oficio" }],
-    defaultDocumentType: { id: 12, name: "Oficio", categoryId: 4 },
     selectedCategory: undefined,
   }),
 }));
@@ -352,18 +351,17 @@ describe("DocumentsPage presentation switching", () => {
     expect(documentsService.upload).not.toHaveBeenCalled();
   });
 
-  it("does not auto-select the editor default in the upload form", async () => {
+  it("requires an explicit document type in the multiple-upload form", async () => {
     const interaction = userEvent.setup();
     renderPage();
 
     await interaction.click(screen.getByRole("button", { name: "Nuevo documento" }));
-    await interaction.click(screen.getByRole("button", { name: "Subir Archivo" }));
+    await interaction.click(screen.getByRole("button", { name: "Subir Múltiples Archivos" }));
 
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("combobox")).toHaveTextContent(
       "Selecciona un tipo de documento",
     );
-    expect(within(dialog).queryByText("(Predeterminado)")).not.toBeInTheDocument();
   });
 
   it("renders the trash view on the canonical Documents route", async () => {
