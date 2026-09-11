@@ -40,7 +40,7 @@ export function NewDocumentButton({
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <Button size="default" className="gap-2 bg-slate-900 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100" aria-label={ariaLabel}>
+        <Button size="default" className="gap-2" aria-label={ariaLabel}>
           <Plus className="h-4 w-4" />
           Nuevo
         </Button>

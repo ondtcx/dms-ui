@@ -14,7 +14,6 @@ import {
   FileText,
   Download,
   Upload,
-  Search,
   Filter,
   User,
   FolderOpen,
@@ -131,7 +130,6 @@ function DocumentsPageContent() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | undefined>(
     undefined,
   );
@@ -143,6 +141,7 @@ function DocumentsPageContent() {
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [uploadData, setUploadData] = useState<UploadMetadata>(EMPTY_UPLOAD_METADATA);
+  const [uploadValidationError, setUploadValidationError] = useState<string | undefined>();
 
   // Estados para version history y replace file
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -172,16 +171,19 @@ function DocumentsPageContent() {
     documentTypeId?: number;
   }>({ title: "", fileType: "docx" });
   const [creatingInEditor, setCreatingInEditor] = useState(false);
-  const [directoryId, setDirectoryId] = useState<number | null>(null);
+  const [directoryId, setDirectoryId] = useState<number | null>(() => {
+    const value = searchParams.get("directoryId");
+    return value ? Number(value) : null;
+  });
   const [movingDocument, setMovingDocument] = useState<Document | null>(null);
   const [moveDestination, setMoveDestination] = useState<number | null>(null);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const skipNewMenuCloseRef = useRef(false);
 
   useEffect(() => {
-    const value = new URLSearchParams(window.location.search).get("directoryId");
+    const value = searchParams.get("directoryId");
     setDirectoryId(value ? Number(value) : null);
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     setNewMenuOpen(newActionRequested);
@@ -196,7 +198,6 @@ function DocumentsPageContent() {
   } = useQuery({
     queryKey: [
       "documents",
-      searchTerm,
       categoryFilter,
       onlyMine,
       currentYearId,
@@ -205,7 +206,6 @@ function DocumentsPageContent() {
     ],
     queryFn: () =>
       documentsService.getAll({
-        search: searchTerm || undefined,
         categoryId: categoryFilter,
         onlyMine: onlyMine || undefined,
         directoryId,
@@ -238,12 +238,8 @@ function DocumentsPageContent() {
   const {
     categories,
     loadingCategories,
-    academicYears,
     uploadDocumentTypes,
-    selectedCategory,
-  } = useUploadMetadata({
-    categoryId: uploadData.categoryId,
-  });
+  } = useUploadMetadata();
 
   // Mutations
   const deleteMutation = useMutation({
@@ -295,7 +291,6 @@ function DocumentsPageContent() {
       toast.error("Selecciona un archivo");
       return;
     }
-
     setUploading(true);
     try {
       await documentsService.upload(selectedFile, uploadData);
@@ -329,7 +324,6 @@ function DocumentsPageContent() {
       toast.error("Selecciona al menos un archivo");
       return;
     }
-
     setUploading(true);
     try {
       await documentsService.uploadMultiple(selectedFiles, uploadData);
@@ -531,71 +525,6 @@ function DocumentsPageContent() {
           </div>
         )}
 
-         {/* Barra de acciones */}
-          <div className="rounded-lg border border-border bg-card/50 p-2">
-            <DirectoryNavigation value={directoryId} onChange={setDirectoryId} compact />
-          </div>
-
-        <Card>
-          <CardContent>
-            <div className="flex flex-col md:flex-row gap-4">
-              {/* Búsqueda y Filtros */}
-              <div className="flex-1 flex gap-2">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                  <Input
-                    placeholder="Buscar documentos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && searchTerm.trim()) {
-                        router.push(`/dashboard/search?q=${encodeURIComponent(searchTerm.trim())}`);
-                      }
-                    }}
-                    className="pl-10"
-                  />
-                </div>
-
-                {/* Filtro de categorías */}
-                <Select
-                  value={categoryFilter?.toString() || "all"}
-                  onValueChange={(value) =>
-                    setCategoryFilter(value === "all" ? undefined : parseInt(value))
-                  }
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <Filter className="mr-2 h-4 w-4" />
-                    <SelectValue placeholder="Categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {!loadingCategories &&
-                      categories
-                        ?.filter((cat) => cat.isActive)
-                        .map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id.toString()}>
-                            {cat.name}
-                          </SelectItem>
-                        ))}
-                  </SelectContent>
-                </Select>
-
-              </div>
-
-              {/* Botón Nuevo */}
-                <NewDocumentButton
-                  onUploadSingle={() => handleNewMenuSelection(() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadModal(true); })}
-                  onUploadMultiple={() => handleNewMenuSelection(() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadMultipleModal(true); })}
-                 onFromTemplate={() => handleNewMenuSelection(() => router.push("/dashboard/templates"))}
-                 onBatchGenerate={() => handleNewMenuSelection(() => setShowBatchSelectDialog(true))}
-                 onCreateInEditor={() => handleNewMenuSelection(() => setShowCreateInEditorDialog(true))}
-                open={newMenuOpen}
-                onOpenChange={handleNewMenuOpenChange}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Tabs: Documentos / Lotes */}
         <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'batches')}>
           <TabsList>
@@ -613,20 +542,59 @@ function DocumentsPageContent() {
         {/* Lista de documentos */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                 <CardTitle>{documentViewTitle}</CardTitle>
-                <CardDescription>
-                  {filteredDocuments.length} documento(s) encontrado(s)
-                  {selectedDocuments.length > 0 && (
-                    <span className="ml-2 text-primary">
-                      ({selectedDocuments.length} seleccionado
-                      {selectedDocuments.length > 1 ? "s" : ""})
-                    </span>
-                  )}
-                </CardDescription>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <CardTitle>{documentViewTitle}</CardTitle>
+                  <CardDescription>
+                    {filteredDocuments.length} documento(s) encontrado(s)
+                    {selectedDocuments.length > 0 && (
+                      <span className="ml-2 text-primary">
+                        ({selectedDocuments.length} seleccionado
+                        {selectedDocuments.length > 1 ? "s" : ""})
+                      </span>
+                    )}
+                  </CardDescription>
+                </div>
+                <div className="flex shrink-0 justify-start sm:justify-end">
+                  {/* Botón Nuevo */}
+                  <NewDocumentButton
+                    onUploadSingle={() => handleNewMenuSelection(() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadModal(true); })}
+                    onUploadMultiple={() => handleNewMenuSelection(() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadMultipleModal(true); })}
+                    onFromTemplate={() => handleNewMenuSelection(() => router.push("/dashboard/templates"))}
+                    onBatchGenerate={() => handleNewMenuSelection(() => setShowBatchSelectDialog(true))}
+                    onCreateInEditor={() => handleNewMenuSelection(() => setShowCreateInEditorDialog(true))}
+                    open={newMenuOpen}
+                    onOpenChange={handleNewMenuOpenChange}
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-3">
+
+              <div className="flex w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:justify-end">
+                {/* Filtro de categorías */}
+                <Select
+                  value={categoryFilter?.toString() || "all"}
+                  onValueChange={(value) =>
+                    setCategoryFilter(value === "all" ? undefined : parseInt(value))
+                  }
+                >
+                  <SelectTrigger size="sm" className="w-full sm:w-[180px]">
+                    <Filter className="mr-1.5 h-3.5 w-3.5" />
+                    <SelectValue placeholder="Categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {!loadingCategories &&
+                      categories
+                        ?.filter((cat) => cat.isActive)
+                        .map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id.toString()}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                  </SelectContent>
+                </Select>
+
                 <div
                   className="flex items-center gap-1 rounded-md border bg-muted p-1"
                   role="group"
@@ -680,7 +648,7 @@ function DocumentsPageContent() {
               {filteredDocuments.length > 0 && (
                 <label
                   onClick={handleSelectAll}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 text-sm border rounded-md hover:bg-accent cursor-pointer"
+                  className="inline-flex h-8 items-center gap-2 rounded-md border px-2 text-xs hover:bg-accent cursor-pointer"
                 >
                   <Checkbox
                     checked={filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length}
@@ -734,7 +702,7 @@ function DocumentsPageContent() {
               viewMode === "grid" ? (
                 <ul
                   aria-label="Documentos"
-                  className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"
+                  className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5"
                 >
                   {filteredDocuments.map((doc) => (
                     <DocumentCard
@@ -803,8 +771,9 @@ function DocumentsPageContent() {
             <div className="space-y-6 py-4">
               {/* Seleccionar archivo */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Archivo *</label>
+                <label htmlFor="upload-file" className="text-sm font-medium">Archivo *</label>
                 <Input
+                  id="upload-file"
                   type="file"
                   onChange={handleFileChange}
                   className="cursor-pointer"
@@ -817,26 +786,12 @@ function DocumentsPageContent() {
                 )}
               </div>
 
-               <DocumentMetadataForm
-                value={uploadData}
-                onChange={setUploadData}
-                categories={categories}
-                loadingCategories={loadingCategories}
-                selectedCategory={selectedCategory}
-                academicYears={academicYears}
-                showAcademicYear={true}
-                uploadDocumentTypes={uploadDocumentTypes}
-                showDocumentType={true}
-                userRole={user?.role}
-                descriptionLabel="Descripción"
-                visibilityLabel="Hacer público (visible para todos los usuarios)"
-                 isPublicCheckboxId="isPublic"
-               />
-               <DirectoryNavigation
-                 value={uploadData.directoryId ?? null}
-                 onChange={(value) => setUploadData((previous) => ({ ...previous, directoryId: value }))}
-                 picker
-               />
+                <DocumentMetadataForm
+                  value={uploadData}
+                  onChange={handleUploadDataChange}
+                  uploadDocumentTypes={uploadDocumentTypes}
+                  documentTypeError={uploadValidationError}
+                />
             </div>
 
             <DialogFooter>
@@ -953,8 +908,9 @@ function DocumentsPageContent() {
             <div className="space-y-6 py-4">
               {/* Seleccionar archivos múltiples */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Archivos *</label>
+                <label htmlFor="upload-files" className="text-sm font-medium">Archivos *</label>
                 <Input
+                  id="upload-files"
                   type="file"
                   multiple
                   onChange={(e) => {
@@ -977,26 +933,12 @@ function DocumentsPageContent() {
                 )}
               </div>
 
-               <DocumentMetadataForm
-                value={uploadData}
-                onChange={setUploadData}
-                categories={categories}
-                loadingCategories={loadingCategories}
-                selectedCategory={selectedCategory}
-                academicYears={academicYears}
-                showAcademicYear={true}
-                uploadDocumentTypes={uploadDocumentTypes}
-                showDocumentType={true}
-                userRole={user?.role}
-                descriptionLabel="Descripción (opcional)"
-                visibilityLabel="Hacer públicos (visible para todos los usuarios)"
-                 isPublicCheckboxId="isPublicMultiple"
-               />
-               <DirectoryNavigation
-                 value={uploadData.directoryId ?? null}
-                 onChange={(value) => setUploadData((previous) => ({ ...previous, directoryId: value }))}
-                 picker
-               />
+                <DocumentMetadataForm
+                  value={uploadData}
+                  onChange={handleUploadDataChange}
+                  uploadDocumentTypes={uploadDocumentTypes}
+                  documentTypeError={uploadValidationError}
+                />
             </div>
 
             <DialogFooter>

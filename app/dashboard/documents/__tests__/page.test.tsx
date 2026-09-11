@@ -210,13 +210,20 @@ describe("DocumentsPage presentation switching", () => {
     });
   });
 
-  it("uses compact directory navigation with a management link", () => {
+  it("keeps directory navigation out of the page and places the new action beside the documents title", async () => {
     renderPage();
 
-    const navigation = screen.getByTestId("compact-directory-navigation");
-    expect(navigation).toBeInTheDocument();
-    expect(within(navigation).getByRole("link", { name: "Administrar directorios" })).toHaveAttribute("href", "/dashboard/directories");
-    expect(within(navigation).queryByRole("button", { name: /renombrar|eliminar/i })).not.toBeInTheDocument();
+    const cardList = await screen.findByRole("list", { name: "Documentos" });
+    const documentsCard = cardList.closest('[data-slot="card"]');
+    const documentsTitle = within(documentsCard as HTMLElement).getByText("Documentos", { selector: '[data-slot="card-title"]' });
+    const titleRow = documentsTitle.parentElement?.parentElement;
+
+    expect(screen.queryByTestId("compact-directory-navigation")).not.toBeInTheDocument();
+    expect(documentsCard).not.toBeNull();
+    expect(titleRow).not.toBeNull();
+    expect(within(titleRow as HTMLElement).getByRole("button", { name: "Nuevo documento" })).toBeInTheDocument();
+    expect(within(documentsCard as HTMLElement).getByRole("combobox")).toHaveAttribute("data-size", "sm");
+    expect(screen.getAllByRole("combobox")).toHaveLength(1);
   });
 
   it("defaults to cards and renders every filtered document", async () => {
@@ -225,6 +232,9 @@ describe("DocumentsPage presentation switching", () => {
     const cardList = await screen.findByRole("list", { name: "Documentos" });
     expect(within(cardList).getAllByTestId("document-card")).toHaveLength(2);
     expect(within(cardList).getByText("First document.pdf")).toBeInTheDocument();
+    expect(cardList).toHaveClass("xl:grid-cols-5");
+    expect(screen.getByRole("combobox")).toHaveAttribute("data-size", "sm");
+    expect(screen.queryByPlaceholderText("Buscar documentos...")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Vista de tarjetas" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Vista de lista" })).toHaveAttribute("aria-pressed", "false");
     expect(screen.queryByTestId("document-list-item")).not.toBeInTheDocument();
@@ -347,8 +357,6 @@ describe("DocumentsPage presentation switching", () => {
     jest.mocked(documentsService.view).mockImplementation(() => new Promise(() => {}));
     renderPage();
 
-    const search = await screen.findByPlaceholderText("Buscar documentos...");
-    await interaction.type(search, "First");
     await interaction.click(screen.getByRole("button", { name: "Mis documentos" }));
     await interaction.click(screen.getByRole("checkbox", { name: "Seleccionar First document.pdf" }));
     await interaction.click(screen.getByRole("button", { name: "Vista de lista" }));
@@ -358,7 +366,7 @@ describe("DocumentsPage presentation switching", () => {
       }),
     );
 
-    expect(screen.getByPlaceholderText("Buscar documentos...")).toHaveValue("First");
+    expect(screen.queryByPlaceholderText("Buscar documentos...")).not.toBeInTheDocument();
     expect(screen.getByText(/1 seleccionado/)).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toHaveTextContent("Vista Previa: First document.pdf");
   });
