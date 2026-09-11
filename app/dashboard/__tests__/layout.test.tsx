@@ -48,6 +48,8 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Ana Torres").parentElement).toHaveClass("hidden", "sm:block");
 
     await userEvent.click(trigger);
+    const profileItem = await screen.findByRole("menuitem", { name: "Mi perfil" });
+    expect(profileItem).toHaveAttribute("href", "/dashboard/mi-cuenta");
     await userEvent.click(await screen.findByRole("menuitem", { name: "Cerrar sesión" }));
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });

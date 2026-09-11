@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -53,6 +54,9 @@ function DashboardProfile() {
           <div>{userName}</div>
           <div className="text-xs font-normal text-muted-foreground">{userRole}</div>
         </DropdownMenuLabel>
+        <DropdownMenuItem asChild>
+          <Link href="/dashboard/mi-cuenta">Mi perfil</Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={logout}>Cerrar sesión</DropdownMenuItem>
       </DropdownMenuContent>
