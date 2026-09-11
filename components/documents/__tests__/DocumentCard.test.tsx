@@ -82,7 +82,7 @@ const createProps = (overrides: Partial<React.ComponentProps<typeof DocumentCard
 });
 
 describe("DocumentCard", () => {
-  it("renders a semantic card with its complete identity and metadata", () => {
+  it("renders a semantic card with only the filename as visible identity", () => {
     render(<DocumentCard {...createProps()} />);
 
     expect(screen.getByRole("listitem")).toContainElement(screen.getByRole("article"));
@@ -95,13 +95,17 @@ describe("DocumentCard", () => {
       "href",
       "/dashboard/documents/42",
     );
-    expect(within(card).getByText("Administrativo")).toBeInTheDocument();
-    expect(within(card).getByText("2 KB")).toBeInTheDocument();
-    expect(within(card).getByText("Tú")).toBeInTheDocument();
-    expect(within(card).getByText("Privado")).toBeInTheDocument();
+    expect(within(card).queryByText("DOC-0042")).not.toBeInTheDocument();
+    expect(within(card).queryByText("Administrativo")).not.toBeInTheDocument();
+    expect(within(card).queryByText("A document description")).not.toBeInTheDocument();
+    expect(within(card).queryByText("2 KB")).not.toBeInTheDocument();
+    expect(within(card).queryByText("Tú")).not.toBeInTheDocument();
+    expect(within(card).queryByText("Privado")).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Ver" })).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Descargar" })).not.toBeInTheDocument();
   });
 
-  it("keeps long titles complete and uses a meaningful thumbnail fallback", () => {
+  it("makes the thumbnail the accessible preview button and keeps long filenames usable", () => {
     const longTitle = "Acta institucional con un nombre extraordinariamente largo para envolver";
     const longTitleDocument = {
       ...documentFixture,
@@ -113,13 +117,17 @@ describe("DocumentCard", () => {
     const card = screen.getByRole("article");
     expect(within(card).getByRole("heading", { level: 3 })).toHaveTextContent(longTitle);
     expect(within(card).getByRole("link", { name: longTitle })).not.toHaveAttribute("title");
+    expect(within(card).getByRole("button", { name: `Vista previa de ${longTitle}` })).toBeInTheDocument();
     expect(within(card).getByRole("img", { name: "Vista previa no disponible" })).toBeInTheDocument();
   });
 
   it("renders a provided thumbnail with the document filename as alternative text", () => {
     render(<DocumentCard {...createProps({ thumbnailUrl: "/thumbnail.png" })} />);
 
-    expect(screen.getByRole("img", { name: "Informe administrativo.pdf" })).toHaveAttribute(
+    const preview = screen.getByRole("button", { name: "Vista previa de Informe administrativo.pdf" });
+    const thumbnail = screen.getByRole("img", { name: "Informe administrativo.pdf" });
+    expect(preview).toContainElement(thumbnail);
+    expect(thumbnail).toHaveAttribute(
       "src",
       "/thumbnail.png",
     );
@@ -133,6 +141,8 @@ describe("DocumentCard", () => {
 
     const checkbox = screen.getByRole("checkbox");
     expect(checkbox).toHaveAttribute("data-state", "checked");
+    expect(screen.getByRole("button", { name: "Vista previa de Informe administrativo.pdf" }).parentElement)
+      .toContainElement(checkbox);
     await user.click(checkbox);
     expect(onToggle).toHaveBeenCalledWith(documentFixture);
   });
@@ -143,8 +153,9 @@ describe("DocumentCard", () => {
 
     render(<DocumentCard {...props} />);
 
-    await user.click(screen.getByRole("button", { name: "Ver" }));
-    await user.click(screen.getByRole("button", { name: "Descargar" }));
+    await user.click(screen.getByRole("button", { name: "Vista previa de Informe administrativo.pdf" }));
+    await user.click(screen.getByRole("button", { name: "Más acciones" }));
+    await user.click(screen.getByRole("menuitem", { name: "Descargar" }));
     await user.click(screen.getByRole("button", { name: "Más acciones" }));
     await user.click(screen.getByRole("menuitem", { name: "Ver Versiones" }));
     await user.click(screen.getByRole("button", { name: "Más acciones" }));
@@ -154,7 +165,7 @@ describe("DocumentCard", () => {
     await user.click(screen.getByRole("button", { name: "Más acciones" }));
     await user.click(screen.getByRole("menuitem", { name: "Eliminar" }));
     await user.click(screen.getByRole("button", { name: "Más acciones" }));
-    await user.click(screen.getByRole("menuitem", { name: "Mover a directorio" }));
+    await user.click(screen.getByRole("menuitem", { name: "Mover a carpeta" }));
 
     expect(props.onPreview).toHaveBeenCalledWith(documentFixture);
     expect(props.onDownload).toHaveBeenCalledWith(42, "Informe administrativo.pdf");
@@ -171,10 +182,11 @@ describe("DocumentCard", () => {
     render(<DocumentCard {...createProps({ canDelete: false })} />);
 
     await user.click(screen.getByRole("button", { name: "Más acciones" }));
+    expect(screen.getByRole("menuitem", { name: "Descargar" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Ver Versiones" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Mover a carpeta" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Editar Info" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Reemplazar Archivo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Eliminar" })).not.toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Ver Versiones" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Mover a directorio" })).toBeInTheDocument();
   });
 });
