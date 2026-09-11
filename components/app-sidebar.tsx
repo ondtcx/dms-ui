@@ -18,21 +18,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
-  SidebarFooter,
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Home,
   FileText,
@@ -155,19 +145,8 @@ export const adminMenuItems: MenuItem[] = [
   },
 ];
 
-function getRoleBadgeColor(role: string) {
-  switch (role) {
-    case "admin":
-      return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-    case "moderator":
-      return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-    default:
-      return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
-  }
-}
-
 export function AppSidebar() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { hasRole, hasAnyRole, hasPermission, hasAnyPermission } = usePermissions();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -187,14 +166,6 @@ export function AppSidebar() {
     : null;
   const institutionName = settings?.institution?.name?.trim() || "Institución no configurada";
   const schoolYearName = settings?.schoolYear?.name?.trim() || "Año lectivo no disponible";
-  const userInitials = (user?.name ?? "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((name) => name[0])
-    .join("")
-    .toUpperCase() || "US";
   const highlightedDirectories = mergeDirectoryNavigation(
     directorySummary.data?.recent,
     directorySummary.data?.mostUsed,
@@ -482,39 +453,6 @@ export function AppSidebar() {
         )}
       </SidebarContent>
 
-      {/* Footer - Selector de año lectivo + informacion del usuario */}
-      <SidebarFooter className="border-t p-4">
-        {/* <div className="pb-2">
-          <AcademicYearSelector />
-        </div> */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Abrir menú de cuenta"
-              className="flex w-full items-center justify-center rounded-md p-1 outline-hidden transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring group-data-[collapsible=icon]:p-0"
-            >
-              <Avatar>
-                <AvatarFallback>{userInitials}</AvatarFallback>
-              </Avatar>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>
-              <div>{user?.name ?? "Usuario"}</div>
-              <span
-                className={`mt-1 inline-flex items-center rounded px-2 py-0.5 text-xs font-medium ${getRoleBadgeColor(
-                  user?.role || "",
-                )}`}
-              >
-                {user?.role?.toUpperCase() ?? "USUARIO"}
-              </span>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout}>Cerrar sesión</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarFooter>
       <SidebarRail />
     </Sidebar>
   );

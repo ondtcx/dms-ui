@@ -1,5 +1,4 @@
 import { cleanup, render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -33,7 +32,6 @@ let mockSettings: {
   institution: { name: string; logoPath: string | null };
   schoolYear?: { name: string; isActive: boolean };
 } = { institution: { name: "Colegio", logoPath: null } };
-const mockLogout = jest.fn();
 jest.mock("next/navigation", () => ({
   usePathname: () => currentPathname,
   useSearchParams: () => new URLSearchParams(currentSearch),
@@ -53,7 +51,6 @@ jest.mock("next/link", () => {
 jest.mock("@/lib/contexts/AuthContext", () => ({
   useAuth: () => ({
     user: { name: "Ana Torres", email: "a@b.c", role: "admin" },
-    logout: mockLogout,
   }),
 }));
 
@@ -90,7 +87,6 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     currentPathname = "/dashboard/documents";
     currentSearch = "";
     mockSettings = { institution: { name: "Colegio", logoPath: null } };
-    mockLogout.mockReset();
     jest.mocked(documentsService.getDirectoryNavigationSummary).mockReset();
     jest.mocked(documentsService.getDirectoryNavigationSummary).mockResolvedValue({ recent: [], mostUsed: [] });
   });
@@ -137,11 +133,8 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     expect(screen.queryByRole("button", { name: "Configuración" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Categorías" })).not.toBeInTheDocument();
 
-    // b) account menu reveals only the session action (REQ-4).
-    const trigger = screen.getByLabelText("Abrir menú de cuenta");
-    await userEvent.click(trigger);
-    expect(await screen.findByText("Cerrar sesión")).toBeInTheDocument();
-    expect(screen.queryByText("Mi Cuenta")).not.toBeInTheDocument();
+    // b) El menú de cuenta pertenece al encabezado del dashboard, no al sidebar.
+    expect(screen.queryByLabelText("Abrir menú de cuenta")).not.toBeInTheDocument();
 
     // d) sidebar root uses icon collapsible (REQ-5).
     // The element carrying data-collapsible is the sidebar wrapper
@@ -271,11 +264,8 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     expect(screen.getByText("2026–2027")).toBeInTheDocument();
   });
 
-  it("keeps the account action keyboard accessible and invokes logout", async () => {
+  it("does not render a profile menu in the sidebar", () => {
     renderSidebar();
-    await userEvent.click(screen.getByLabelText("Abrir menú de cuenta"));
-    await userEvent.click(await screen.findByRole("menuitem", { name: "Cerrar sesión" }));
-    expect(mockLogout).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText("Abrir menú de cuenta")).not.toBeInTheDocument();
   });
-
 });
