@@ -239,6 +239,7 @@ function DocumentsPageContent() {
     categories,
     loadingCategories,
     uploadDocumentTypes,
+    defaultDocumentType,
   } = useUploadMetadata();
 
   // Mutations
@@ -261,6 +262,29 @@ function DocumentsPageContent() {
     }
   };
 
+  const handleUploadDataChange = (value: UploadMetadata) => {
+    setUploadData(value);
+    if (value.documentTypeId) {
+      setUploadValidationError(undefined);
+    }
+  };
+
+  const prepareUpload = () => {
+    setUploadData({
+      ...EMPTY_UPLOAD_METADATA,
+      directoryId,
+    });
+    setUploadValidationError(undefined);
+  };
+
+  const hasValidUploadMetadata = () => {
+    if (!uploadData.documentTypeId) {
+      setUploadValidationError("Selecciona un tipo de documento");
+      return false;
+    }
+    return true;
+  };
+
   const handleCreateInEditor = async () => {
     if (!createInEditorData.title.trim()) {
       toast.error("Ingresa un nombre para el documento");
@@ -270,7 +294,12 @@ function DocumentsPageContent() {
     try {
       const doc = await onlyofficeService.createBlank(createInEditorData);
       setShowCreateInEditorDialog(false);
-      setCreateInEditorData({ title: "", fileType: "docx" });
+      setCreateInEditorData({
+        title: "",
+        fileType: "docx",
+        documentTypeId: defaultDocumentType?.id,
+        categoryId: defaultDocumentType?.categoryId,
+      });
       if (
         createInEditorData.fileType === "txt" ||
         createInEditorData.fileType === "md"
@@ -291,6 +320,7 @@ function DocumentsPageContent() {
       toast.error("Selecciona un archivo");
       return;
     }
+    if (!hasValidUploadMetadata()) return;
     setUploading(true);
     try {
       await documentsService.upload(selectedFile, uploadData);
@@ -305,6 +335,7 @@ function DocumentsPageContent() {
         description: "",
         isPublic: false,
       });
+      setUploadValidationError(undefined);
       setShowUploadModal(false);
       invalidateDirectoryQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ["stats"] });
@@ -324,6 +355,7 @@ function DocumentsPageContent() {
       toast.error("Selecciona al menos un archivo");
       return;
     }
+    if (!hasValidUploadMetadata()) return;
     setUploading(true);
     try {
       await documentsService.uploadMultiple(selectedFiles, uploadData);
@@ -340,6 +372,7 @@ function DocumentsPageContent() {
         description: "",
         isPublic: false,
       });
+      setUploadValidationError(undefined);
       setShowUploadMultipleModal(false);
       invalidateDirectoryQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ["stats"] });
@@ -559,8 +592,8 @@ function DocumentsPageContent() {
                 <div className="flex shrink-0 justify-start sm:justify-end">
                   {/* Botón Nuevo */}
                   <NewDocumentButton
-                    onUploadSingle={() => handleNewMenuSelection(() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadModal(true); })}
-                    onUploadMultiple={() => handleNewMenuSelection(() => { setUploadData((previous) => ({ ...previous, directoryId })); setShowUploadMultipleModal(true); })}
+                    onUploadSingle={() => handleNewMenuSelection(() => { prepareUpload(); setShowUploadModal(true); })}
+                    onUploadMultiple={() => handleNewMenuSelection(() => { prepareUpload(); setShowUploadMultipleModal(true); })}
                     onFromTemplate={() => handleNewMenuSelection(() => router.push("/dashboard/templates"))}
                     onBatchGenerate={() => handleNewMenuSelection(() => setShowBatchSelectDialog(true))}
                     onCreateInEditor={() => handleNewMenuSelection(() => setShowCreateInEditorDialog(true))}
@@ -764,7 +797,7 @@ function DocumentsPageContent() {
             <DialogHeader>
               <DialogTitle>Subir Documento</DialogTitle>
               <DialogDescription>
-                Completa la información del documento que deseas subir
+                Selecciona un archivo y su tipo de documento
               </DialogDescription>
             </DialogHeader>
 
@@ -901,7 +934,7 @@ function DocumentsPageContent() {
             <DialogHeader>
               <DialogTitle>Subir Múltiples Documentos</DialogTitle>
               <DialogDescription>
-                Selecciona varios archivos para subir al mismo tiempo
+                Selecciona varios archivos y un tipo de documento para subirlos al mismo tiempo
               </DialogDescription>
             </DialogHeader>
 

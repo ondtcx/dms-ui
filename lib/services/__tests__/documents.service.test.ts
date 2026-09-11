@@ -68,8 +68,38 @@ describe("documentsService directory integration", () => {
     expect(api.patch).toHaveBeenCalledWith("/documents/8/directory", { directoryId: null });
 
     jest.mocked(api.post).mockResolvedValueOnce({ data: { id: 8 } });
-    await documentsService.upload(new File(["content"], "notes.txt"), { directoryId: 4 });
+    await documentsService.upload(new File(["content"], "notes.txt"), {
+      directoryId: 4,
+      documentTypeId: 12,
+    });
     const formData = jest.mocked(api.post).mock.calls.at(-1)?.[1] as FormData;
     expect(formData.get("directoryId")).toBe("4");
+  });
+});
+
+describe("documentsService upload metadata", () => {
+  it("includes the selected document type in a single-file upload", async () => {
+    jest.mocked(api.post).mockResolvedValueOnce({ data: { id: 1 } });
+
+    await documentsService.upload(new File(["content"], "notes.txt"), {
+      documentTypeId: 12,
+    });
+
+    const formData = jest.mocked(api.post).mock.calls[0][1] as FormData;
+    expect(formData.get("documentTypeId")).toBe("12");
+  });
+
+  it("uses one common document type for a multiple-file upload", async () => {
+    jest.mocked(api.post).mockResolvedValueOnce({ data: [] });
+    const files = [
+      new File(["one"], "one.txt"),
+      new File(["two"], "two.txt"),
+    ];
+
+    await documentsService.uploadMultiple(files, { documentTypeId: 12 });
+
+    const formData = jest.mocked(api.post).mock.calls[0][1] as FormData;
+    expect(formData.getAll("files")).toHaveLength(2);
+    expect(formData.get("documentTypeId")).toBe("12");
   });
 });

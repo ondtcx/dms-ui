@@ -5,10 +5,10 @@ import { documentTypesService } from "@/lib/services/document-types.service";
 import type { AcademicYear, Category } from "@/lib/types";
 
 interface UseUploadMetadataOptions {
-  categoryId: number | undefined;
+  categoryId?: number;
 }
 
-export function useUploadMetadata({ categoryId }: UseUploadMetadataOptions) {
+export function useUploadMetadata({ categoryId }: UseUploadMetadataOptions = {}) {
   const { data: categories, isLoading: loadingCategories } = useQuery({
     queryKey: ["categories", "active"],
     queryFn: () => categoriesService.getActive(),
@@ -20,9 +20,13 @@ export function useUploadMetadata({ categoryId }: UseUploadMetadataOptions) {
   });
 
   const { data: uploadDocumentTypes } = useQuery({
-    queryKey: ["document-types", "active", categoryId],
-    queryFn: () => documentTypesService.getActive(categoryId),
-    enabled: !!categoryId,
+    queryKey: ["document-types", "active"],
+    queryFn: () => documentTypesService.getActive(),
+  });
+
+  const { data: defaultDocumentType } = useQuery({
+    queryKey: ["document-types", "default"],
+    queryFn: () => documentTypesService.getDefault(),
   });
 
   const selectedCategory: Category | undefined = categories?.find((c) => c.id === categoryId);
@@ -34,6 +38,7 @@ export function useUploadMetadata({ categoryId }: UseUploadMetadataOptions) {
     loadingCategories,
     academicYears,
     uploadDocumentTypes,
+    defaultDocumentType,
     selectedCategory,
   };
 }

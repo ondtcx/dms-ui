@@ -23,7 +23,8 @@ jest.mock("@/hooks/use-upload-metadata", () => ({
     categories: [],
     loadingCategories: false,
     academicYears: [],
-    uploadDocumentTypes: [],
+    uploadDocumentTypes: [{ id: 12, name: "Oficio" }],
+    defaultDocumentType: { id: 12, name: "Oficio", categoryId: 4 },
     selectedCategory: undefined,
   }),
 }));
@@ -77,10 +78,26 @@ jest.mock("@/components/documents/DirectoryVisitRecorder", () => ({
 }));
 
 jest.mock("@/components/documents/NewDocumentButton", () => ({
-  NewDocumentButton: ({ open, onOpenChange }: { open?: boolean; onOpenChange?: (open: boolean) => void }) => (
+  NewDocumentButton: ({
+    open,
+    onOpenChange,
+    onUploadSingle,
+    onUploadMultiple,
+  }: {
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    onUploadSingle?: () => void;
+    onUploadMultiple?: () => void;
+  }) => (
     <div>
       <button type="button" onClick={() => onOpenChange?.(!open)}>Nuevo documento</button>
-      {open && <div role="menu">Crear Documento</div>}
+      {open && (
+        <div role="menu">
+          <span>Crear Documento</span>
+          <button type="button" onClick={onUploadSingle}>Subir Archivo</button>
+          <button type="button" onClick={onUploadMultiple}>Subir Múltiples Archivos</button>
+        </div>
+      )}
     </div>
   ),
 }));
@@ -309,6 +326,44 @@ describe("DocumentsPage presentation switching", () => {
     renderPage();
 
     expect(await screen.findByRole("menu")).toHaveTextContent("Crear Documento");
+  });
+
+  it("requires an explicit document type before uploading", async () => {
+    const interaction = userEvent.setup();
+    renderPage();
+
+    await interaction.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    await interaction.click(screen.getByRole("button", { name: "Subir Archivo" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("combobox")).toHaveTextContent(
+      "Selecciona un tipo de documento",
+    );
+
+    await interaction.upload(
+      within(dialog).getByLabelText("Archivo *"),
+      new File(["content"], "notes.txt", { type: "text/plain" }),
+    );
+    await interaction.click(within(dialog).getByRole("button", { name: "Subir Documento" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "Selecciona un tipo de documento",
+    );
+    expect(documentsService.upload).not.toHaveBeenCalled();
+  });
+
+  it("does not auto-select the editor default in the upload form", async () => {
+    const interaction = userEvent.setup();
+    renderPage();
+
+    await interaction.click(screen.getByRole("button", { name: "Nuevo documento" }));
+    await interaction.click(screen.getByRole("button", { name: "Subir Archivo" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("combobox")).toHaveTextContent(
+      "Selecciona un tipo de documento",
+    );
+    expect(within(dialog).queryByText("(Predeterminado)")).not.toBeInTheDocument();
   });
 
   it("renders the trash view on the canonical Documents route", async () => {

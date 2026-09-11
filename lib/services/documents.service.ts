@@ -55,6 +55,9 @@ export const documentsService = {
 
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
+    if (data.documentTypeId !== undefined && data.documentTypeId !== null) {
+      formData.append("documentTypeId", String(data.documentTypeId));
+    }
     if (data.directoryId !== undefined && data.directoryId !== null) formData.append("directoryId", String(data.directoryId));
     
     // Group academic fields into a nested object and stringify it
@@ -92,6 +95,9 @@ export const documentsService = {
 
     if (data.description) formData.append("description", data.description);
     if (data.categoryId) formData.append("categoryId", String(data.categoryId));
+    if (data.documentTypeId !== undefined && data.documentTypeId !== null) {
+      formData.append("documentTypeId", String(data.documentTypeId));
+    }
     if (data.directoryId !== undefined && data.directoryId !== null) formData.append("directoryId", String(data.directoryId));
 
     if (data.courseId || data.subjectId || data.academicYearId) {
