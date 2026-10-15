@@ -32,6 +32,8 @@ export function LoginForm({
   } = useForm<LoginDto>();
 
   const [loading, setLoading] = useState(false);
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
@@ -39,17 +41,30 @@ export function LoginForm({
     setLoading(true);
 
     try {
-      await login(data.email, data.password);
+      const response = await login(data.email, data.password, data.code);
+      if (!response.access_token) {
+        setTwoFactorRequired(true);
+        toast.error("Ingrese su código de autenticación");
+        return;
+      }
       toast.success("¡Bienvenido!");
       router.push("/dashboard");
     } catch (error) {
       console.error("Login error:", error);
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(
-        err.response?.data?.message ||
-          err.message ||
-          "Error al iniciar sesión"
-      );
+      const err = error as {
+        response?: { data?: { code?: string; message?: string } };
+        message?: string;
+      };
+      if (err.response?.data?.code === "TWO_FACTOR_REQUIRED") {
+        setTwoFactorRequired(true);
+        toast.error("Ingrese su código de autenticación");
+      } else {
+        toast.error(
+          err.response?.data?.message ||
+            err.message ||
+            "Error al iniciar sesión"
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -119,6 +134,17 @@ export function LoginForm({
                   </p>
                 )}
               </div>
+
+              {twoFactorRequired && (
+                <div className="grid gap-2">
+                  <Label htmlFor="code">{useRecoveryCode ? "Código de recuperación" : "Código de autenticación"}</Label>
+                  <Input id="code" inputMode="numeric" autoComplete="one-time-code" disabled={loading} {...register("code", { required: "El código es obligatorio" })} />
+                  {errors.code && <p className="text-sm text-red-500">{errors.code.message}</p>}
+                  <button type="button" className="text-left text-sm underline" onClick={() => setUseRecoveryCode(!useRecoveryCode)}>
+                    {useRecoveryCode ? "Usar código de autenticación" : "Usar código de recuperación"}
+                  </button>
+                </div>
+              )}
 
               {/* Submit Button */}
               <Button type="submit" className="w-full" disabled={loading}>
