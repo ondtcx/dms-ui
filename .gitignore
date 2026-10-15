@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Gentle AI local registry
 /.atl/
+
+# Environment template, tracked on purpose
+!.env.example
