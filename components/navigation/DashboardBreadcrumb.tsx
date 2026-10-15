@@ -17,6 +17,9 @@ import { batchService } from "@/lib/services/batch.service";
 const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Inicio",
   documents: "Documentos",
+  audit: "Registro de actividad",
+  directories: "Carpetas",
+  new: "Nueva",
   templates: "Plantillas",
   categories: "Categorías",
   sections: "Secciones",

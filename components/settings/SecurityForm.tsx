@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Save, ShieldCheck } from "lucide-react";
 import { settingsService, SecuritySettings } from "@/lib/services/settings.service";
 import { useSettings } from "@/lib/contexts/SettingsContext";
@@ -18,7 +17,6 @@ export function SecurityForm() {
   const defaultSecurity: SecuritySettings = {
     sessionTimeoutMinutes: 480,
     maxLoginAttempts: 5,
-    require2FA: false,
   };
 
   const [form, setForm] = useState<SecuritySettings>(defaultSecurity);
@@ -95,22 +93,6 @@ export function SecurityForm() {
               />
               <p className="text-xs text-gray-500">
                 Intentos fallidos antes de bloquear la cuenta
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-lg border p-4">
-            <Switch
-              id="require-2fa"
-              checked={form.require2FA}
-              onCheckedChange={(v) => setForm({ ...form, require2FA: v })}
-            />
-            <div>
-              <Label htmlFor="require-2fa" className="cursor-pointer font-medium">
-                Requerir autenticación de dos factores (2FA)
-              </Label>
-              <p className="text-xs text-gray-500">
-                Todos los usuarios deberán configurar 2FA para iniciar sesión
               </p>
             </div>
           </div>

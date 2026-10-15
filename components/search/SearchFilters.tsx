@@ -20,14 +20,14 @@ import {
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { categoriesService } from "@/lib/services/categories.service";
+import { documentTypesService } from "@/lib/services/document-types.service";
 import { useState } from "react";
 
 const MIME_OPTIONS = [
-  { label: "PDF", value: "application/pdf" },
-  { label: "Word", value: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" },
-  { label: "Excel", value: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
-  { label: "Imagen", value: "image/" },
+  { label: "PDF", values: ["application/pdf"] },
+  { label: "Word", values: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"] },
+  { label: "Excel", values: ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"] },
+  { label: "Imagen", values: ["image/"] },
 ];
 
 const SORT_OPTIONS = [
@@ -38,10 +38,11 @@ const SORT_OPTIONS = [
 ];
 
 export interface SearchFiltersValue {
-  categoryIds?: number[];
+  documentTypeIds?: number[];
   dateFrom?: string;
   dateTo?: string;
   mimetypes?: string[];
+  includeContent?: boolean;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
 }
@@ -54,23 +55,25 @@ interface SearchFiltersProps {
 export function SearchFilters({ value, onChange }: SearchFiltersProps) {
   const [open, setOpen] = useState(false);
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories", "active"],
-    queryFn: () => categoriesService.getActive(),
+  const { data: documentTypes } = useQuery({
+    queryKey: ["document-types", "active"],
+    queryFn: () => documentTypesService.getActive(),
     staleTime: 5 * 60_000,
   });
 
   const activeCount = [
-    value.categoryIds?.length,
+    value.documentTypeIds?.length,
     value.dateFrom || value.dateTo ? 1 : 0,
     value.mimetypes?.length,
+    value.includeContent ? 1 : 0,
   ].reduce((acc: number, v) => acc + (v ? 1 : 0), 0);
 
-  const handleMimeToggle = (mime: string, checked: boolean) => {
+  const handleMimeToggle = (mimes: string[], checked: boolean) => {
     const current = value.mimetypes ?? [];
+    const matches = (mime: string) => mimes.some(m => m === "image/" ? mime.startsWith(m) : mime === m);
     const next = checked
-      ? [...current, mime]
-      : current.filter((m) => m !== mime);
+      ? Array.from(new Set([...current, ...mimes]))
+      : current.filter((m) => !matches(m));
     onChange({ ...value, mimetypes: next.length ? next : undefined });
   };
 
@@ -132,38 +135,44 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
 
       <CollapsibleContent>
         <div className="mt-4 p-4 border rounded-lg bg-muted/30 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Categoría */}
+          {/* Tipo institucional */}
           <div className="space-y-2">
-            <Label>Categoría</Label>
+            <Label htmlFor="search-document-type">Tipo de documento institucional</Label>
             <Select
-              value={value.categoryIds?.[0]?.toString() ?? "all"}
+              value={value.documentTypeIds?.[0]?.toString() ?? "all"}
               onValueChange={(v) =>
                 onChange({
                   ...value,
-                  categoryIds: v === "all" ? undefined : [parseInt(v)],
+                  documentTypeIds: v === "all" ? undefined : [Number(v)],
                 })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id="search-document-type">
                 <SelectValue placeholder="Todas" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {categories
-                  ?.filter((c) => c.isActive)
-                  .map((c) => (
-                    <SelectItem key={c.id} value={c.id.toString()}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
+                {value.documentTypeIds?.[0] && !documentTypes?.some(t => t.isActive && t.id === value.documentTypeIds?.[0]) && (
+                  <SelectItem value={String(value.documentTypeIds[0])}>
+                    Tipo institucional #{value.documentTypeIds[0]}
+                  </SelectItem>
+                )}
+                {documentTypes?.filter(t => t.isActive).map(t => (
+                  <SelectItem key={t.id} value={String(t.id)}>
+                    {t.name}{documentTypes.filter(other => other.isActive && other.name === t.name).length > 1
+                      ? ` (${t.category?.name ?? `Categoría #${t.categoryId}`})` : ""}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           {/* Rango de fechas */}
           <div className="space-y-2">
-            <Label>Fecha desde</Label>
+            <Label htmlFor="search-date-from">Fecha de subida desde</Label>
             <Input
+              id="search-date-from"
+              max={value.dateTo?.slice(0, 10)}
               type="date"
               value={value.dateFrom ?? ""}
               onChange={(e) =>
@@ -173,8 +182,10 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
           </div>
 
           <div className="space-y-2">
-            <Label>Fecha hasta</Label>
+            <Label htmlFor="search-date-to">Fecha de subida hasta</Label>
             <Input
+              id="search-date-to"
+              min={value.dateFrom?.slice(0, 10)}
               type="date"
               value={value.dateTo ?? ""}
               onChange={(e) =>
@@ -186,22 +197,39 @@ export function SearchFilters({ value, onChange }: SearchFiltersProps) {
           {/* Tipo de archivo */}
           <div className="space-y-2 md:col-span-2 lg:col-span-3">
             <Separator />
-            <Label>Tipo de archivo</Label>
+            <Label>Formato de archivo</Label>
             <div className="flex flex-wrap gap-4">
               {MIME_OPTIONS.map((m) => (
-                <div key={m.value} className="flex items-center gap-2">
+                <div key={m.label} className="flex items-center gap-2">
                   <Checkbox
-                    id={m.value}
-                    checked={value.mimetypes?.some((x) => x.startsWith(m.value)) ?? false}
+                    id={`search-format-${m.label}`}
+                    checked={value.mimetypes?.some(x => m.values.some(mime => mime === "image/" ? x.startsWith(mime) : x === mime)) ?? false}
                     onCheckedChange={(checked) =>
-                      handleMimeToggle(m.value, checked as boolean)
+                      handleMimeToggle(m.values, checked === true)
                     }
                   />
-                  <Label htmlFor={m.value} className="font-normal cursor-pointer">
+                  <Label htmlFor={`search-format-${m.label}`} className="font-normal cursor-pointer">
                     {m.label}
                   </Label>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Búsqueda en el contenido */}
+          <div className="space-y-2 md:col-span-2 lg:col-span-3">
+            <Separator />
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="search-content"
+                checked={value.includeContent === true}
+                onCheckedChange={(checked) =>
+                  onChange({ ...value, includeContent: checked === true ? true : undefined })
+                }
+              />
+              <Label htmlFor="search-content" className="font-normal cursor-pointer">
+                Buscar también en el contenido
+              </Label>
             </div>
           </div>
         </div>

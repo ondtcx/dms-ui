@@ -4,8 +4,10 @@ import WorkflowAdministration from "@/components/workflows/WorkflowAdministratio
 import { workflowsService } from "@/lib/services/workflows.service";
 import type { WorkflowDefinitionDetail } from "@/lib/types/workflows";
 
+let canManage = true;
+
 jest.mock("@/hooks/use-permissions", () => ({
-  usePermissions: () => ({ hasPermission: () => true }),
+  usePermissions: () => ({ hasPermission: () => canManage }),
 }));
 
 jest.mock("@/lib/services/workflows.service", () => ({
@@ -68,6 +70,7 @@ function renderSurface() {
 
 describe("WorkflowAdministration", () => {
   beforeEach(() => {
+    canManage = true;
     process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = "true";
     jest.mocked(workflowsService.getDefinitions).mockReset();
     jest.mocked(workflowsService.getDefinition).mockReset();
@@ -85,14 +88,32 @@ describe("WorkflowAdministration", () => {
     }
   });
 
-  it("does not query workflow definitions when the feature is disabled", async () => {
-    process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = "false";
+  it.each([undefined, "false", "malformed"])("loads authorized administration despite legacy flag %s", async (value) => {
+    if (value === undefined) delete process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED;
+    else process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = value;
+    jest.mocked(workflowsService.getDefinitions).mockResolvedValue([definition]);
+    jest.mocked(workflowsService.getDefinition).mockResolvedValue(detail);
 
     renderSurface();
 
-    expect(await screen.findByText("Los flujos de trabajo están desactivados para este entorno.")).toBeInTheDocument();
+    expect(await screen.findByText("Aprobación institucional", { selector: "h2" })).toBeInTheDocument();
+    expect(workflowsService.getDefinitions).toHaveBeenCalled();
+    expect(workflowsService.getDefinition).toHaveBeenCalledWith(7);
+  });
+
+  it.each([undefined, "false", "malformed"])("denies missing permission despite legacy flag %s", async (value) => {
+    if (value === undefined) delete process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED;
+    else process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = value;
+    canManage = false;
+
+    renderSurface();
+
+    expect(
+      await screen.findByText("No tienes permiso para administrar flujos de trabajo."),
+    ).toBeInTheDocument();
     expect(workflowsService.getDefinitions).not.toHaveBeenCalled();
     expect(workflowsService.getDefinition).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /crear|activar|validar/i })).not.toBeInTheDocument();
   });
 
   it("renders the selected definition detail with ordered stages and read-only history", async () => {

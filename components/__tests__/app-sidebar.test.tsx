@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { cleanup, render, screen } from "@testing-library/react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -132,6 +134,7 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     expect(settingsLink).toHaveAttribute("href", "/dashboard/settings");
     expect(screen.queryByRole("button", { name: "Configuración" })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Categorías" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Archivo" })).not.toBeInTheDocument();
 
     // b) El menú de cuenta pertenece al encabezado del dashboard, no al sidebar.
     expect(screen.queryByLabelText("Abrir menú de cuenta")).not.toBeInTheDocument();
@@ -169,7 +172,8 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     ]) {
       const link = screen.getByRole("link", { name: title });
 
-      expect(link).toHaveClass("min-h-7", "h-auto", "items-start", "overflow-visible");
+      expect(link).toHaveClass("min-h-8", "h-auto", "items-start", "overflow-visible", "py-1.5");
+      expect(link).toHaveAttribute("data-size", "sm");
       expect(link).toHaveClass(
         "[&>span:last-child]:whitespace-normal",
         "[&>span:last-child]:break-words",
@@ -186,7 +190,7 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
       );
     }
 
-    expect(screen.getByRole("link", { name: "Archivo" })).not.toHaveClass("min-h-7");
+    expect(screen.getByRole("link", { name: "Inicio" })).not.toHaveClass("min-h-7");
   });
 
   it("keeps Configuration as a single destination for a roles.manage-only user", async () => {
@@ -235,7 +239,7 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
 
     jest.mocked(documentsService.getDirectoryNavigationSummary).mockResolvedValue({ recent: [], mostUsed: [] });
     renderSidebar();
-    expect(await screen.findByText("Sin directorios recientes")).toBeInTheDocument();
+    expect(await screen.findByText("Sin carpetas recientes")).toBeInTheDocument();
 
     jest.mocked(documentsService.getDirectoryNavigationSummary).mockRejectedValue(new Error("offline"));
     renderSidebar();
@@ -246,7 +250,7 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     currentPathname = "/dashboard/directories/new";
     renderSidebar();
 
-    expect(screen.getByRole("button", { name: "Directorios" })).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("button", { name: "Carpetas" })).toHaveAttribute("data-active", "true");
     expect(screen.getByRole("link", { name: "Crear nuevo" })).toHaveAttribute("data-active", "true");
   });
 
@@ -264,8 +268,29 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     expect(screen.getByText("2026–2027")).toBeInTheDocument();
   });
 
-  it("does not render a profile menu in the sidebar", () => {
-    renderSidebar();
-    expect(screen.queryByLabelText("Abrir menú de cuenta")).not.toBeInTheDocument();
+  it("uses institutional sidebar semantic tokens for surfaces and separators", () => {
+    const { container } = renderSidebar();
+
+    expect(container.querySelector('[data-slot="sidebar-container"]')).toHaveClass("border-sidebar-border");
+    expect(container.querySelector('[data-sidebar="sidebar"]')).toHaveClass("bg-sidebar");
+    expect(container.querySelector('[data-slot="sidebar"]')).toHaveClass("text-sidebar-foreground");
+    expect(container.querySelector('[data-sidebar="header"]')).toHaveClass("border-sidebar-border");
+    expect(container.querySelector('[data-sidebar="footer"]')).not.toBeInTheDocument();
   });
+
+  it("uses formal rotating chevrons for collapsible groups", () => {
+    const source = readFileSync(resolve(process.cwd(), "components/app-sidebar.tsx"), "utf8");
+
+    expect(source).toContain("ChevronRight");
+    expect(source).not.toContain("Minus");
+    expect(source).toContain("group-data-[state=open]/collapsible:rotate-90");
+
+    renderSidebar();
+
+    for (const title of ["Documentos", "Carpetas"]) {
+      const trigger = screen.getByRole("button", { name: new RegExp(title) });
+      expect(trigger).toHaveAttribute("aria-expanded");
+    }
+  });
+
 });

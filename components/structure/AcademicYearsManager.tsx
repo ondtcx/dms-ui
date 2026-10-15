@@ -46,6 +46,7 @@ export function AcademicYearsManager() {
     mutationFn: academicYearsService.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["academic-years"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
       setShowCreateDialog(false);
       resetForm();
       toast.success("Academic year created successfully");
@@ -60,6 +61,7 @@ export function AcademicYearsManager() {
       academicYearsService.update(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["academic-years"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
       setShowEditDialog(false);
       setEditingYear(null);
       resetForm();
@@ -74,6 +76,7 @@ export function AcademicYearsManager() {
     mutationFn: academicYearsService.setCurrent,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["academic-years"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
       toast.success("Academic year marked as current");
     },
     onError: (error: any) => {
@@ -85,6 +88,7 @@ export function AcademicYearsManager() {
     mutationFn: academicYearsService.deactivate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["academic-years"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
       toast.success("Academic year deleted successfully");
     },
     onError: (error: any) => {
@@ -207,6 +211,7 @@ export function AcademicYearsManager() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-label={`Editar ${year.name}`}
                   onClick={() => handleEdit(year)}
                 >
                   <Pencil className="h-4 w-4" />
@@ -214,6 +219,7 @@ export function AcademicYearsManager() {
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-label={`Eliminar ${year.name}`}
                   onClick={() => handleDelete(year.id)}
                 >
                   <Trash2 className="h-4 w-4" />
