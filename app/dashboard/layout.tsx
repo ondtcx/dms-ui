@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 function DashboardProfile() {
   const { user, logout } = useAuth();
@@ -64,7 +65,6 @@ function DashboardProfile() {
   );
 }
 
-
 export default function DashboardLayout({
   children,
 }: {
@@ -80,16 +80,20 @@ export default function DashboardLayout({
         {/* Main Content with Header */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <header aria-label="Encabezado principal" className="sticky top-0 z-40 border-b bg-background">
+          <header
+            aria-label="Encabezado principal"
+            className="dashboard-header sticky top-0 z-40 border-b border-institution-primary bg-institution-primary text-institution-primary-foreground shadow-sm"
+          >
             <div className="flex h-16 min-w-0 items-center justify-between px-4 sm:px-6">
               <div className="flex min-w-0 items-center gap-2 sm:gap-4">
                 <SidebarTrigger />
                 <div className="min-w-0 truncate"><DashboardBreadcrumb /></div>
               </div>
-              <div className="mx-2 min-w-0 max-w-md flex-1 sm:mx-6">
+              <div className="dashboard-header-search mx-2 min-w-0 max-w-md flex-1 sm:mx-6">
                 <SearchBar />
               </div>
-              <div className="ml-auto shrink-0">
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                <NotificationBell />
                 <DashboardProfile />
               </div>
             </div>

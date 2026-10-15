@@ -2,15 +2,25 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SettingsPage from '@/app/dashboard/settings/page';
 import { rolesService } from '@/lib/services/roles.service';
+import { UserRole } from '@/lib/types';
 
 let mockSection: string | null = 'roles';
 let workflowPermission = false;
 let workflowOnly = false;
 let grantedPermissions: Set<string> | null = null;
+let mockRole = UserRole.ADMIN;
+let mockAuthenticated = true;
+const mockPush = jest.fn();
 jest.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(mockSection ? `section=${mockSection}` : ''),
+  useRouter: () => ({ push: mockPush }),
 }));
-jest.mock('@/guards/ProtectedRoute', () => ({ children }: { children: React.ReactNode }) => <>{children}</>);
+jest.mock('@/lib/contexts/AuthContext', () => ({
+  useAuth: () => ({ user: { role: mockRole }, loading: false, isAuthenticated: mockAuthenticated }),
+}));
+jest.mock('@/components/structure/AcademicYearsManager', () => ({
+  AcademicYearsManager: () => <div>Canonical catalog manager</div>,
+}));
 jest.mock('@/lib/contexts/SettingsContext', () => ({ useSettings: () => ({ isLoading: false }) }));
 jest.mock('@/hooks/use-permissions', () => ({
   usePermissions: () => ({
@@ -35,6 +45,9 @@ describe('authorized Settings management surface', () => {
     workflowPermission = false;
     workflowOnly = false;
     grantedPermissions = null;
+    mockRole = UserRole.ADMIN;
+    mockAuthenticated = true;
+    mockPush.mockClear();
   });
 
   it('renders role management controls and creates a role from the Settings destination', async () => {
@@ -71,6 +84,7 @@ describe('authorized Settings management surface', () => {
       'href',
       '/dashboard/academic-years',
     );
+    expect(screen.queryByRole('link', { name: /Año lectivo\b/ })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Mi cuenta/ })).toHaveAttribute(
       'href',
       '/dashboard/mi-cuenta',
@@ -85,6 +99,38 @@ describe('authorized Settings management surface', () => {
 
     expect(screen.queryByText('Flujos de trabajo')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /crear definición|activar/i })).not.toBeInTheDocument();
+  });
+
+  it.each(['schoolYear', 'academic-years'])('opens %s through the canonical role gate for a rector without Settings permissions', (section) => {
+    mockSection = section;
+    mockRole = UserRole.RECTOR;
+    grantedPermissions = new Set();
+    render(<SettingsPage />);
+    expect(screen.getByText('Canonical catalog manager')).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it.each(['schoolYear', 'academic-years'])('denies %s to a professor even with Settings permissions', (section) => {
+    mockSection = section;
+    mockRole = UserRole.PROFESOR;
+    render(<SettingsPage />);
+    expect(screen.queryByText('Canonical catalog manager')).not.toBeInTheDocument();
+    expect(mockPush).toHaveBeenCalledWith('/errors/unauthorized');
+  });
+
+  it('denies unauthenticated alias access', () => {
+    mockSection = 'schoolYear';
+    mockAuthenticated = false;
+    render(<SettingsPage />);
+    expect(screen.queryByText('Canonical catalog manager')).not.toBeInTheDocument();
+    expect(mockPush).toHaveBeenCalledWith('/auth/login');
+  });
+
+  it('admits an administrator through the legacy alias', () => {
+    mockSection = 'schoolYear';
+    render(<SettingsPage />);
+    expect(screen.getByText('Canonical catalog manager')).toBeInTheDocument();
+    expect(mockPush).not.toHaveBeenCalled();
   });
 
   it('hides the workflow destination from an unauthorized Settings overview', () => {

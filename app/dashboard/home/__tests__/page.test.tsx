@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import DashboardHomePage from "../page";
 import { documentsService } from "@/lib/services/documents.service";
@@ -26,7 +26,8 @@ jest.mock("@/lib/services/documents.service", () => ({
   documentsService: { getDashboardSummary: jest.fn() },
 }));
 
-jest.mock("next/navigation", () => ({ useRouter: () => ({ push: jest.fn() }) }));
+const mockPush = jest.fn();
+jest.mock("next/navigation", () => ({ useRouter: () => ({ push: mockPush }) }));
 
 const summary = {
   pendingOfficializationCount: 1,
@@ -77,12 +78,16 @@ describe("DashboardHomePage", () => {
     mockRole = UserRole.USER;
   });
 
-  it("renders the work-first hierarchy and opens rows through existing routes", async () => {
-    jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
+  it("renders recent documents and opens their rows through existing routes", async () => {
+    jest.mocked(documentsService.getDashboardSummary).mockResolvedValue({
+      ...summary,
+      recent: [summary.pendingOfficialization[0], ...summary.recent],
+    } as never);
 
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: "Pendientes de oficialización" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Documentos recientes" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Pendientes de oficialización" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /nuevo documento/i })).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: /notas\.docx/i })).toHaveAttribute(
       "href",
@@ -97,132 +102,154 @@ describe("DashboardHomePage", () => {
     expect(documentsService.getDashboardSummary).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the pending continuation when more pending work exists", async () => {
+  it("keeps recent documents navigation when more recent documents exist", async () => {
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue({
       ...summary,
-      pendingHasMore: true,
+      recentHasMore: true,
     } as never);
     renderPage();
 
-    const pendingLink = await screen.findByRole("link", { name: /ver todos/i });
-    const pendingSection = pendingLink.closest("section");
-    expect(pendingSection).not.toBeNull();
-    expect(pendingLink).toHaveAttribute(
+    const recentSection = screen.getByRole("heading", { name: "Documentos recientes" }).closest("section")!;
+    const recentLink = within(recentSection).getByRole("link", { name: /ver todos/i });
+    expect(recentLink).toHaveAttribute(
       "href",
       "/dashboard/documents",
     );
   });
 
-  it("does not show a pending continuation when the result is bounded", async () => {
+  it("keeps recent documents navigation even when the result is bounded", async () => {
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
     renderPage();
 
-    const pendingSection = (await screen.findByRole("heading", { name: "Pendientes de oficialización" })).closest("section");
-    expect(pendingSection).not.toBeNull();
-    expect(within(pendingSection as HTMLElement).queryByRole("link", { name: /ver todos/i })).not.toBeInTheDocument();
+    const recentSection = screen.getByRole("heading", { name: "Documentos recientes" }).closest("section")!;
+    expect(within(recentSection).getByRole("link", { name: /ver todos/i })).toHaveAttribute("href", "/dashboard/documents");
+    expect(screen.queryByRole("region", { name: "Pendientes de oficialización" })).not.toBeInTheDocument();
   });
 
-  it("allows ordinary users to activate authorized secondary destinations only", async () => {
+  it("offers documents navigation without the removed secondary shortcuts", async () => {
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
     const user = userEvent.setup();
     renderPage();
 
-    const documentsLink = await screen.findByRole("link", { name: /^documentos ver y gestionar$/i });
-    const calendarLink = screen.getByRole("link", { name: /^calendario vista por fecha$/i });
+    const documentsLink = screen.getByRole("link", { name: /ver todos/i });
     expect(documentsLink).toHaveAttribute("href", "/dashboard/documents");
-    expect(calendarLink).toHaveAttribute("href", "/dashboard/calendar");
+    expect(screen.queryByRole("link", { name: /calendario/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /plantillas/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /usuarios/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /configuración/i })).not.toBeInTheDocument();
 
     await user.click(documentsLink);
-    await user.click(calendarLink);
     expect(documentsLink).toHaveAttribute("href", "/dashboard/documents");
-    expect(calendarLink).toHaveAttribute("href", "/dashboard/calendar");
   });
 
-  it("hides template and batch creation from an ordinary role", async () => {
+  it("shows only the upload options to an ordinary role", async () => {
     mockRole = UserRole.USER;
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
     renderPage();
 
     await userEvent.click(await screen.findByRole("button", { name: /nuevo documento/i }));
+    expect(await screen.findByText("Subir Archivo")).toBeInTheDocument();
+    expect(screen.getByText("Subir Múltiples Archivos")).toBeInTheDocument();
     expect(screen.queryByText("Desde Plantilla")).not.toBeInTheDocument();
+    expect(screen.queryByText("Crear en Editor")).not.toBeInTheDocument();
     expect(screen.queryByText("Generar en Lote")).not.toBeInTheDocument();
+    expect(screen.queryByText("Escanear Documento")).not.toBeInTheDocument();
   });
 
-  it("shows template and batch creation to an authorized role", async () => {
+  it("shows only the upload options even for an authorized role", async () => {
     mockRole = UserRole.ADMIN;
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
     renderPage();
+
     await userEvent.click(await screen.findByRole("button", { name: /nuevo documento/i }));
-    await waitFor(() => {
-      expect(screen.getByText("Desde Plantilla")).toBeInTheDocument();
-      expect(screen.getByText("Generar en Lote")).toBeInTheDocument();
-    });
+    expect(await screen.findByText("Subir Archivo")).toBeInTheDocument();
+    expect(screen.getByText("Subir Múltiples Archivos")).toBeInTheDocument();
+    expect(screen.queryByText("Desde Plantilla")).not.toBeInTheDocument();
+    expect(screen.queryByText("Crear en Editor")).not.toBeInTheDocument();
+    expect(screen.queryByText("Generar en Lote")).not.toBeInTheDocument();
+    expect(screen.queryByText("Escanear Documento")).not.toBeInTheDocument();
   });
 
-  it("shows the templates quick link to an authorized role", async () => {
+  it("navigates each upload choice to the matching documents dialog action", async () => {
+    jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
+    renderPage();
+
+    const trigger = await screen.findByRole("button", { name: /nuevo documento/i });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByText("Subir Archivo"));
+    expect(mockPush).toHaveBeenCalledWith(
+      "/dashboard/documents?action=upload-single",
+    );
+
+    mockPush.mockClear();
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByText("Subir Múltiples Archivos"));
+    expect(mockPush).toHaveBeenCalledWith(
+      "/dashboard/documents?action=upload-multiple",
+    );
+  });
+
+  it("does not restore removed shortcuts for a privileged role", async () => {
     mockRole = UserRole.RECTOR;
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
     renderPage();
 
-    expect(await screen.findByText("Plantillas")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /plantillas/i })).toHaveAttribute(
-      "href",
-      "/dashboard/templates",
-    );
+    expect(await screen.findByRole("link", { name: /documento sin nombre/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /plantillas/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /ver todos/i })).toHaveAttribute("href", "/dashboard/documents");
   });
 
-  it("distinguishes a successful zero state from an unavailable summary", async () => {
+  it("renders recent documents independently of an empty pending collection", async () => {
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue({
       ...summary,
       pendingOfficializationCount: 0,
       pendingOfficialization: [],
     } as never);
     renderPage();
-    expect(await screen.findByText(/no hay pendientes de oficialización/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /ver documentos/i })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /documento sin nombre/i })).toBeInTheDocument();
+    expect(screen.queryByText(/no hay documentos recientes/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /ver todos/i })).toHaveAttribute(
       "href",
       "/dashboard/documents",
     );
   });
 
-  it("offers retry without presenting an error as zero", async () => {
+  it("announces unavailable recent documents without presenting an error as an empty list", async () => {
     jest.mocked(documentsService.getDashboardSummary).mockRejectedValue(new Error("offline"));
     renderPage();
-    expect(await screen.findByText(/no se pudo cargar el resumen/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /reintentar/i })).toBeInTheDocument();
-    expect(screen.queryByText(/0 pendientes/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("Los documentos recientes no están disponibles.")).toHaveAttribute("role", "status");
+    expect(screen.queryByText(/no hay documentos recientes/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reintentar/i })).not.toBeInTheDocument();
   });
 
-  it("explains permission denial and offers safe retry and navigation", async () => {
+  it("distinguishes permission denial and preserves documents navigation", async () => {
     jest.mocked(documentsService.getDashboardSummary).mockRejectedValue({ response: { status: 403 } });
     renderPage();
 
-    expect(await screen.findByText(/no tienes permisos para consultar este resumen/i)).toBeInTheDocument();
-    expect(screen.getByText(/tu acceso a los documentos se mantiene protegido/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /reintentar/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /ir a documentos/i })).toHaveAttribute("href", "/dashboard/documents");
-    expect(screen.queryByText(/no se pudo cargar el resumen/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/0 pendientes/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("Los documentos recientes no están disponibles por permisos insuficientes.")).toHaveAttribute("role", "status");
+    expect(screen.getByRole("link", { name: /ver todos/i })).toHaveAttribute("href", "/dashboard/documents");
+    expect(screen.queryByText(/no hay documentos recientes/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /documento sin nombre/i })).not.toBeInTheDocument();
   });
 
   it("keeps the loading layout accessible while the summary is pending", async () => {
     jest.mocked(documentsService.getDashboardSummary).mockReturnValue(new Promise(() => {}) as never);
     renderPage();
 
-    expect(screen.getByLabelText("Cargando resumen")).toBeInTheDocument();
-    expect(screen.getByLabelText("Cargando documentos")).toBeInTheDocument();
-    expect(screen.queryByText(/0 pendientes/i)).not.toBeInTheDocument();
+    const loading = screen.getByRole("status", { name: "Cargando documentos" });
+    expect(loading).toHaveAttribute("aria-busy", "true");
+    expect(loading).toHaveAttribute("aria-live", "polite");
+    expect(screen.queryByText(/no hay documentos recientes/i)).not.toBeInTheDocument();
   });
 
-  it("announces that the count is unavailable when the summary fails", async () => {
+  it("keeps the primary upload action available when recent documents fail", async () => {
     jest.mocked(documentsService.getDashboardSummary).mockRejectedValue(new Error("offline"));
     renderPage();
 
-    expect((await screen.findByText(/conteo no disponible/i)).parentElement).toHaveAttribute("role", "status");
-    expect(screen.getByRole("button", { name: /reintentar/i })).toBeInTheDocument();
+    expect(await screen.findByText("Los documentos recientes no están disponibles.")).toHaveAttribute("role", "status");
+    await userEvent.click(screen.getByRole("button", { name: /nuevo documento/i }));
+    await userEvent.click(await screen.findByText("Subir Archivo"));
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/documents?action=upload-single");
   });
 
   it("distinguishes an empty repository from an unavailable summary", async () => {
@@ -235,15 +262,15 @@ describe("DashboardHomePage", () => {
     renderPage();
 
     expect(await screen.findByText(/no hay documentos recientes/i)).toBeInTheDocument();
-    expect(screen.getByText(/no hay pendientes de oficialización/i)).toBeInTheDocument();
-    expect(screen.queryByText(/no se pudo cargar/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no están disponibles/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /ver todos/i })).toHaveAttribute("href", "/dashboard/documents");
   });
 
   it("preserves long metadata in accessible names and keeps rows link-shaped", async () => {
     const longFilename = `${"acta-de-reunion-".repeat(12)}.pdf`;
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue({
       ...summary,
-      pendingOfficialization: [{ ...summary.pendingOfficialization[0], versions: [{ ...summary.pendingOfficialization[0].versions[0], filename: longFilename }] }],
+      recent: [{ ...summary.pendingOfficialization[0], versions: [{ ...summary.pendingOfficialization[0].versions[0], filename: longFilename }] }],
     } as never);
     renderPage();
 
@@ -253,7 +280,7 @@ describe("DashboardHomePage", () => {
   });
 
   it("keeps the primary action and document rows in keyboard focus order", async () => {
-    jest.mocked(documentsService.getDashboardSummary).mockResolvedValue({ ...summary, pendingHasMore: true } as never);
+    jest.mocked(documentsService.getDashboardSummary).mockResolvedValue({ ...summary, recent: [summary.pendingOfficialization[0]] } as never);
     const user = userEvent.setup();
     renderPage();
 

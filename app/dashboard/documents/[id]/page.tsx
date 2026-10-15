@@ -4,8 +4,8 @@ import { formatMimeType, formatRole } from '@/lib/utils';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { documentsService } from '@/lib/services/documents.service';
-import { useState, useEffect } from 'react';
-import { format } from 'date-fns';
+import { useState, useEffect, useRef } from 'react';
+import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import {
@@ -15,6 +15,7 @@ import {
   ArrowLeft,
   Eye,
   Calendar,
+  CalendarDays,
   User,
   FileType,
   Clock,
@@ -24,6 +25,8 @@ import {
   MoreVertical,
   Hash,
   ShieldAlert,
+  ScrollText,
+  MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,10 +45,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { UserRole } from '@/lib/types';
-import { DirectoryNavigation } from '@/components/documents/DirectoryNavigation';
-import { DocumentWorkflowPanel } from '@/components/workflows/DocumentWorkflowPanel';
+import { UserRole, type Document } from '@/lib/types';
+import { readDocumentActionCapabilities } from '@/lib/document-action-capabilities';
 import { getDocumentTraceability } from '@/lib/document-traceability';
+import { validOriginDate } from '@/lib/upload-date';
+import OfficeDocumentPreview, { isOfficePreviewType } from '@/components/documents/OfficeDocumentPreview';
+import { DocumentSharingAction } from '@/components/documents/DocumentSharingAction';
+import { SharingIndicator } from '@/components/documents/SharingIndicator';
+import { ChangeRequestPanel } from '@/components/documents/ChangeRequestPanel';
+import { RequestChangesDialog } from '@/components/documents/RequestChangesDialog';
+
+const AUDIT_HISTORY_ROLES: ReadonlySet<string> = new Set([UserRole.ADMIN, UserRole.RECTOR]);
 
 export default function DocumentDetailPage() {
   const params = useParams();
@@ -53,6 +63,16 @@ export default function DocumentDetailPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const documentId = parseInt(params.id as string);
+  const identity = `${user?.id ?? ''}:${documentId}`;
+  const current = useRef({ identity, epoch: {}, alive: true });
+  if (current.current.identity !== identity) current.current = { identity, epoch: {}, alive: true };
+  const epoch = current.current.epoch;
+  const previewEpoch = useRef<object | null>(null);
+  const deleteEpoch = useRef<object | null>(null);
+  useEffect(() => {
+    current.current.alive = true;
+    return () => { current.current.alive = false; };
+  }, []);
 
   // Estados
   const [previewUrl, setPreviewUrl] = useState<string>('');
@@ -62,28 +82,51 @@ export default function DocumentDetailPage() {
   const [showReplaceDialog, setShowReplaceDialog] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showExplainDialog, setShowExplainDialog] = useState(false);
+  const [showRequestDialog, setShowRequestDialog] = useState(false);
+  useEffect(() => {
+    setShowEditDialog(false); setShowReplaceDialog(false); setShowDeleteConfirm(false);
+    setShowVersionHistory(false); setShowExplainDialog(false);
+    setShowRequestDialog(false);
+    setPreviewUrl(''); setLoadingPreview(false);
+  }, [identity]);
 
   // Cargar documento
-  const { data: doc, isLoading } = useQuery({
-    queryKey: ['document', documentId],
+  const queryKey = ['document', documentId, user?.id];
+  const query = useQuery({
+    queryKey,
     queryFn: () => documentsService.getOne(documentId),
-    enabled: !!documentId && !isNaN(documentId),
+    enabled: !!user?.id && Number.isSafeInteger(documentId) && documentId > 0,
+    placeholderData: () => undefined,
   });
+  const { isLoading, isFetching } = query;
+  const doc = query.isSuccess && query.data?.id === documentId ? query.data : undefined;
+  const canAct = (action: 'editMetadata' | 'editContent' | 'trash', boundEpoch: object = epoch) => {
+    const state = queryClient.getQueryState(queryKey);
+    const snapshot = queryClient.getQueryData<Document>(queryKey);
+    return !!user?.id && current.current.alive && current.current.epoch === boundEpoch &&
+      state?.status === 'success' && state.fetchStatus === 'idle' && !state.isInvalidated &&
+      snapshot?.id === documentId && readDocumentActionCapabilities(snapshot, user?.id ?? null)?.[action] === true;
+  };
 
   // Mutación para eliminar
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => documentsService.delete(id),
-    onSuccess: () => {
+    mutationFn: ({ id, epoch: boundEpoch }: { id: number; epoch: object }) => {
+      if (id !== documentId || !canAct('trash', boundEpoch)) throw new Error('Los permisos han cambiado.');
+      return documentsService.delete(id);
+    },
+    onSuccess: (_data, { epoch: boundEpoch }) => {
+      if (!canAct('trash', boundEpoch)) return;
       toast.success('Documento eliminado exitosamente');
       queryClient.invalidateQueries({ queryKey: ['documents'] });
       router.push('/dashboard/documents');
     },
-    onError: () => {
+    onError: (_error, { epoch: boundEpoch }) => {
+      if (current.current.epoch !== boundEpoch || !current.current.alive) return;
       toast.error('Error al eliminar documento');
     },
   });
 
-  const canEdit =
+  const canEditTemplate =
     !!user &&
     !!doc &&
     (user.role === UserRole.ADMIN ||
@@ -96,6 +139,12 @@ export default function DocumentDetailPage() {
       user.role === UserRole.RECTOR ||
       user.role === UserRole.COORDINADOR);
 
+  // La propiedad y los roles efectivos autorizan la consulta de actividad.
+  const canViewAuditHistory =
+    !!user && !!doc && !isFetching &&
+    (doc.uploadedById === user.id ||
+      [user.role, ...(user.roles ?? [])].some((role) => AUDIT_HISTORY_ROLES.has(role)));
+
   const isPreviewable = (mimetype: string): boolean => {
     if (mimetype === 'application/pdf') return true;
     if (mimetype.startsWith('image/')) return true;
@@ -107,27 +156,22 @@ export default function DocumentDetailPage() {
 
   // Cargar vista previa
   useEffect(() => {
-    if (doc && isPreviewable(((doc?.versions?.[0]?.mimetype) ?? ''))) {
-      loadPreview();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc]);
-
-  const loadPreview = async () => {
-    if (!doc) return;
-
+    let cancelled = false;
+    if (!doc || !isPreviewable(doc.versions?.[0]?.mimetype ?? '')) return;
+    const active = () => !cancelled && current.current.alive && current.current.epoch === epoch;
     setLoadingPreview(true);
-    try {
-      const blob = await documentsService.view(doc.id);
-      const typedBlob = new Blob([blob], { type: ((doc?.versions?.[0]?.mimetype) ?? '') });
-      const url = window.URL.createObjectURL(typedBlob);
-      setPreviewUrl(url);
-    } catch {
-      toast.error('Error al cargar la vista previa');
-    } finally {
-      setLoadingPreview(false);
-    }
-  };
+    void (async () => {
+      try {
+        const blob = await documentsService.view(doc.id);
+        const url = window.URL.createObjectURL(new Blob([blob], { type: doc.versions?.[0]?.mimetype ?? '' }));
+        if (active()) { previewEpoch.current = epoch; setPreviewUrl(url); }
+        else window.URL.revokeObjectURL(url);
+      } catch {
+        if (active()) toast.error('Error al cargar la vista previa');
+      } finally { if (active()) setLoadingPreview(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [doc, epoch]);
 
   // Limpiar URL del blob al desmontar
   useEffect(() => {
@@ -143,6 +187,7 @@ export default function DocumentDetailPage() {
 
     try {
       const blob = await documentsService.download(doc.id);
+      if (current.current.epoch !== epoch || !current.current.alive) return;
       const url = window.URL.createObjectURL(blob);
       const a = window.document.createElement('a');
       a.href = url;
@@ -153,12 +198,13 @@ export default function DocumentDetailPage() {
       window.document.body.removeChild(a);
       toast.success('Descarga iniciada');
     } catch {
-      toast.error('Error al descargar archivo');
+      if (current.current.epoch === epoch && current.current.alive) toast.error('Error al descargar archivo');
     }
   };
 
   const handleDelete = () => {
-    if (!doc) return;
+    if (!doc || !canAct('trash')) return;
+    deleteEpoch.current = epoch;
     setShowDeleteConfirm(true);
   };
 
@@ -191,15 +237,12 @@ export default function DocumentDetailPage() {
     );
   }
 
+  const originDate = doc.originDate && validOriginDate(doc.originDate)
+    ? parseISO(doc.originDate)
+    : null;
+
   return (
     <div className="space-y-6 p-8">
-      {doc.directoryId !== undefined && (
-        <DirectoryNavigation
-          value={doc.directoryId ?? null}
-          onChange={(directoryId) => router.push(`/dashboard/documents${directoryId === null ? '' : `?directoryId=${directoryId}`}`)}
-          picker
-        />
-      )}
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
@@ -215,7 +258,9 @@ export default function DocumentDetailPage() {
               <FileText className="h-8 w-8 text-primary" />
               <div>
                 <p className="font-mono text-sm text-muted-foreground mb-0.5">{getDocumentTraceability(doc).number}</p>
-                <h1 className="text-3xl font-bold">{((doc?.versions?.[0]?.filename) ?? '')}</h1>
+                <h1 className="text-3xl font-bold">{doc.name?.trim() || doc.versions?.[0]?.filename || ''}</h1>
+                {!isFetching && <SharingIndicator summary={doc.sharingSummary} provenance={doc.sharingProvenance} reception={readDocumentActionCapabilities(doc)?.scope === 'reception'} />}
+                <p className="text-sm text-muted-foreground">Archivo original: <span>{doc.versions?.[0]?.filename ?? ''}</span></p>
                   </div>
            <p className="text-muted-foreground mt-1">
              {doc.description || 'Sin descripción'}
@@ -225,15 +270,19 @@ export default function DocumentDetailPage() {
       </div>
 
         <div className="flex items-center gap-2">
-          {canEdit && (
+          {!isFetching && <DocumentSharingAction key={identity} document={doc} />}
+          {canAct('editContent') && (
+            <Button onClick={() => canAct('editContent') && setShowReplaceDialog(true)}>
+              <FileUp className="mr-2 h-4 w-4" />
+              Actualizar
+            </Button>
+          )}
+          {doc.templateId && canEditTemplate && (
             <Button
-              onClick={() =>
-                router.push(
-                  doc.templateId
-                    ? `/dashboard/documents/${doc.id}/edit-form`
-                    : `/dashboard/documents/${doc.id}/edit`,
-                )
-              }
+              onClick={() => {
+                if (!canEditTemplate) return;
+                router.push(`/dashboard/documents/${doc.id}/edit-form`);
+              }}
             >
               <Pencil className="mr-2 h-4 w-4" />
               Editar
@@ -250,6 +299,12 @@ export default function DocumentDetailPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {!isFetching && doc.canRequestChanges === true && (
+                <DropdownMenuItem onClick={() => setShowRequestDialog(true)}>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Solicitar cambios
+                </DropdownMenuItem>
+              )}
               {canExplainPermissions && (
                 <>
                   <DropdownMenuItem onClick={() => setShowExplainDialog(true)}>
@@ -259,27 +314,27 @@ export default function DocumentDetailPage() {
                   <DropdownMenuSeparator />
                 </>
               )}
-              {canEdit && (
-                <>
-                  <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+              {canViewAuditHistory && (
+                <DropdownMenuItem onClick={() => router.push(`/dashboard/documents/${doc.id}/audit`)}>
+                  <ScrollText className="mr-2 h-4 w-4" />
+                  Registro de actividad
+                </DropdownMenuItem>
+              )}
+              {canAct('editMetadata') && (
+                  <DropdownMenuItem onClick={() => canAct('editMetadata') && setShowEditDialog(true)}>
                     <Pencil className="mr-2 h-4 w-4" />
                     Editar información
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowReplaceDialog(true)}>
-                    <FileUp className="mr-2 h-4 w-4" />
-                    Reemplazar archivo
-                  </DropdownMenuItem>
-                </>
               )}
               <DropdownMenuItem onClick={() => setShowVersionHistory(true)}>
                 <History className="mr-2 h-4 w-4" />
                 Historial de versiones
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+              {canAct('trash') && (<DropdownMenuItem onClick={handleDelete} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar
-              </DropdownMenuItem>
+              </DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -296,16 +351,18 @@ export default function DocumentDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {loadingPreview ? (
+              {isOfficePreviewType(doc.versions?.[0]?.mimetype ?? '') ? (
+                <OfficeDocumentPreview documentId={doc.id} versionKey={String(doc.versions?.[0]?.id ?? doc.currentVersion)} mimetype={doc.versions?.[0]?.mimetype ?? ''} onDownload={handleDownload} />
+              ) : loadingPreview ? (
                 <div className="flex flex-col items-center justify-center h-[600px]">
                   <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
                   <p className="text-muted-foreground mt-4">Cargando vista previa...</p>
                 </div>
-              ) : previewUrl ? (
+              ) : previewUrl && previewEpoch.current === epoch ? (
                 <iframe
                   src={previewUrl}
                   className="w-full h-[600px] border rounded-md"
-                  title={((doc?.versions?.[0]?.filename) ?? '')}
+                  title={doc.name?.trim() || doc.versions?.[0]?.filename || ''}
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-[600px] text-muted-foreground">
@@ -324,11 +381,7 @@ export default function DocumentDetailPage() {
 
         {/* Panel lateral de información */}
          <div className="space-y-6">
-           <DocumentWorkflowPanel
-             documentId={doc.id}
-             documentOwnerId={doc.uploadedById}
-             documentVersionId={doc.versions?.[0]?.id}
-           />
+           <ChangeRequestPanel key={identity} documentId={doc.id} />
            {/* Información del documento */}
           <Card>
             <CardHeader>
@@ -340,10 +393,23 @@ export default function DocumentDetailPage() {
                   <Hash className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">Número de documento</p>
-                    <p className="text-sm font-mono text-foreground">{getDocumentTraceability(doc).number}</p>
-                  </div>
+                     <p className="text-sm font-mono text-foreground">{getDocumentTraceability(doc).number}</p>
+                   </div>
+                 </div>
 
-                  <Separator />
+                   <Separator />
+
+                 <div className="flex items-start gap-3">
+                   <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                   <div className="flex-1">
+                     <p className="text-sm font-medium">Tipo de documento</p>
+                     <p className="text-sm text-muted-foreground">
+                       {doc.documentType?.name ?? doc.template?.documentType?.name ?? 'Sin tipo de documento'}
+                     </p>
+                   </div>
+                 </div>
+
+                 <Separator />
 
                  <div className="flex items-start gap-3">
                    <FileType className="h-5 w-5 text-muted-foreground mt-0.5" />
@@ -359,10 +425,9 @@ export default function DocumentDetailPage() {
                    <History className="h-5 w-5 text-muted-foreground mt-0.5" />
                    <div className="flex-1">
                      <p className="text-sm font-medium">Versión actual</p>
-                     <p className="text-sm text-muted-foreground">{getDocumentTraceability(doc).version}</p>
-                   </div>
-                 </div>
-                 </div>
+                      <p className="text-sm text-muted-foreground">{getDocumentTraceability(doc).version}</p>
+                    </div>
+                  </div>
 
                  <Separator />
 
@@ -391,6 +456,22 @@ export default function DocumentDetailPage() {
 
                 <Separator />
 
+                {originDate && (
+                  <>
+                    <div className="flex items-start gap-3">
+                      <CalendarDays className="h-5 w-5 text-muted-foreground mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Fecha de origen</p>
+                        <p className="text-sm text-muted-foreground">
+                          {format(originDate, 'PPP', { locale: es })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Separator />
+                  </>
+                )}
+
                 <div className="flex items-start gap-3">
                   <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
                   <div className="flex-1">
@@ -412,47 +493,6 @@ export default function DocumentDetailPage() {
                     </p>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Categorías y Secciones */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Clasificación</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {doc.category && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Categoría</p>
-                    <Badge variant="outline" style={{ borderColor: doc.category.color }}>
-                      <span style={{ color: doc.category.color }}>{doc.category.name}</span>
-                    </Badge>
-                  </div>
-                )}
-
-                {doc.academic?.course && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Curso / Grado</p>
-                    <Badge variant="secondary">
-                      {doc.academic.course.name}
-                    </Badge>
-                  </div>
-                )}
-
-                {doc.academic?.subject && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Materia</p>
-                    <Badge variant="secondary">
-                      {doc.academic.subject.name}
-                    </Badge>
-                  </div>
-                )}
-
-                {!doc.category && (
-                  <p className="text-sm text-muted-foreground">Sin clasificación</p>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -491,53 +531,24 @@ export default function DocumentDetailPage() {
               </CardContent>
             </Card>
           )}
-
-          {/* Acciones rápidas */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Acciones</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => setShowEditDialog(true)}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar información
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => setShowReplaceDialog(true)}
-              >
-                <FileUp className="mr-2 h-4 w-4" />
-                Reemplazar archivo
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={() => setShowVersionHistory(true)}
-              >
-                <History className="mr-2 h-4 w-4" />
-                Ver historial
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
       {/* Modales */}
+      {showRequestDialog && <RequestChangesDialog key={identity} documentId={doc.id} open onOpenChange={setShowRequestDialog} />}
       {showEditDialog && (
         <EditDocumentDialog
+          key={identity}
+          authorize={() => canAct('editMetadata')}
           document={doc}
-          open={showEditDialog}
+          open={showEditDialog && (isFetching || canAct('editMetadata'))}
           onOpenChange={setShowEditDialog}
         />
       )}
 
       {showVersionHistory && (
         <DocumentVersionHistory
+          key={identity}
           documentId={doc.id}
           currentVersion={doc.currentVersion || 1}
           open={showVersionHistory}
@@ -547,15 +558,17 @@ export default function DocumentDetailPage() {
 
       {showReplaceDialog && (
         <ReplaceFileDialog
+          key={identity}
+          authorize={() => canAct('editContent')}
           documentId={doc.id}
           documentName={((doc?.versions?.[0]?.filename) ?? '')}
-          open={showReplaceDialog}
+          open={showReplaceDialog && (isFetching || canAct('editContent'))}
           onOpenChange={setShowReplaceDialog}
         />
       )}
 
       <ConfirmDialog
-        open={showDeleteConfirm}
+        open={showDeleteConfirm && !!deleteEpoch.current && canAct('trash', deleteEpoch.current)}
         onOpenChange={setShowDeleteConfirm}
         title="Eliminar documento"
         description={`¿Estás seguro de eliminar "${((doc?.versions?.[0]?.filename) ?? '')}"? El documento será enviado a la papelera.`}
@@ -563,7 +576,8 @@ export default function DocumentDetailPage() {
         variant="destructive"
         loading={deleteMutation.isPending}
         onConfirm={() => {
-          deleteMutation.mutate(doc.id);
+          if (deleteEpoch.current && canAct('trash', deleteEpoch.current))
+            deleteMutation.mutate({ id: doc.id, epoch: deleteEpoch.current });
           setShowDeleteConfirm(false);
         }}
       />

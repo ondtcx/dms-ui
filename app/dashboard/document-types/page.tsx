@@ -2,7 +2,6 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentTypesService } from "@/lib/services/document-types.service";
-import { categoriesService } from "@/lib/services/categories.service";
 import { useState, useMemo } from "react";
 import toast from "react-hot-toast";
 import {
@@ -14,7 +13,6 @@ import {
   PowerOff,
   Search,
   FileText,
-  FileType,
 } from "lucide-react";
 import {
   DocumentType,
@@ -42,13 +40,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import ProtectedRoute from "@/guards/ProtectedRoute";
 import {
@@ -65,7 +56,6 @@ interface DocumentTypeFormProps {
   onSubmit: (data: CreateDocumentTypeDto) => void;
   onCancel: () => void;
   isPending: boolean;
-  categories: { id: number; name: string; isActive: boolean }[];
 }
 
 function DocumentTypeForm({
@@ -73,13 +63,10 @@ function DocumentTypeForm({
   onSubmit,
   onCancel,
   isPending,
-  categories,
 }: DocumentTypeFormProps) {
   const [name, setName] = useState(initialValues?.name ?? "");
   const [description, setDescription] = useState(initialValues?.description ?? "");
-  const [categoryId, setCategoryId] = useState<number | undefined>(initialValues?.categoryId);
   const [isActive, setIsActive] = useState(initialValues?.isActive ?? true);
-  const [isDefault, setIsDefault] = useState(initialValues?.isDefault ?? false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,16 +74,10 @@ function DocumentTypeForm({
       toast.error("El nombre es requerido");
       return;
     }
-    if (!categoryId) {
-      toast.error("La categoría es requerida");
-      return;
-    }
     onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
-      categoryId,
       isActive,
-      isDefault,
     });
   };
 
@@ -115,33 +96,12 @@ function DocumentTypeForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="dt-category">
-          Categoría <span className="text-red-500">*</span>
-        </Label>
-        <Select
-          value={categoryId?.toString() ?? ""}
-          onValueChange={(v) => setCategoryId(Number(v))}
-        >
-          <SelectTrigger id="dt-category">
-            <SelectValue placeholder="Selecciona una categoría" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.filter((c) => c.isActive).map((cat) => (
-              <SelectItem key={cat.id} value={cat.id.toString()}>
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
         <Label htmlFor="dt-description">Descripción</Label>
         <Textarea
           id="dt-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe para qué se usa este subtipo"
+          placeholder="Describe para qué se usa este tipo"
           rows={3}
         />
       </div>
@@ -150,32 +110,13 @@ function DocumentTypeForm({
         <Checkbox
           id="dt-isActive"
           checked={isActive}
-          onCheckedChange={(checked) => {
-            const active = checked as boolean;
-            setIsActive(active);
-            if (!active) setIsDefault(false);
-          }}
+          onCheckedChange={(checked) => setIsActive(checked as boolean)}
         />
         <label
           htmlFor="dt-isActive"
           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
         >
           Activo
-        </label>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="dt-isDefault"
-          checked={isDefault}
-          disabled={!isActive}
-          onCheckedChange={(checked) => setIsDefault(checked as boolean)}
-        />
-        <label
-          htmlFor="dt-isDefault"
-          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-        >
-          Tipo predeterminado global
         </label>
       </div>
 
@@ -196,7 +137,6 @@ function DocumentTypesPageContent() {
   const [showModal, setShowModal] = useState(false);
   const [editingType, setEditingType] = useState<DocumentType | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: number; name: string } | null>(null);
 
   const { data: documentTypes, isLoading, error } = useQuery({
@@ -204,17 +144,9 @@ function DocumentTypesPageContent() {
     queryFn: () => documentTypesService.getAll(),
   });
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories", "active"],
-    queryFn: categoriesService.getActive,
-  });
-
   const filteredTypes = useMemo(() => {
     if (!documentTypes) return [];
     let list = documentTypes;
-    if (categoryFilter !== "all") {
-      list = list.filter((dt) => dt.categoryId === Number(categoryFilter));
-    }
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       list = list.filter(
@@ -224,37 +156,31 @@ function DocumentTypesPageContent() {
       );
     }
     return list;
-  }, [documentTypes, searchTerm, categoryFilter]);
+  }, [documentTypes, searchTerm]);
 
   const createMutation = useMutation({
     mutationFn: (data: CreateDocumentTypeDto) => documentTypesService.create(data),
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["document-types"] });
-       toast.success(data?.isDefault ? "Tipo predeterminado establecido" : "Subtipo creado exitosamente");
+      toast.success("Tipo creado exitosamente");
       setShowModal(false);
     },
     onError: (error: { response?: { data?: { message?: string } } }) => {
-      toast.error(error.response?.data?.message || "Error al crear subtipo");
+      toast.error(error.response?.data?.message || "Error al crear tipo");
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: UpdateDocumentTypeDto }) =>
       documentTypesService.update(id, data),
-     onSuccess: (_data, variables) => {
-       queryClient.invalidateQueries({ queryKey: ["document-types"] });
-       toast.success(
-         variables.data.isDefault === true
-           ? "Tipo predeterminado establecido"
-           : variables.data.isDefault === false
-             ? "Tipo predeterminado retirado"
-             : "Subtipo actualizado exitosamente",
-       );
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["document-types"] });
+      toast.success("Tipo actualizado exitosamente");
       setEditingType(null);
       setShowModal(false);
     },
     onError: (error: { response?: { data?: { message?: string } } }) => {
-      toast.error(error.response?.data?.message || "Error al actualizar subtipo");
+      toast.error(error.response?.data?.message || "Error al actualizar tipo");
     },
   });
 
@@ -262,10 +188,10 @@ function DocumentTypesPageContent() {
     mutationFn: documentTypesService.delete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["document-types"] });
-      toast.success("Subtipo eliminado exitosamente");
+      toast.success("Tipo eliminado exitosamente");
     },
     onError: (error: { response?: { data?: { message?: string } } }) => {
-      toast.error(error.response?.data?.message || "Error al eliminar subtipo");
+      toast.error(error.response?.data?.message || "Error al eliminar tipo");
     },
   });
 
@@ -292,7 +218,7 @@ function DocumentTypesPageContent() {
   if (error) {
     return (
       <div className="p-8 text-center">
-        <p className="text-red-500">Error al cargar subtipos de documento</p>
+        <p className="text-red-500">Error al cargar tipos de documento</p>
       </div>
     );
   }
@@ -300,14 +226,14 @@ function DocumentTypesPageContent() {
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Subtipos de Documento</h1>
+        <h1 className="text-3xl font-bold">Tipos de Documento</h1>
         <p className="text-muted-foreground mt-1">
-          Administra los subtipos dentro de cada categoría para clasificar documentos y plantillas
+          Administra los tipos de documento para clasificar documentos
         </p>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total</CardTitle>
@@ -330,17 +256,6 @@ function DocumentTypesPageContent() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Plantillas</CardTitle>
-            <FileType className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {documentTypes?.reduce((acc, dt) => acc + (dt._count?.documentTemplates ?? 0), 0) ?? 0}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Documentos</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -357,29 +272,16 @@ function DocumentTypesPageContent() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Subtipos</CardTitle>
+              <CardTitle>Tipos</CardTitle>
               <CardDescription>
-                {filteredTypes.length} de {documentTypes?.length ?? 0} subtipos
+                {filteredTypes.length} de {documentTypes?.length ?? 0} tipos
               </CardDescription>
             </div>
             <div className="flex gap-2">
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filtrar por categoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las categorías</SelectItem>
-                  {categories?.filter((c) => c.isActive).map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id.toString()}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar subtipos..."
+                  placeholder="Buscar tipos..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-9 w-56"
@@ -392,23 +294,20 @@ function DocumentTypesPageContent() {
                 }}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Nuevo Subtipo
+                Nuevo Tipo
               </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-8">Cargando subtipos...</div>
+            <div className="text-center py-8">Cargando tipos...</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Categoría</TableHead>
                   <TableHead>Descripción</TableHead>
-                  <TableHead>Predeterminado</TableHead>
-                  <TableHead>Plantillas</TableHead>
                   <TableHead>Documentos</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
@@ -417,8 +316,8 @@ function DocumentTypesPageContent() {
               <TableBody>
                 {filteredTypes.length === 0 ? (
                   <TableRow>
-                     <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No hay subtipos
+                     <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      No hay tipos
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -428,33 +327,9 @@ function DocumentTypesPageContent() {
                         <span className="font-medium">{dt.name}</span>
                       </TableCell>
                       <TableCell>
-                        {dt.category ? (
-                          <Badge
-                            variant="outline"
-                            style={{ borderColor: dt.category.color, color: dt.category.color }}
-                          >
-                            {dt.category.name}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-sm">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
                         <span className="text-sm text-muted-foreground truncate max-w-[200px] block">
                           {dt.description || "—"}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        {dt.isDefault ? (
-                          <Badge variant="outline" className="border-primary text-primary">
-                            Predeterminado
-                          </Badge>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm tabular-nums">{dt._count?.documentTemplates ?? 0}</span>
                       </TableCell>
                       <TableCell>
                         <span className="text-sm tabular-nums">{dt._count?.documents ?? 0}</span>
@@ -524,12 +399,12 @@ function DocumentTypesPageContent() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingType ? "Editar Subtipo" : "Nuevo Subtipo"}
+              {editingType ? "Editar Tipo" : "Nuevo Tipo"}
             </DialogTitle>
             <DialogDescription>
               {editingType
-                ? "Modifica los datos del subtipo de documento"
-                : "Crea un nuevo subtipo dentro de una categoría"}
+                ? "Modifica los datos del tipo de documento"
+                : "Crea un nuevo tipo de documento"}
             </DialogDescription>
           </DialogHeader>
           <DocumentTypeForm
@@ -541,7 +416,6 @@ function DocumentTypesPageContent() {
               setEditingType(null);
             }}
             isPending={createMutation.isPending || updateMutation.isPending}
-            categories={categories ?? []}
           />
         </DialogContent>
       </Dialog>
@@ -549,8 +423,8 @@ function DocumentTypesPageContent() {
       <ConfirmDialog
         open={deleteConfirm !== null}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
-        title="Eliminar subtipo"
-        description={`¿Estás seguro de eliminar el subtipo "${deleteConfirm?.name}"? Si tiene documentos o plantillas asociados, no podrá eliminarse.`}
+        title="Eliminar tipo"
+        description={`¿Estás seguro de eliminar el tipo "${deleteConfirm?.name}"? Si tiene documentos asociados, no podrá eliminarse.`}
         confirmLabel="Eliminar"
         variant="destructive"
         loading={deleteMutation.isPending}

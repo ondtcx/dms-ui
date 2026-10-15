@@ -5,6 +5,7 @@ import { UserRole, User } from "@/lib/types";
 import { EditUserDialog } from "@/components/users/EditUserDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersService } from "@/lib/services/users.service";
+import { rolesService } from "@/lib/services/roles.service";
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -28,13 +29,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -83,7 +77,7 @@ function UsersManagementContent() {
     name: "",
     email: "",
     password: "",
-    role: UserRole.PROFESOR,
+    catalogRoleId: "",
   });
 
   const { data: users, isLoading } = useQuery({
@@ -91,13 +85,23 @@ function UsersManagementContent() {
     queryFn: () => usersService.getAll(),
   });
 
+  const { data: roles, isLoading: rolesLoading, isError: rolesError } = useQuery({
+    queryKey: ["roles"],
+    queryFn: () => rolesService.getAll(),
+    enabled: isCreating,
+  });
+  const activeRoles = (roles ?? []).filter((role) => role.isActive);
+  const selectedRole = activeRoles.find((role) => String(role.id) === newUser.catalogRoleId);
+  const canSelectRole = !rolesLoading && !rolesError && activeRoles.length > 0;
+
   const createMutation = useMutation({
     mutationFn: usersService.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
       toast.success("Usuario creado exitosamente");
       setIsCreating(false);
-      setNewUser({ name: "", email: "", password: "", role: UserRole.PROFESOR });
+      setNewUser({ name: "", email: "", password: "", catalogRoleId: "" });
     },
     onError: (error) => {
       const message =
@@ -163,7 +167,13 @@ function UsersManagementContent() {
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate(newUser);
+    if (!canSelectRole || !selectedRole || createMutation.isPending) return;
+    createMutation.mutate({
+      name: newUser.name,
+      email: newUser.email,
+      password: newUser.password,
+      catalogRoleId: selectedRole.id,
+    });
   };
 
   return (
@@ -281,6 +291,9 @@ function UsersManagementContent() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Crear nuevo usuario</DialogTitle>
+            <DialogDescription>
+              Completa los datos y selecciona un rol activo de catálogo.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-2">
@@ -319,23 +332,30 @@ function UsersManagementContent() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="new-role">Rol</Label>
-              <Select
-                value={newUser.role}
-                onValueChange={(v) =>
-                  setNewUser({ ...newUser, role: v as UserRole })
+              <select
+                id="new-role"
+                required
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={newUser.catalogRoleId}
+                disabled={!canSelectRole}
+                onChange={(e) =>
+                  setNewUser({ ...newUser, catalogRoleId: e.target.value })
                 }
               >
-                <SelectTrigger id="new-role">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.values(UserRole).map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {ROLE_LABELS[role]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="">
+                  {rolesLoading ? "Cargando roles..." : "Selecciona un rol"}
+                </option>
+                {activeRoles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+              {rolesError ? (
+                <p role="alert">No se pudieron cargar los roles</p>
+              ) : !rolesLoading && !activeRoles.length ? (
+                <p role="alert">No hay roles activos disponibles</p>
+              ) : null}
             </div>
             <DialogFooter>
               <Button
@@ -345,7 +365,7 @@ function UsersManagementContent() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
+              <Button type="submit" disabled={createMutation.isPending || !canSelectRole || !selectedRole}>
                 {createMutation.isPending ? "Creando..." : "Crear usuario"}
               </Button>
             </DialogFooter>

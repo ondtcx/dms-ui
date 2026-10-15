@@ -17,6 +17,9 @@ jest.mock("@/components/navigation/DashboardBreadcrumb", () => ({
 jest.mock("@/components/search/SearchBar", () => ({
   SearchBar: () => <input aria-label="Buscar documentos" placeholder="Buscar documentos..." />,
 }));
+jest.mock("@/components/notifications/NotificationBell", () => ({
+  NotificationBell: () => <button aria-label="Notificaciones, 0 sin leer">Notificaciones</button>,
+}));
 jest.mock("@/lib/contexts/AuthContext", () => ({
   useAuth: () => ({
     user: { name: "Ana Torres", email: "ana@example.com", role: "admin" },
@@ -33,10 +36,24 @@ describe("DashboardLayout", () => {
     expect(controls.map((control) => control.getAttribute("aria-label"))).toEqual([
       "Abrir navegación",
       "Buscar documentos",
+      "Notificaciones, 0 sin leer",
       "Abrir menú de cuenta",
     ]);
     expect(screen.getByRole("main")).toHaveTextContent("Contenido");
   });
+
+  it("applies the institutional header styling without changing control order", () => {
+    render(<DashboardLayout><p>Contenido</p></DashboardLayout>);
+
+    const header = screen.getByRole("banner", { name: "Encabezado principal" });
+    expect(header).toHaveClass(
+      "dashboard-header",
+      "bg-institution-primary",
+      "text-institution-primary-foreground",
+    );
+    expect(screen.getByRole("textbox").closest(".dashboard-header-search")).not.toBeNull();
+  });
+
   it("shows the desktop profile identity and preserves logout through the dropdown", async () => {
     mockLogout.mockReset();
     render(<DashboardLayout><p>Contenido</p></DashboardLayout>);
