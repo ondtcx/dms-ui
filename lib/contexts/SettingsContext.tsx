@@ -3,17 +3,20 @@
 import { createContext, useContext, useEffect, ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsService, SystemSettings } from "@/lib/services/settings.service";
+
+type SettingsResponse = Omit<SystemSettings, "documents" | "notifications" | "security"> &
+  Partial<Pick<SystemSettings, "documents" | "notifications" | "security">>;
 import { useAuth } from "@/lib/contexts/AuthContext";
 import type { AppearanceSettings } from "@/lib/services/settings.service";
 
 interface SettingsContextType {
-  settings: SystemSettings | null;
+  settings: SettingsResponse | null;
   isLoading: boolean;
   refresh: () => void;
 }
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
-  primaryColor: "#1d4ed8",
+  primaryColor: "#1e3a5f",
   secondaryColor: "#047857",
   theme: "system",
 };
@@ -22,11 +25,16 @@ export function resolveAppearanceColors(
   appearance?: Partial<AppearanceSettings> | null,
 ): AppearanceSettings {
   return {
-    ...DEFAULT_APPEARANCE,
-    ...appearance,
-    primaryColor: appearance?.primaryColor || DEFAULT_APPEARANCE.primaryColor,
-    secondaryColor: appearance?.secondaryColor || DEFAULT_APPEARANCE.secondaryColor,
-    theme: appearance?.theme || DEFAULT_APPEARANCE.theme,
+    primaryColor:
+      normalizeHexColor(appearance?.primaryColor) ?? DEFAULT_APPEARANCE.primaryColor,
+    secondaryColor:
+      normalizeHexColor(appearance?.secondaryColor) ?? DEFAULT_APPEARANCE.secondaryColor,
+    theme:
+      appearance?.theme === "light" ||
+      appearance?.theme === "dark" ||
+      appearance?.theme === "system"
+        ? appearance.theme
+        : DEFAULT_APPEARANCE.theme,
   };
 }
 
@@ -71,11 +79,39 @@ function hexToOklch(hex: string): string {
   }
 }
 
+const LIGHT_FOREGROUND = "oklch(0.985 0 0)";
+const DARK_FOREGROUND = "oklch(0.145 0 0)";
+
+export function normalizeHexColor(hex: unknown): string | null {
+  if (typeof hex !== "string") return null;
+
+  const normalized = hex.length === 4
+    ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
+    : hex;
+
+  return /^#[0-9a-fA-F]{6}$/.test(normalized) ? normalized : null;
+}
+
+export function resolveColorForeground(hex: string): string {
+  const normalized = normalizeHexColor(hex);
+  if (!normalized) return LIGHT_FOREGROUND;
+
+  const channels = [0, 2, 4].map((offset) => parseInt(normalized.slice(offset + 1, offset + 3), 16) / 255);
+  const linearChannels = channels.map((channel) =>
+    channel <= 0.04045 ? channel / 12.92 : Math.pow((channel + 0.055) / 1.055, 2.4),
+  );
+  const luminance = 0.2126 * linearChannels[0] + 0.7152 * linearChannels[1] + 0.0722 * linearChannels[2];
+  const lightContrast = 1.05 / (luminance + 0.05);
+  const darkContrast = (luminance + 0.05) / 0.05;
+
+  return lightContrast >= darkContrast ? LIGHT_FOREGROUND : DARK_FOREGROUND;
+}
+
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const { isAuthenticated, loading: authLoading } = useAuth();
 
-  const { data: settings = null, isLoading } = useQuery({
+  const { data: settings = null, isLoading } = useQuery<SettingsResponse>({
     queryKey: ["settings"],
     queryFn: settingsService.get,
     enabled: !authLoading && isAuthenticated,
@@ -90,14 +126,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
     const primaryOklch = hexToOklch(primaryColor);
     const secondaryOklch = hexToOklch(secondaryColor);
+    const primaryForeground = resolveColorForeground(primaryColor);
+    const secondaryForeground = resolveColorForeground(secondaryColor);
 
     // Variables que Tailwind v4 + shadcn/ui realmente leen en runtime
     document.documentElement.style.setProperty("--primary", primaryOklch);
+    document.documentElement.style.setProperty("--primary-foreground", primaryForeground);
     document.documentElement.style.setProperty("--ring", primaryOklch);
     document.documentElement.style.setProperty("--sidebar-primary", primaryOklch);
+    document.documentElement.style.setProperty("--sidebar-primary-foreground", primaryForeground);
     document.documentElement.style.setProperty("--accent", secondaryOklch);
+    document.documentElement.style.setProperty("--accent-foreground", secondaryForeground);
+    document.documentElement.style.setProperty("--secondary", secondaryOklch);
+    document.documentElement.style.setProperty("--secondary-foreground", secondaryForeground);
     document.documentElement.style.setProperty("--institution-primary", primaryOklch);
+    document.documentElement.style.setProperty("--institution-primary-foreground", primaryForeground);
     document.documentElement.style.setProperty("--institution-secondary", secondaryOklch);
+    document.documentElement.style.setProperty("--institution-secondary-foreground", secondaryForeground);
 
     // También conservar los valores hex originales para uso directo en CSS
     document.documentElement.style.setProperty("--settings-primary", primaryColor);

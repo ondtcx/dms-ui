@@ -29,6 +29,7 @@ export interface DocumentSettings {
   allowedMimeTypes: string[];
   trashRetentionDays: number;
   maxVersionsPerDocument: number;
+  versionRetentionDays?: number;
 }
 
 export interface NotificationSettings {
@@ -40,7 +41,8 @@ export interface NotificationSettings {
 export interface SecuritySettings {
   sessionTimeoutMinutes: number;
   maxLoginAttempts: number;
-  require2FA: boolean;
+  // Legacy JSON may still contain require2FA; it is intentionally ignored.
+  [key: string]: unknown;
 }
 
 export interface SystemSettings {

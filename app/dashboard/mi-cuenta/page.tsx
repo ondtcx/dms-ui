@@ -2,6 +2,7 @@
 
 import ProtectedRoute from "@/guards/ProtectedRoute";
 import { ChangePasswordForm } from "@/components/change-password-form";
+import { TwoFactorSettings } from "@/components/two-factor-settings";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { UserRound, Mail, Shield } from "lucide-react";
@@ -49,6 +50,8 @@ function MyAccountContent() {
           </div>
         </CardContent>
       </Card>
+
+      <TwoFactorSettings />
 
       {/* Cambiar contraseña */}
       <ChangePasswordForm />

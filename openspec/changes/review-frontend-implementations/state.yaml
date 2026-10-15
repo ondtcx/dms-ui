@@ -1,0 +1,24 @@
+schema: gentle-ai.sdd-preproposal/v1
+revision: 21d01521e4f1863b95bdecfd405c2a56fc1eab5c
+change: review-frontend-implementations
+artifact_store: openspec
+
+exploration:
+  status: done
+  reference: openspec/changes/review-frontend-implementations/exploration.md
+
+research:
+  selected: true
+  status: done
+  request_id: review-frontend-implementations-research-21d01521
+  classes:
+    - documentation
+    - open-web
+  admission: gentle-ai.sdd-research-capability/v1
+  reference: openspec/changes/review-frontend-implementations/research.md
+
+product_decisions:
+  status: confirmed
+  unauthorized_direct_access: redirect to /errors/unauthorized via the shared ProtectedRoute behavior
+
+proposal_ready: true

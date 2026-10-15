@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { VersionRetentionControls } from "./VersionRetentionControls";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
 import { DocumentVersionSource, ApprovalAction } from "@/lib/types";
@@ -56,6 +57,11 @@ export function DocumentVersionHistory({
 }: DocumentVersionHistoryProps) {
   const queryClient = useQueryClient();
   const [confirmingVersion, setConfirmingVersion] = useState<number | null>(null);
+  const confirmationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    setConfirmingVersion(null);
+    return () => { if (confirmationTimer.current) clearTimeout(confirmationTimer.current); };
+  }, [open, documentId]);
 
   const { data: versions, isLoading } = useQuery({
     queryKey: ["document-versions", documentId],
@@ -85,7 +91,8 @@ export function DocumentVersionHistory({
       restoreMutation.mutate(version);
     } else {
       setConfirmingVersion(version);
-      setTimeout(() => setConfirmingVersion(null), 3000);
+      if (confirmationTimer.current) clearTimeout(confirmationTimer.current);
+      confirmationTimer.current = setTimeout(() => setConfirmingVersion(null), 3000);
     }
   };
 
@@ -112,7 +119,9 @@ export function DocumentVersionHistory({
             Historial de Versiones
           </DialogTitle>
           <DialogDescription>
-            Visualiza y restaura versiones anteriores del documento.
+            Visualiza y restaura versiones anteriores del documento. La conservación permanente protege solo
+            de la limpieza automática de versiones, no de la papelera ni de la eliminación definitiva del documento.
+            La versión actual y las versiones vinculadas a flujos o aprobaciones están protegidas.
           </DialogDescription>
         </DialogHeader>
 
@@ -176,6 +185,8 @@ export function DocumentVersionHistory({
                           </div>
                         )}
                       </div>
+
+                      {open && <VersionRetentionControls key={`${documentId}:${version.version}`} documentId={documentId} version={version} isCurrent={version.version === currentVersion} />}
 
                       {version.comment && (
                         <div className="flex items-start gap-1 text-sm mt-2">

@@ -6,7 +6,6 @@ import toast from "react-hot-toast";
 import { GitBranch, Plus, Power, Save, Trash2 } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { workflowsService } from "@/lib/services/workflows.service";
-import { isWorkflowFeatureEnabled } from "@/lib/workflow-feature";
 import {
   type WorkflowDefinitionDetail,
   type WorkflowDefinitionVersion,
@@ -42,7 +41,6 @@ function versionLabel(version: WorkflowDefinitionVersion) {
 export default function WorkflowAdministration() {
   const { hasPermission } = usePermissions();
   const queryClient = useQueryClient();
-  const workflowFeatureEnabled = isWorkflowFeatureEnabled();
   const canManage = hasPermission("workflow.templates.manage");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [editingVersion, setEditingVersion] = useState<number | null>(null);
@@ -65,12 +63,12 @@ export default function WorkflowAdministration() {
   const definitionsQuery = useQuery({
     queryKey: ["workflow-definitions"],
     queryFn: workflowsService.getDefinitions,
-    enabled: workflowFeatureEnabled && canManage,
+    enabled: canManage,
   });
   const detailQuery = useQuery({
     queryKey: ["workflow-definition", selectedId],
     queryFn: () => workflowsService.getDefinition(selectedId as number),
-    enabled: workflowFeatureEnabled && canManage && selectedId !== null,
+    enabled: canManage && selectedId !== null,
   });
 
   useEffect(() => {
@@ -175,14 +173,6 @@ export default function WorkflowAdministration() {
     return (
       <p className="text-muted-foreground">
         No tienes permiso para administrar flujos de trabajo.
-      </p>
-    );
-  }
-
-  if (!workflowFeatureEnabled) {
-    return (
-      <p className="text-muted-foreground">
-        Los flujos de trabajo están desactivados para este entorno.
       </p>
     );
   }

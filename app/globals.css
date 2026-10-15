@@ -38,7 +38,9 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --color-institution-primary: var(--institution-primary);
+  --color-institution-primary-foreground: var(--institution-primary-foreground);
   --color-institution-secondary: var(--institution-secondary);
+  --color-institution-secondary-foreground: var(--institution-secondary-foreground);
   --color-institution-surface: var(--institution-surface);
   --color-institution-content: var(--institution-content);
   --radius-sm: calc(var(--radius) - 4px);
@@ -56,14 +58,14 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
+  --primary: var(--institution-primary);
+  --primary-foreground: var(--institution-primary-foreground);
+  --secondary: var(--institution-secondary);
+  --secondary-foreground: var(--institution-secondary-foreground);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: var(--institution-secondary);
+  --accent-foreground: var(--institution-secondary-foreground);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
@@ -74,17 +76,20 @@
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-  --institution-primary: oklch(0.42 0.16 255);
-  --institution-secondary: oklch(0.48 0.12 165);
+  --institution-primary: oklch(0.3462 0.0736 256.040);
+  --institution-primary-foreground: oklch(0.985 0 0);
+  --institution-secondary: oklch(0.5081 0.1049 165.612);
+  --institution-secondary-foreground: oklch(0.985 0 0);
   --institution-surface: oklch(0.98 0.01 255);
   --institution-content: oklch(0.2 0.03 255);
+  --sidebar: color-mix(in oklch, var(--institution-primary) 88%, black);
+  --sidebar-foreground: var(--institution-primary-foreground);
+  --sidebar-primary: var(--institution-primary);
+  --sidebar-primary-foreground: var(--institution-primary-foreground);
+  --sidebar-accent: color-mix(in oklch, var(--institution-primary) 94%, white);
+  --sidebar-accent-foreground: var(--institution-primary-foreground);
+  --sidebar-border: color-mix(in oklch, var(--institution-primary) 72%, white);
+  --sidebar-ring: color-mix(in oklch, var(--institution-primary) 40%, white);
   --space-shell: 1rem;
 }
 
@@ -95,14 +100,14 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
+  --primary: var(--institution-primary);
+  --primary-foreground: var(--institution-primary-foreground);
+  --secondary: var(--institution-secondary);
+  --secondary-foreground: var(--institution-secondary-foreground);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --accent: var(--institution-secondary);
+  --accent-foreground: var(--institution-secondary-foreground);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
@@ -112,18 +117,20 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-  --institution-primary: oklch(0.72 0.15 255);
-  --institution-secondary: oklch(0.72 0.12 165);
+  --institution-primary: oklch(0.3462 0.0736 256.040);
+  --institution-primary-foreground: oklch(0.985 0 0);
+  --institution-secondary: oklch(0.5081 0.1049 165.612);
+  --institution-secondary-foreground: oklch(0.985 0 0);
   --institution-surface: oklch(0.22 0.03 255);
   --institution-content: oklch(0.96 0.01 255);
+  --sidebar: color-mix(in oklch, var(--institution-primary) 64%, black);
+  --sidebar-foreground: var(--institution-primary-foreground);
+  --sidebar-primary: var(--institution-primary);
+  --sidebar-primary-foreground: var(--institution-primary-foreground);
+  --sidebar-accent: color-mix(in oklch, var(--institution-primary) 76%, black);
+  --sidebar-accent-foreground: var(--institution-primary-foreground);
+  --sidebar-border: color-mix(in oklch, var(--institution-primary) 52%, white);
+  --sidebar-ring: color-mix(in oklch, var(--institution-primary) 45%, white);
 }
 
 @layer base {
@@ -143,4 +150,60 @@
   body:not(:has([data-state="open"])) {
     overflow: auto !important;
   }
+}
+
+.dashboard-header {
+  color: var(--institution-primary-foreground);
+  border-color: color-mix(in oklch, var(--institution-primary-foreground) 32%, var(--institution-primary));
+}
+
+.dashboard-header [data-sidebar="trigger"] {
+  color: var(--institution-primary-foreground);
+}
+
+.dashboard-header [data-sidebar="trigger"]:hover {
+  background-color: color-mix(in oklch, var(--institution-primary-foreground) 16%, transparent);
+  color: var(--institution-primary-foreground);
+}
+
+.dashboard-header [data-sidebar="trigger"]:focus-visible {
+  outline: 2px solid var(--institution-primary-foreground);
+  outline-offset: 2px;
+}
+
+.dashboard-header [data-slot="breadcrumb-list"],
+.dashboard-header [data-slot="breadcrumb-link"] {
+  color: color-mix(in oklch, var(--institution-primary-foreground) 82%, transparent);
+}
+
+.dashboard-header [data-slot="breadcrumb-link"]:hover,
+.dashboard-header [data-slot="breadcrumb-page"] {
+  color: var(--institution-primary-foreground);
+}
+
+.dashboard-header [data-slot="breadcrumb-separator"] {
+  color: color-mix(in oklch, var(--institution-primary-foreground) 62%, transparent);
+}
+
+.dashboard-header-search [data-slot="input"] {
+  background-color: color-mix(in oklch, var(--institution-primary-foreground) 94%, transparent);
+  color: var(--institution-content);
+}
+
+.dashboard-header-search [data-slot="input"]::placeholder {
+  color: color-mix(in oklch, var(--institution-content) 65%, transparent);
+}
+
+.dashboard-header-search [data-slot="input"]:focus-visible {
+  border-color: var(--institution-primary-foreground);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--institution-primary-foreground) 42%, transparent);
+}
+
+.dashboard-header-search svg,
+.dashboard-header-search button {
+  color: color-mix(in oklch, var(--institution-content) 72%, transparent);
+}
+
+.dashboard-header-search button:hover {
+  color: var(--institution-content);
 }

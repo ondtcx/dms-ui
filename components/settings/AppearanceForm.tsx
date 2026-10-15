@@ -16,9 +16,15 @@ import {
 } from "@/components/ui/select";
 import { Save, Palette } from "lucide-react";
 import { settingsService, AppearanceSettings } from "@/lib/services/settings.service";
-import { useSettings } from "@/lib/contexts/SettingsContext";
+import {
+  normalizeHexColor,
+  resolveAppearanceColors,
+  resolveColorForeground,
+  useSettings,
+} from "@/lib/contexts/SettingsContext";
 
 const PRESET_COLORS = [
+  "#1e3a5f",
   "#3b82f6", // blue
   "#10b981", // emerald
   "#8b5cf6", // violet
@@ -32,20 +38,14 @@ const PRESET_COLORS = [
 export function AppearanceForm() {
   const { settings, refresh } = useSettings();
 
-  const defaultAppearance: AppearanceSettings = {
-    primaryColor: "#3b82f6",
-    secondaryColor: "#10b981",
-    theme: "system",
-  };
-
-  const [form, setForm] = useState<AppearanceSettings>(defaultAppearance);
+  const [form, setForm] = useState<AppearanceSettings>(() => resolveAppearanceColors());
 
   useEffect(() => {
-    if (settings?.appearance) setForm(settings.appearance);
+    if (settings) setForm(resolveAppearanceColors(settings.appearance));
   }, [settings]);
 
   const mutation = useMutation({
-    mutationFn: (data: Partial<AppearanceSettings>) => settingsService.updateAppearance(data),
+    mutationFn: (data: AppearanceSettings) => settingsService.updateAppearance(data),
     onSuccess: () => {
       toast.success("Apariencia actualizada");
       refresh();
@@ -55,7 +55,20 @@ export function AppearanceForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    mutation.mutate(form);
+
+    const primaryColor = normalizeHexColor(form.primaryColor.trim());
+    const secondaryColor = normalizeHexColor(form.secondaryColor.trim());
+
+    if (!primaryColor || !secondaryColor) {
+      toast.error("Introduce colores hexadecimales válidos.");
+      return;
+    }
+
+    mutation.mutate({
+      primaryColor,
+      secondaryColor,
+      theme: resolveAppearanceColors({ theme: form.theme }).theme,
+    });
   };
 
   return (
@@ -93,10 +106,12 @@ export function AppearanceForm() {
                   type="button"
                   onClick={() => setForm({ ...form, primaryColor: c })}
                   aria-label={`Seleccionar color primario ${c}`}
+                  aria-pressed={form.primaryColor === c}
                   className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
                   style={{
                     backgroundColor: c,
-                    borderColor: form.primaryColor === c ? "#1f2937" : "transparent",
+                    borderColor: form.primaryColor === c ? resolveColorForeground(c) : "transparent",
+                    boxShadow: form.primaryColor === c ? `0 0 0 2px ${c}` : undefined,
                   }}
                   title={c}
                 />
@@ -128,10 +143,12 @@ export function AppearanceForm() {
                   type="button"
                   onClick={() => setForm({ ...form, secondaryColor: c })}
                   aria-label={`Seleccionar color secundario ${c}`}
+                  aria-pressed={form.secondaryColor === c}
                   className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
                   style={{
                     backgroundColor: c,
-                    borderColor: form.secondaryColor === c ? "#1f2937" : "transparent",
+                    borderColor: form.secondaryColor === c ? resolveColorForeground(c) : "transparent",
+                    boxShadow: form.secondaryColor === c ? `0 0 0 2px ${c}` : undefined,
                   }}
                   title={c}
                 />
@@ -144,15 +161,19 @@ export function AppearanceForm() {
             <p className="text-sm font-medium text-gray-700">Vista previa</p>
             <div className="flex gap-3">
               <div
-                className="h-8 flex-1 rounded"
-                style={{ backgroundColor: form.primaryColor }}
+                className="flex h-8 flex-1 items-center rounded px-2 text-xs font-medium"
+                style={{ backgroundColor: form.primaryColor, color: resolveColorForeground(form.primaryColor) }}
                 title="Color primario"
-              />
+              >
+                Primario
+              </div>
               <div
-                className="h-8 flex-1 rounded"
-                style={{ backgroundColor: form.secondaryColor }}
+                className="flex h-8 flex-1 items-center rounded px-2 text-xs font-medium"
+                style={{ backgroundColor: form.secondaryColor, color: resolveColorForeground(form.secondaryColor) }}
                 title="Color secundario"
-              />
+              >
+                Secundario
+              </div>
             </div>
           </div>
 

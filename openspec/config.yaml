@@ -8,7 +8,7 @@ context: |
   Quality: ESLint with Next core web vitals and TypeScript presets; TypeScript strict mode; no formatter script detected.
   Language: Technical artifacts in English; existing UI text and comments are Spanish.
 
-strict_tdd: true
+strict_tdd: false
 
 projects:
   - path: .

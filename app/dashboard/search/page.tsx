@@ -1,6 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { Suspense } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
@@ -59,19 +60,32 @@ function SearchContent() {
   const queryClient = useQueryClient();
 
   const query = searchParams.get("q") ?? "";
-  const page = parseInt(searchParams.get("page") ?? "1");
+  const pageValue = Number(searchParams.get("page"));
+  const page = Number.isSafeInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+  const typeId = Number(searchParams.get("documentTypeId"));
+  const mimes = searchParams.getAll("mimetypes").filter(Boolean);
 
-  const [filters, setFilters] = useState<SearchFiltersValue>({
+  const filters: SearchFiltersValue = {
     sortBy: searchParams.get("sortBy") ?? "relevance",
-    sortOrder: (searchParams.get("sortOrder") as "asc" | "desc") ?? "desc",
-    categoryIds: searchParams.get("categoryId")
-      ? [parseInt(searchParams.get("categoryId")!)]
-      : undefined,
+    sortOrder: searchParams.get("sortOrder") === "asc" ? "asc" : "desc",
+    documentTypeIds: Number.isSafeInteger(typeId) && typeId > 0 ? [typeId] : undefined,
+    mimetypes: mimes.length ? mimes : undefined,
     dateFrom: searchParams.get("dateFrom") ?? undefined,
     dateTo: searchParams.get("dateTo") ?? undefined,
-  });
+    includeContent: searchParams.get("includeContent") === "true" ? true : undefined,
+  };
+  const invalidDates = Boolean(
+    (filters.dateFrom && !Number.isFinite(Date.parse(filters.dateFrom))) ||
+    (filters.dateTo && !Number.isFinite(Date.parse(filters.dateTo))),
+  );
+  const dateToIsDay = Boolean(filters.dateTo && /^\d{4}-\d{2}-\d{2}$/.test(filters.dateTo));
+  const dateToBound = filters.dateTo ? Date.parse(filters.dateTo) + (dateToIsDay ? 86_400_000 : 0) : NaN;
+  const reversedDates = Boolean(filters.dateFrom && filters.dateTo &&
+    (dateToIsDay ? Date.parse(filters.dateFrom) >= dateToBound : Date.parse(filters.dateFrom) > dateToBound));
+  const dateError = invalidDates ? "Introduce fechas de subida válidas."
+    : reversedDates ? "La fecha de subida desde no puede ser posterior a la fecha de subida hasta." : undefined;
 
-  // Sync filters to URL
+  // Sincronizar filtros con la URL
   const updateURL = useCallback(
     (newFilters: SearchFiltersValue, newPage = 1) => {
       const params = new URLSearchParams();
@@ -81,17 +95,18 @@ function SearchContent() {
         params.set("sortBy", newFilters.sortBy);
       if (newFilters.sortOrder && newFilters.sortOrder !== "desc")
         params.set("sortOrder", newFilters.sortOrder);
-      if (newFilters.categoryIds?.[0])
-        params.set("categoryId", String(newFilters.categoryIds[0]));
+      if (newFilters.documentTypeIds?.[0])
+        params.set("documentTypeId", String(newFilters.documentTypeIds[0]));
+      newFilters.mimetypes?.forEach(mime => params.append("mimetypes", mime));
       if (newFilters.dateFrom) params.set("dateFrom", newFilters.dateFrom);
       if (newFilters.dateTo) params.set("dateTo", newFilters.dateTo);
+      if (newFilters.includeContent) params.set("includeContent", "true");
       router.push(`/dashboard/search?${params.toString()}`);
     },
     [query, router],
   );
 
   const handleFiltersChange = (newFilters: SearchFiltersValue) => {
-    setFilters(newFilters);
     updateURL(newFilters, 1);
   };
 
@@ -109,12 +124,13 @@ function SearchContent() {
         limit: 20,
         sortBy: filters.sortBy,
         sortOrder: filters.sortOrder,
-        categoryIds: filters.categoryIds,
+        documentTypeIds: filters.documentTypeIds,
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
         mimetypes: filters.mimetypes,
+        includeContent: filters.includeContent,
       }),
-    enabled: !!query.trim(),
+    enabled: !!query.trim() && !dateError,
     staleTime: 30_000,
   });
 
@@ -243,6 +259,7 @@ function SearchContent() {
 
       {/* Filtros */}
       <SearchFilters value={filters} onChange={handleFiltersChange} />
+      {dateError && <p role="alert" className="text-sm text-destructive">{dateError}</p>}
 
       <Separator />
 
@@ -291,7 +308,7 @@ function SearchContent() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-sm truncate">{((doc?.versions?.[0]?.filename) ?? '')}</p>
+                      <Link href={`/dashboard/documents/${doc.id}`} className="font-medium text-sm truncate">{((doc?.versions?.[0]?.filename) ?? '')}</Link>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button
                           variant="ghost"

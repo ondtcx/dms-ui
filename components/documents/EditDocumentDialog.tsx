@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
-import { categoriesService } from "@/lib/services/categories.service";
+import { documentTypesService } from "@/lib/services/document-types.service";
 import toast from "react-hot-toast";
 import {
   Dialog,
@@ -27,58 +27,85 @@ import {
 } from "@/components/ui/select";
 import { Pencil, Save } from "lucide-react";
 import { Document } from "@/lib/types";
+import { findDefaultDocumentType } from "@/lib/types";
+import { useDocumentActionGuard } from "@/hooks/use-document-action-guard";
 
 interface EditDocumentDialogProps {
   document: Document;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  authorize?: () => boolean;
 }
 
 export function EditDocumentDialog({
   document,
   open,
   onOpenChange,
+  authorize,
 }: EditDocumentDialogProps) {
   const queryClient = useQueryClient();
+  const guard = useDocumentActionGuard(document.id, "editMetadata", open, authorize);
 
   const [formData, setFormData] = useState({
-    filename: ((document?.versions?.[0]?.filename) ?? ''),
+    name: document.name?.trim() || document.versions?.[0]?.filename || "",
+    documentNumber: document.documentNumber ?? "",
     description: document.description || "",
-    categoryId: document.categoryId,
-    isPublic: document.isPublic,
+    documentTypeId: document.documentTypeId ?? undefined,
   });
 
   // Actualizar form cuando cambia el documento
   useEffect(() => {
     setFormData({
-      filename: ((document?.versions?.[0]?.filename) ?? ''),
+      name: document.name?.trim() || document.versions?.[0]?.filename || "",
+      documentNumber: document.documentNumber ?? "",
       description: document.description || "",
-      categoryId: document.categoryId,
-      isPublic: document.isPublic,
+      documentTypeId: document.documentTypeId ?? undefined,
     });
-  }, [document]);
+  }, [document, guard.identity]);
 
-  // Query para categorías
-  const { data: categories, isLoading: loadingCategories } = useQuery({
-    queryKey: ["categories", "active"],
-    queryFn: () => categoriesService.getActive(),
+  // Query para tipos de documento activos; el predeterminado (`Documento
+  // general`) se deriva mediante `isDefault` y se excluye del desplegable.
+  const { data: documentTypes } = useQuery({
+    queryKey: ["document-types", "active"],
+    queryFn: () => documentTypesService.getActive(),
   });
+  const defaultType = findDefaultDocumentType(documentTypes);
+  const concreteTypes = (documentTypes ?? []).filter(
+    (type) => type.isDefault !== true,
+  );
+  const isGeneral =
+    defaultType !== undefined && formData.documentTypeId === defaultType.id;
 
   // Mutation para actualizar
   const updateMutation = useMutation({
-    mutationFn: () =>
-      documentsService.update(document.id, {
+    mutationFn: (epoch: object) => {
+      guard.assert(epoch);
+      return documentsService.update(document.id, {
         description: formData.description || undefined,
-        categoryId: formData.categoryId || undefined,
-        isPublic: formData.isPublic,
-      }),
-    onSuccess: () => {
+        ...(formData.name !== (document.name?.trim() || document.versions?.[0]?.filename || "")
+          ? { name: formData.name.trim() }
+          : {}),
+        ...(formData.documentNumber !== (document.documentNumber ?? "")
+          ? { documentNumber: formData.documentNumber.trim() || null }
+          : {}),
+        // Solo se envía un cambio de tipo; conservar uno inactivo no exige
+        // volver a validarlo al editar el título o el número institucional.
+        ...(formData.documentTypeId === undefined ||
+        formData.documentTypeId === (document.documentTypeId ?? undefined)
+          ? {}
+          : { documentTypeId: formData.documentTypeId }),
+      });
+    },
+    onSuccess: (_data, epoch) => {
+      if (!guard.isCurrent(epoch)) return;
       toast.success("Documento actualizado exitosamente");
       queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["document-action-readback"] });
       queryClient.invalidateQueries({ queryKey: ["document", document.id] });
       onOpenChange(false);
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, epoch) => {
+      if (!guard.isCurrent(epoch)) return;
       const message = (error as { response?: { data?: { message?: string } } })
         .response?.data?.message || "Error al actualizar documento";
       toast.error(message);
@@ -87,7 +114,8 @@ export function EditDocumentDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateMutation.mutate();
+    if (!guard.canAct || updateMutation.isPending) return;
+    updateMutation.mutate(guard.capture());
   };
 
   return (
@@ -104,31 +132,88 @@ export function EditDocumentDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Número institucional (solo lectura) */}
-          {document.documentNumber && (
-            <div className="space-y-2">
-              <Label>Número de Documento</Label>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted border text-sm font-mono">
-                {document.documentNumber}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Código institucional asignado automáticamente
-              </p>
-            </div>
-          )}
-
-          {/* Nombre del archivo (solo lectura) */}
+          {/* Número institucional opcional; no se genera automáticamente. */}
           <div className="space-y-2">
-            <Label htmlFor="filename">Nombre del Archivo</Label>
+            <Label htmlFor="documentNumber">Número institucional (opcional)</Label>
             <Input
-              id="filename"
-              value={formData.filename}
-              disabled
-              className="bg-muted"
+              id="documentNumber"
+              value={formData.documentNumber}
+              onChange={(e) => setFormData({ ...formData, documentNumber: e.target.value })}
             />
             <p className="text-xs text-muted-foreground">
-              El nombre del archivo no se puede cambiar
+              Déjalo vacío para guardar el documento sin número institucional.
             </p>
+          </div>
+
+          {/* El título visible no modifica los nombres de los archivos históricos. */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Nombre del documento</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Cambia el título visible, no el nombre del archivo original.
+            </p>
+          </div>
+
+          {/* Tipo de documento */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="documentTypeId">Tipo de documento</Label>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="generalDocumentType"
+                  checked={isGeneral}
+                  disabled={defaultType === undefined}
+                  onCheckedChange={(checked) =>
+                    setFormData({
+                      ...formData,
+                      // El servidor deriva la categoría del tipo elegido.
+                      documentTypeId:
+                        checked === true ? defaultType?.id : undefined,
+                    })
+                  }
+                />
+                <Label
+                  htmlFor="generalDocumentType"
+                  className="text-sm font-medium leading-none cursor-pointer"
+                >
+                  Documento general
+                </Label>
+              </div>
+            </div>
+            <Select
+              value={isGeneral ? "" : formData.documentTypeId?.toString() ?? ""}
+              onValueChange={(value) => {
+                const selected = concreteTypes.find(
+                  (type) => type.id === parseInt(value),
+                );
+                setFormData({
+                  ...formData,
+                  documentTypeId: selected?.id,
+                });
+              }}
+              disabled={isGeneral}
+            >
+              <SelectTrigger id="documentTypeId">
+                <SelectValue
+                  placeholder={
+                    isGeneral
+                      ? "Documento general"
+                      : "Selecciona un tipo de documento"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {concreteTypes.map((type) => (
+                  <SelectItem key={type.id} value={type.id.toString()}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Descripción */}
@@ -145,52 +230,6 @@ export function EditDocumentDialog({
             />
           </div>
 
-          {/* Categoría */}
-          <div className="space-y-2">
-            <Label htmlFor="category">Categoría</Label>
-            <Select
-              value={formData.categoryId?.toString() || "none"}
-              onValueChange={(value) =>
-                setFormData({
-                  ...formData,
-                  categoryId: value === "none" ? null : parseInt(value),
-                })
-              }
-            >
-              <SelectTrigger id="category">
-                <SelectValue placeholder="Sin categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sin categoría</SelectItem>
-                {!loadingCategories &&
-                  categories
-                    ?.filter((cat) => cat.isActive)
-                    .map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id.toString()}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Visibilidad */}
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="isPublic"
-              checked={formData.isPublic}
-              onCheckedChange={(checked) =>
-                setFormData({ ...formData, isPublic: checked as boolean })
-              }
-            />
-            <Label
-              htmlFor="isPublic"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-            >
-              Hacer público (visible para todos los usuarios)
-            </Label>
-          </div>
-
           <DialogFooter>
             <Button
               type="button"
@@ -200,7 +239,7 @@ export function EditDocumentDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={updateMutation.isPending}>
+            <Button type="submit" disabled={updateMutation.isPending || !guard.canAct}>
               {updateMutation.isPending ? (
                 <>Guardando...</>
               ) : (

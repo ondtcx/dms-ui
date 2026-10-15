@@ -30,10 +30,9 @@ import {
   Clock3,
   FilePlus2,
   Trash2,
-  Minus,
   Plus,
+  ChevronRight,
   Building2,
-  Archive,
   Folder,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -120,11 +119,7 @@ export const mainMenuItems: MenuItem[] = [
       },
     ],
   }, */
-  {
-    title: "Archivo",
-    icon: Archive,
-    url: "/dashboard/archive",
-  },
+  // Archivo oculto del sidebar por decisión de producto — la ruta /dashboard/archive sigue disponible.
 ];
 
 export const adminMenuItems: MenuItem[] = [
@@ -188,9 +183,9 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-sidebar-border">
       {/* Header */}
-      <SidebarHeader className="border-b p-4">
+      <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-2">
           {logoUrl ? (
             <img
@@ -232,20 +227,23 @@ export function AppSidebar() {
                         >
                           {item.icon && <item.icon className="h-4 w-4 mr-2" />}
                           {item.title}{" "}
-                          <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
-                          <Minus className="ml-auto group-data-[state=closed]/collapsible:hidden" />
+                          <ChevronRight
+                            aria-hidden="true"
+                            className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                          />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <SidebarMenuSub>
+                        <SidebarMenuSub className={isDocumentsSubmenu ? "gap-1.5 py-1" : undefined}>
                           {item.items.map((subItem) => (
                             <SidebarMenuSubItem key={subItem.title}>
                               <SidebarMenuSubButton
                                 asChild
+                                size="sm"
                                 isActive={isNavItemActive(subItem, currentUrl)}
                                 className={
                                   isDocumentsSubmenu
-                                    ? "min-h-7 h-auto items-start overflow-visible [&>span:last-child]:whitespace-normal [&>span:last-child]:break-words [&>span:last-child]:leading-tight [&>span:last-child]:overflow-visible [&>span:last-child]:text-clip"
+                                    ? "min-h-8 h-auto items-start overflow-visible py-1.5 [&>span:last-child]:whitespace-normal [&>span:last-child]:break-words [&>span:last-child]:leading-tight [&>span:last-child]:overflow-visible [&>span:last-child]:text-clip"
                                     : undefined
                                 }
                               >
@@ -257,7 +255,7 @@ export function AppSidebar() {
                                     <subItem.icon
                                       className={
                                         isDocumentsSubmenu
-                                          ? "h-4 w-4 mr-2 shrink-0 self-start"
+                                          ? "h-3.5 w-3.5 mr-2 shrink-0 self-start"
                                           : "h-4 w-4 mr-2"
                                       }
                                     />
@@ -304,17 +302,19 @@ export function AppSidebar() {
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton
                       isActive={isNavItemActive({ url: "/dashboard/directories", items: [{}] }, currentUrl)}
-                      tooltip="Directorios"
+                      tooltip="Carpetas"
                       className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                     >
                       <Folder className="h-4 w-4 mr-2" />
-                      Directorios
-                      <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
-                      <Minus className="ml-auto group-data-[state=closed]/collapsible:hidden" />
+                      Carpetas
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                      />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <SidebarMenuSub>
+                    <SidebarMenuSub className="gap-1.5 py-1">
                       {directorySummary.isLoading ? (
                         <SidebarMenuSubItem><span className="px-2 text-xs text-muted-foreground">Cargando...</span></SidebarMenuSubItem>
                       ) : directorySummary.isError ? (
@@ -328,10 +328,10 @@ export function AppSidebar() {
                           </button>
                         </SidebarMenuSubItem>
                       ) : highlightedDirectories.length === 0 ? (
-                        <SidebarMenuSubItem><span className="px-2 text-xs text-muted-foreground">Sin directorios recientes</span></SidebarMenuSubItem>
+                        <SidebarMenuSubItem><span className="px-2 text-xs text-muted-foreground">Sin carpetas recientes</span></SidebarMenuSubItem>
                       ) : highlightedDirectories.map((directory) => (
                         <SidebarMenuSubItem key={directory.id}>
-                          <SidebarMenuSubButton asChild isActive={false}>
+                          <SidebarMenuSubButton asChild size="sm" isActive={false}>
                             <Link href={`/dashboard/documents?directoryId=${directory.id}`} title={directory.name}>
                               <Folder className="h-4 w-4" />
                               <span>{directory.name}</span>
@@ -340,12 +340,12 @@ export function AppSidebar() {
                         </SidebarMenuSubItem>
                       ))}
                       <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={isNavItemActive({ url: "/dashboard/directories" }, currentUrl)}>
+                        <SidebarMenuSubButton asChild size="sm" isActive={isNavItemActive({ url: "/dashboard/directories" }, currentUrl)}>
                           <Link href="/dashboard/directories"><Folder className="h-4 w-4" /><span>Todos</span></Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={isNavItemActive({ url: "/dashboard/directories/new" }, currentUrl)}>
+                        <SidebarMenuSubButton asChild size="sm" isActive={isNavItemActive({ url: "/dashboard/directories/new" }, currentUrl)}>
                           <Link href="/dashboard/directories/new"><Plus className="h-4 w-4" /><span>Crear nuevo</span></Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
@@ -400,16 +400,19 @@ export function AppSidebar() {
                                 <item.icon className="h-4 w-4 mr-2" />
                               )}
                               {item.title}
-                              <Plus className="ml-auto group-data-[state=open]/collapsible:hidden" />
-                              <Minus className="ml-auto group-data-[state=closed]/collapsible:hidden" />
+                              <ChevronRight
+                                aria-hidden="true"
+                                className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                              />
                             </SidebarMenuButton>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <SidebarMenuSub>
+                            <SidebarMenuSub className="gap-1.5 py-1">
                               {visibleSubItems.map((subItem) => (
                                 <SidebarMenuSubItem key={subItem.title}>
                                   <SidebarMenuSubButton
                                     asChild
+                                    size="sm"
                                     isActive={isNavItemActive(subItem, currentUrl)}
                                   >
                                     <Link

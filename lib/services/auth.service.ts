@@ -1,10 +1,11 @@
 import api from "@/lib/axios";
-import { AuthResponse, AuthorizationProfile, ChangePasswordDto, LoginDto, RegisterDto, User } from "@/lib/types";
+import { AuthResponse, AuthorizationProfile, ChangePasswordDto, LoginDto, RegisterDto, User, TwoFactorEnableResponse, TwoFactorSetup, TwoFactorStatus } from "@/lib/types";
 import Cookies from "js-cookie";
 
 export const authService = {
   async login(data: LoginDto): Promise<AuthResponse> {
     const response = await api.post<AuthResponse>("/auth/login", data);
+    if (!response.data.access_token) return response.data;
 
     // Guardar token y usuario en cookies
     Cookies.set("token", response.data.access_token, {
@@ -25,7 +26,7 @@ export const authService = {
     const response = await api.post<AuthResponse>("/auth/register", data);
 
     // Guardar token y usuario en cookies
-    Cookies.set("token", response.data.access_token, {
+    Cookies.set("token", response.data.access_token!, {
       expires: 30,
       path: "/",
       sameSite: "strict",
@@ -37,6 +38,13 @@ export const authService = {
     });
 
     return response.data;
+  },
+
+  async getTotpStatus(): Promise<TwoFactorStatus> { return (await api.get<TwoFactorStatus>("/auth/2fa/status")).data; },
+  async setupTotp(): Promise<TwoFactorSetup> { return (await api.post<TwoFactorSetup>("/auth/2fa/setup")).data; },
+  async enableTotp(code: string): Promise<TwoFactorEnableResponse> { return (await api.post<TwoFactorEnableResponse>("/auth/2fa/enable", { code })).data; },
+  async disableTotp(code: string): Promise<TwoFactorStatus> {
+    return (await api.post<TwoFactorStatus>("/auth/2fa/disable", { code }, { silentErrors: [400] })).data;
   },
 
   async getProfile(): Promise<AuthorizationProfile> {

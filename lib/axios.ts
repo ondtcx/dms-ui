@@ -3,7 +3,7 @@ import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 
 declare module "axios" {
-  interface InternalAxiosRequestConfig {
+  interface AxiosRequestConfig {
     // Lista de status codes que no deben mostrar toast de error global
     silentErrors?: number[];
   }
@@ -56,7 +56,12 @@ api.interceptors.response.use(
     const silentErrors = error.config?.silentErrors ?? [];
     const silent = silentErrors.includes(status);
 
-    if (status === 401) {
+    const isTotpLoginChallenge =
+      status === 401 &&
+      error.config?.url === "/auth/login" &&
+      (error.response.data as { code?: string })?.code === "TWO_FACTOR_REQUIRED";
+
+    if (status === 401 && !isTotpLoginChallenge) {
       // Token expirado o inválido — side effect crítico, siempre se ejecuta
       Cookies.remove("token", { path: "/" });
       Cookies.remove("user", { path: "/" });
@@ -65,7 +70,7 @@ api.interceptors.response.use(
         if (!silent) toast.error("Sesión expirada. Por favor inicia sesión nuevamente.");
         window.location.href = "/auth/login";
       }
-    } else if (!silent) {
+    } else if (!silent && !isTotpLoginChallenge) {
       if (status === 403) {
         toast.error("No tienes permisos para realizar esta acción.");
       } else if (status === 404) {

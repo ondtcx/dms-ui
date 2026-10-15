@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { templatesService } from "@/lib/services/templates.service";
 import { categoriesService } from "@/lib/services/categories.service";
@@ -34,6 +34,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { DocumentTemplate, TemplateField, UpdateDocumentTemplateDto } from "@/lib/types";
+import { findDefaultDocumentType } from "@/lib/types";
 import { Plus, Trash2, FileType, Code, Settings, Layout } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import Editor from "react-simple-code-editor";
@@ -94,10 +95,9 @@ export function CreateTemplateDialog({
 }: CreateTemplateDialogProps) {
   const queryClient = useQueryClient();
   const isEditing = !!template;
-  const defaultAppliedForOpen = useRef(false);
 
   const [name, setName] = useState("");
-  const [documentTypeId, setDocumentTypeId] = useState<number | undefined>(undefined);
+  const [documentTypeId, setDocumentTypeId] = useState<number | null | undefined>(undefined);
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
   const [categoryId, setCategoryId] = useState<number | undefined>(undefined);
@@ -108,16 +108,19 @@ export function CreateTemplateDialog({
     queryFn: categoriesService.getActive,
   });
 
+  // Se leen todos los tipos activos (sin filtrar por categoría) para poder
+  // derivar el predeterminado persistido; los concretos se filtran por la
+  // categoría elegida para conservar la coherencia categoría/tipo.
   const { data: documentTypes } = useQuery({
-    queryKey: ["document-types", "active", categoryId],
-    queryFn: () => documentTypesService.getActive(categoryId),
-    enabled: !!categoryId,
+    queryKey: ["document-types", "active"],
+    queryFn: () => documentTypesService.getActive(),
   });
-
-  const { data: defaultDocumentType } = useQuery({
-    queryKey: ["document-types", "default"],
-    queryFn: () => documentTypesService.getDefault(),
-  });
+  const defaultType = findDefaultDocumentType(documentTypes);
+  const isGeneral =
+    defaultType !== undefined && documentTypeId === defaultType.id;
+  const concreteTypes = (documentTypes ?? []).filter(
+    (type) => type.isDefault !== true && type.categoryId === categoryId,
+  );
 
   // Nuevos campos
   const [htmlTemplate, setHtmlTemplate] = useState(DEFAULT_HTML_TEMPLATE);
@@ -130,7 +133,7 @@ export function CreateTemplateDialog({
   useEffect(() => {
     if (template) {
       setName(template.name);
-      setDocumentTypeId(template.documentTypeId ?? undefined);
+      setDocumentTypeId(template.documentTypeId);
       setDescription(template.description || "");
       setIsActive(template.isActive);
       setCategoryId(template.categoryId ?? undefined);
@@ -144,18 +147,6 @@ export function CreateTemplateDialog({
       resetForm();
     }
   }, [template]);
-
-  useEffect(() => {
-    if (!open) {
-      defaultAppliedForOpen.current = false;
-      return;
-    }
-    if (!isEditing && !defaultAppliedForOpen.current && defaultDocumentType) {
-      setCategoryId(defaultDocumentType.categoryId);
-      setDocumentTypeId(defaultDocumentType.id);
-      defaultAppliedForOpen.current = true;
-    }
-  }, [open, isEditing, defaultDocumentType]);
 
   const createMutation = useMutation({
     mutationFn: templatesService.create,
@@ -331,7 +322,7 @@ export function CreateTemplateDialog({
                   value={categoryId?.toString() ?? "none"}
                   onValueChange={(value) => {
                     setCategoryId(value === "none" ? undefined : Number(value));
-                    setDocumentTypeId(undefined);
+                    if (documentTypeId !== null) setDocumentTypeId(undefined);
                   }}
                 >
                   <SelectTrigger id="categoryId">
@@ -355,26 +346,59 @@ export function CreateTemplateDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="documentTypeId">Subtipo de documento</Label>
-                <Select
-                  value={documentTypeId?.toString() ?? "none"}
-                  onValueChange={(value) =>
-                    setDocumentTypeId(value === "none" ? undefined : Number(value))
-                  }
-                  disabled={!categoryId}
-                >
-                  <SelectTrigger id="documentTypeId">
-                    <SelectValue placeholder={categoryId ? "Sin subtipo asignado" : "Selecciona una categoría primero"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin subtipo</SelectItem>
-                    {documentTypes?.map((dt) => (
-                      <SelectItem key={dt.id} value={dt.id.toString()}>
-                        {dt.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="documentTypeId">Subtipo de documento</Label>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="generalDocumentType"
+                        checked={isGeneral}
+                        disabled={defaultType === undefined}
+                        onCheckedChange={(checked) => {
+                          setDocumentTypeId(
+                            checked === true ? defaultType?.id : undefined,
+                          );
+                          // `Documento general` no tiene categoría: se limpia
+                          // para conservar la coherencia categoría/tipo.
+                          if (checked === true) setCategoryId(undefined);
+                        }}
+                      />
+                      <label
+                        htmlFor="generalDocumentType"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Documento general
+                      </label>
+                    </div>
+                  </div>
+                  <Select
+                    value={
+                      isGeneral ? "" : (documentTypeId?.toString() ?? "none")
+                    }
+                    onValueChange={(value) =>
+                      setDocumentTypeId(value === "none" ? undefined : Number(value))
+                    }
+                    disabled={!categoryId || isGeneral}
+                  >
+                    <SelectTrigger id="documentTypeId">
+                      <SelectValue
+                        placeholder={
+                          isGeneral
+                            ? "Documento general"
+                            : categoryId
+                              ? "Sin subtipo asignado"
+                              : "Selecciona una categoría primero"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin subtipo</SelectItem>
+                      {concreteTypes.map((dt) => (
+                        <SelectItem key={dt.id} value={dt.id.toString()}>
+                          {dt.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 {!categoryId && (
                   <p className="text-xs text-muted-foreground">
                     Selecciona una categoría para ver los subtipos disponibles

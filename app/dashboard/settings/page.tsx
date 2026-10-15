@@ -1,11 +1,11 @@
 "use client";
 
+import { Suspense } from "react";
 import ProtectedRoute from "@/guards/ProtectedRoute";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Bell,
   Building2,
-  CalendarDays,
   FileText,
   FileType,
   FolderKanban,
@@ -26,7 +26,7 @@ import DocumentTypesPage from "@/app/dashboard/document-types/page";
 import TemplatesPage from "@/app/dashboard/templates/page";
 import { RolesManagement } from "@/components/settings/RolesManagement";
 import { InstitutionForm } from "@/components/settings/InstitutionForm";
-import { SchoolYearForm } from "@/components/settings/SchoolYearForm";
+import AcademicYearsPage from "@/app/dashboard/academic-years/page";
 import { AppearanceForm } from "@/components/settings/AppearanceForm";
 import { DocumentSettingsForm } from "@/components/settings/DocumentSettingsForm";
 import { NotificationsForm } from "@/components/settings/NotificationsForm";
@@ -49,7 +49,6 @@ interface SettingsCategory {
 
 const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   { value: "institution", label: "Institución", description: "Datos y logotipo de la institución", icon: Building2 },
-  { value: "schoolYear", label: "Año lectivo", description: "Período académico de la institución", icon: CalendarDays },
   { value: "appearance", label: "Apariencia", description: "Colores y preferencias visuales", icon: Palette },
   { value: "documents", label: "Documentos", description: "Opciones generales de documentos", icon: FileText },
   { value: "notifications", label: "Notificaciones", description: "Preferencias de avisos del sistema", icon: Bell },
@@ -80,7 +79,6 @@ function SettingsContent() {
 
   const centralized: Record<string, React.ReactNode> = {
     institution: <InstitutionForm />,
-    schoolYear: <SchoolYearForm />,
     appearance: <AppearanceForm />,
     documents: <DocumentSettingsForm />,
     notifications: <NotificationsForm />,
@@ -129,10 +127,30 @@ function SettingsContent() {
   );
 }
 
-export default function SettingsPage() {
+function SettingsSectionView() {
+  const section = useSearchParams().get("section");
+  if (section === "schoolYear" || section === "academic-years") {
+    return <AcademicYearsPage />;
+  }
+
   return (
     <ProtectedRoute requiredPermissions={["users.manage", "categories.manage", "document-types.manage", "templates.manage", "roles.manage", "workflow.templates.manage"]}>
       <SettingsContent />
     </ProtectedRoute>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-6 space-y-4">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-96 w-full" />
+        </div>
+      }
+    >
+      <SettingsSectionView />
+    </Suspense>
   );
 }

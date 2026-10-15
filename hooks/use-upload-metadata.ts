@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { categoriesService } from "@/lib/services/categories.service";
 import { academicYearsService } from "@/lib/services/academic-years.service";
 import { documentTypesService } from "@/lib/services/document-types.service";
+import { findDefaultDocumentType } from "@/lib/types";
 import type { AcademicYear, Category } from "@/lib/types";
 
 interface UseUploadMetadataOptions {
@@ -24,14 +25,13 @@ export function useUploadMetadata({ categoryId }: UseUploadMetadataOptions = {})
     queryFn: () => documentTypesService.getActive(),
   });
 
-  const { data: defaultDocumentType } = useQuery({
-    queryKey: ["document-types", "default"],
-    queryFn: () => documentTypesService.getDefault(),
-  });
-
   const selectedCategory: Category | undefined = categories?.find((c) => c.id === categoryId);
 
   const academicYears: AcademicYear[] | undefined = academicYearsData?.data;
+
+  // El tipo predeterminado persistido (`Documento general`) se deriva de la
+  // lista activa mediante `isDefault`; no existe un endpoint dedicado.
+  const defaultDocumentType = findDefaultDocumentType(uploadDocumentTypes);
 
   return {
     categories,

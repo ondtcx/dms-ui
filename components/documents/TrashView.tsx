@@ -1,7 +1,6 @@
 "use client";
 
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { usePermissions } from "@/hooks/use-permissions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
 import toast from "react-hot-toast";
@@ -15,7 +14,8 @@ import {
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { readDocumentActionCapabilities } from "@/lib/document-action-capabilities";
 import { Document } from "@/lib/types";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -40,19 +40,34 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function TrashView() {
   const { user } = useAuth();
-  const { isAdmin } = usePermissions();
   const queryClient = useQueryClient();
   const [restoreConfirmId, setRestoreConfirmId] = useState<number | null>(null);
   const [permanentDeleteConfirmId, setPermanentDeleteConfirmId] = useState<number | null>(null);
+  const actorId = user?.id;
+  const current = useRef({ actorId, epoch: {}, alive: true });
+  if (current.current.actorId !== actorId) current.current = { actorId, epoch: {}, alive: true };
+  const restoreEpoch = useRef<object | null>(null);
+  const deleteEpoch = useRef<object | null>(null);
+  useEffect(() => {
+    current.current.alive = true;
+    return () => { current.current.alive = false; };
+  }, []);
+  useEffect(() => {
+    setRestoreConfirmId(null); setPermanentDeleteConfirmId(null);
+  }, [actorId]);
+  const queryKey = ["documents", "trash", actorId];
 
   // Query for deleted documents - using includeDeleted parameter
   const {
-    data: documents,
+    data: readback,
     isLoading: loadingDocuments,
+    isFetching: fetchingDocuments,
     error: documentsError,
     refetch: refetchDocuments
   } = useQuery({
-    queryKey: ["documents", "trash"],
+    queryKey,
+    enabled: !!actorId,
+    placeholderData: () => undefined,
     queryFn: () =>
       documentsService.getAll({
         view: "trash",
@@ -66,40 +81,63 @@ export function TrashView() {
       data: data.data.filter(doc => doc.deletedAt !== null)
     })
   });
+  const documents = !loadingDocuments && !fetchingDocuments && !documentsError ? readback : undefined;
+  const canAct = (id: number, action: "restore" | "permanentDelete", epoch: object = current.current.epoch) => {
+    const state = queryClient.getQueryState(queryKey);
+    const snapshot = queryClient.getQueryData<Awaited<ReturnType<typeof documentsService.getAll>>>(queryKey);
+    const doc = snapshot?.data.find((document) => document.id === id && document.deletedAt !== null);
+    return !!actorId && current.current.alive && current.current.epoch === epoch &&
+      state?.status === "success" && state.fetchStatus === "idle" && !state.isInvalidated &&
+      readDocumentActionCapabilities(doc, actorId ?? null)?.[action] === true;
+  };
 
   // Restore mutation
   const restoreMutation = useMutation({
-    mutationFn: (id: number) => documentsService.restore(id),
-    onSuccess: () => {
+    mutationFn: ({ id, epoch }: { id: number; epoch: object }) => {
+      if (!canAct(id, "restore", epoch)) throw new Error("Los permisos han cambiado.");
+      return documentsService.restore(id);
+    },
+    onSuccess: (_data, { id, epoch }) => {
+      if (!canAct(id, "restore", epoch)) return;
       toast.success("Documento restaurado exitosamente");
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, { epoch }) => {
+      if (!current.current.alive || current.current.epoch !== epoch) return;
       const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Error al restaurar documento";
       toast.error(message);
     },
   });
 
-  // Permanent delete mutation (admin only)
+  // Eliminación permanente según la capacidad vigente del documento.
   const permanentDeleteMutation = useMutation({
-    mutationFn: (id: number) => documentsService.permanentDelete(id),
-    onSuccess: () => {
+    mutationFn: ({ id, epoch }: { id: number; epoch: object }) => {
+      if (!canAct(id, "permanentDelete", epoch)) throw new Error("Los permisos han cambiado.");
+      return documentsService.permanentDelete(id);
+    },
+    onSuccess: (_data, { id, epoch }) => {
+      if (!canAct(id, "permanentDelete", epoch)) return;
       toast.success("Documento eliminado permanentemente");
       queryClient.invalidateQueries({ queryKey: ["documents"] });
       queryClient.invalidateQueries({ queryKey: ["stats"] });
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, { epoch }) => {
+      if (!current.current.alive || current.current.epoch !== epoch) return;
       const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Error al eliminar documento";
       toast.error(message);
     },
   });
 
   const handleRestore = (id: number) => {
+    if (!canAct(id, "restore")) return;
+    restoreEpoch.current = current.current.epoch;
     setRestoreConfirmId(id);
   };
 
   const handlePermanentDelete = (id: number) => {
+    if (!canAct(id, "permanentDelete")) return;
+    deleteEpoch.current = current.current.epoch;
     setPermanentDeleteConfirmId(id);
   };
 
@@ -115,12 +153,12 @@ export function TrashView() {
     return format(new Date(dateString), "PPp", { locale: es });
   };
 
-  const canPermanentDelete = (): boolean => {
-    return isAdmin();
+  const canPermanentDelete = (doc: Document): boolean => {
+    return canAct(doc.id, "permanentDelete");
   };
 
   const canRestore = (doc: Document): boolean => {
-    return isAdmin() || doc.uploadedById === String(user?.id);
+    return canAct(doc.id, "restore");
   };
 
   const daysInTrash = (deletedAt: string): number => {
@@ -150,7 +188,7 @@ export function TrashView() {
         <AlertTitle>Información</AlertTitle>
         <AlertDescription>
           Los documentos en la papelera se eliminan automáticamente después de 30 días.
-          {isAdmin() && " Como administrador, puedes eliminar documentos permanentemente en cualquier momento."}
+          {documents?.data.some(canPermanentDelete) && " Puedes eliminar permanentemente los documentos que tengan esa acción habilitada."}
         </AlertDescription>
       </Alert>
 
@@ -184,7 +222,7 @@ export function TrashView() {
                 </div>
               </AlertDescription>
             </Alert>
-          ) : loadingDocuments ? (
+          ) : loadingDocuments || fetchingDocuments ? (
             <div className="flex flex-col items-center justify-center py-12">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
               <p className="text-muted-foreground mt-4">
@@ -271,7 +309,7 @@ export function TrashView() {
                         </Button>
                       )}
 
-                      {canPermanentDelete() && (
+                      {canPermanentDelete(doc) && (
                         <Button
                           onClick={() => handlePermanentDelete(doc.id)}
                           disabled={permanentDeleteMutation.isPending}
@@ -291,20 +329,23 @@ export function TrashView() {
         </CardContent>
       </Card>
       <ConfirmDialog
-        open={restoreConfirmId !== null}
+        key={`restore:${actorId}:${restoreConfirmId}`}
+        open={restoreConfirmId !== null && !!restoreEpoch.current && canAct(restoreConfirmId, "restore", restoreEpoch.current)}
         onOpenChange={(open) => !open && setRestoreConfirmId(null)}
         title="Restaurar documento"
         description="¿Deseas restaurar este documento? Volverá a estar disponible en tus documentos."
         confirmLabel="Restaurar"
         loading={restoreMutation.isPending}
         onConfirm={() => {
-          if (restoreConfirmId !== null) restoreMutation.mutate(restoreConfirmId);
+          if (restoreConfirmId !== null && restoreEpoch.current && canAct(restoreConfirmId, "restore", restoreEpoch.current))
+            restoreMutation.mutate({ id: restoreConfirmId, epoch: restoreEpoch.current });
           setRestoreConfirmId(null);
         }}
       />
 
       <ConfirmDialog
-        open={permanentDeleteConfirmId !== null}
+        key={`delete:${actorId}:${permanentDeleteConfirmId}`}
+        open={permanentDeleteConfirmId !== null && !!deleteEpoch.current && canAct(permanentDeleteConfirmId, "permanentDelete", deleteEpoch.current)}
         onOpenChange={(open) => !open && setPermanentDeleteConfirmId(null)}
         title="Eliminar permanentemente"
         description="Esta acción no se puede deshacer. El documento será eliminado para siempre y no podrá recuperarse."
@@ -313,7 +354,8 @@ export function TrashView() {
         requireTyped="ELIMINAR"
         loading={permanentDeleteMutation.isPending}
         onConfirm={() => {
-          if (permanentDeleteConfirmId !== null) permanentDeleteMutation.mutate(permanentDeleteConfirmId);
+          if (permanentDeleteConfirmId !== null && deleteEpoch.current && canAct(permanentDeleteConfirmId, "permanentDelete", deleteEpoch.current))
+            permanentDeleteMutation.mutate({ id: permanentDeleteConfirmId, epoch: deleteEpoch.current });
           setPermanentDeleteConfirmId(null);
         }}
       />

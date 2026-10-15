@@ -40,13 +40,14 @@ export function DocumentSettingsForm() {
     allowedMimeTypes: ["application/pdf", "image/jpeg", "image/png"],
     trashRetentionDays: 30,
     maxVersionsPerDocument: 10,
+    versionRetentionDays: 30,
   };
 
   const [form, setForm] = useState<DocumentSettings>(defaultDocSettings);
   const [customMime, setCustomMime] = useState("");
 
   useEffect(() => {
-    if (settings?.documents) setForm(settings.documents);
+    if (settings?.documents) setForm({ ...settings.documents, versionRetentionDays: settings.documents.versionRetentionDays ?? 30 });
   }, [settings]);
 
   const mutation = useMutation({
@@ -76,7 +77,17 @@ export function DocumentSettingsForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    mutation.mutate(form);
+    const days = form.versionRetentionDays;
+    if (!Number.isInteger(days) || days! < 1 || days! > 3650) {
+      toast.error("La retención debe ser un número entero entre 1 y 3650 días");
+      return;
+    }
+    mutation.mutate({
+      maxFileSizeMb: form.maxFileSizeMb,
+      allowedMimeTypes: form.allowedMimeTypes,
+      trashRetentionDays: form.trashRetentionDays,
+      versionRetentionDays: days,
+    });
   };
 
   return (
@@ -118,20 +129,23 @@ export function DocumentSettingsForm() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="max-versions">Versiones máximas</Label>
+              <Label htmlFor="version-days">Retención de versiones (días)</Label>
               <Input
-                id="max-versions"
+                id="version-days"
                 type="number"
                 min={1}
-                max={50}
-                value={form.maxVersionsPerDocument}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    maxVersionsPerDocument: parseInt(e.target.value) || 10,
-                  })
-                }
+                max={3650}
+                step={1}
+                required
+                aria-describedby="version-days-help"
+                value={Number.isNaN(form.versionRetentionDays) ? "" : form.versionRetentionDays}
+                onChange={(e) => setForm({ ...form, versionRetentionDays: e.target.value === "" ? NaN : Number(e.target.value) })}
               />
+              <p id="version-days-help" className="text-sm text-muted-foreground">
+                El plazo comienza cuando la versión es reemplazada; la versión actual nunca caduca.
+                Las versiones conservadas o vinculadas a flujos y aprobaciones están protegidas.
+                Esta política no modifica la retención en papelera ni la eliminación definitiva del documento.
+              </p>
             </div>
           </div>
 

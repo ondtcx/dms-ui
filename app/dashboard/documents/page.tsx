@@ -2,7 +2,8 @@
 "use client";
 
 import { useAuth } from "@/lib/contexts/AuthContext";
-import { usePermissions } from "@/hooks/use-permissions";
+import { readDocumentActionCapabilities, type DocumentActionCapabilities } from "@/lib/document-action-capabilities";
+import { readBatchActionCapabilities, type BatchAction } from "@/lib/batch-action-capabilities";
 import { useUploadMetadata } from "@/hooks/use-upload-metadata";
 import { useDocumentThumbnails } from "@/hooks/use-document-thumbnails";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,31 +23,31 @@ import {
   LayoutGrid,
   List,
 } from "lucide-react";
-import {
-  Document,
-  DocumentListView,
-  UploadMetadata,
-  EMPTY_UPLOAD_METADATA,
-} from "@/lib/types";
-import { formatFileSize } from "@/lib/utils";
+import { Document, DocumentListView } from "@/lib/types";
 import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
 import { DocumentCard } from "@/components/documents/DocumentCard";
 import { DocumentListItem } from "@/components/documents/DocumentListItem";
-import { DocumentMetadataForm } from "@/components/documents/DocumentMetadataForm";
+import { UploadDocumentsDialog } from "@/components/documents/UploadDocumentsDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TrashView } from "@/components/documents/TrashView";
 import { DocumentVersionHistory } from "@/components/documents/DocumentVersionHistory";
 import { ReplaceFileDialog } from "@/components/documents/ReplaceFileDialog";
 import { EditDocumentDialog } from "@/components/documents/EditDocumentDialog";
 import { BatchActionsBar } from "@/components/documents/batch-actions-bar";
-import { BatchListSection } from "@/components/documents/BatchListSection";
 import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
-import { useAcademicYearStore } from "@/components/structure/AcademicYearSelector";
-import { Layers } from "lucide-react";
-import { DirectoryNavigation } from "@/components/documents/DirectoryNavigation";
+import {
+  AcademicYearSelector,
+  useAcademicYearStore,
+} from "@/components/structure/AcademicYearSelector";
+import { DirectoryNavigation, useDirectoryAccess } from "@/components/documents/DirectoryNavigation";
+import { FolderBrowser } from "@/components/documents/FolderBrowser";
 import { DirectoryVisitRecorder } from "@/components/documents/DirectoryVisitRecorder";
 import { invalidateDirectoryQueries } from "@/lib/directory-cache";
 import { isResidualWorkflowFilename } from "@/lib/document-visibility";
+import {
+  isPositiveDirectoryId,
+  useDirectorySubmission,
+} from "@/hooks/use-directory-submission";
 
 // Shadcn imports
 import { Button } from "@/components/ui/button";
@@ -76,7 +77,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 // Helper para obtener el componente de icono desde el string
@@ -94,6 +94,21 @@ function parseDocumentView(value: string | null): DocumentListView | undefined {
     : undefined;
 }
 
+/** Identificador malformado: distingue un destino inválido de la raíz ausente. */
+const INVALID_DIRECTORY_ID = Number.NaN;
+
+/**
+ * `null` cuando el parámetro está ausente (raíz ordinaria); `NaN` cuando el
+ * valor existe pero es malformado (vacío, no numérico, cero, negativo,
+ * fraccionario o desbordado), para no listar ni cargar la raíz por un enlace
+ * inválido.
+ */
+function parseDirectoryId(value: string | null): number | null {
+  if (value === null) return null;
+  const parsed = Number(value);
+  return isPositiveDirectoryId(parsed) ? parsed : INVALID_DIRECTORY_ID;
+}
+
 export default function DocumentsPage() {
   return (
     <Suspense fallback={<div className="p-8">Cargando documentos...</div>}>
@@ -104,13 +119,16 @@ export default function DocumentsPage() {
 
 function DocumentsPageContent() {
   const { user } = useAuth();
-  const { isAdmin } = usePermissions();
   const { currentYearId } = useAcademicYearStore();
   const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
   const newActionRequested = searchParams.get("action") === "new";
+  const uploadSingleActionRequested =
+    searchParams.get("action") === "upload-single";
+  const uploadMultipleActionRequested =
+    searchParams.get("action") === "upload-multiple";
   const documentView = parseDocumentView(searchParams.get("view"));
   const isTrashView = documentView === "trash";
   const isUnfilteredView =
@@ -127,12 +145,9 @@ function DocumentsPageContent() {
           : "Documentos";
 
   // Estados
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState<number | undefined>(
-    undefined,
-  );
+  const [documentTypeFilter, setDocumentTypeFilter] = useState<
+    number | undefined
+  >(undefined);
   const [onlyMine, setOnlyMine] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showUploadMultipleModal, setShowUploadMultipleModal] = useState(false);
@@ -140,8 +155,6 @@ function DocumentsPageContent() {
   const [previewDocument, setPreviewDocument] = useState<Document | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [uploadData, setUploadData] = useState<UploadMetadata>(EMPTY_UPLOAD_METADATA);
-  const [uploadValidationError, setUploadValidationError] = useState<string | undefined>();
 
   // Estados para version history y replace file
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -155,15 +168,16 @@ function DocumentsPageContent() {
 
   // Estados para batch actions
   const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([]);
+  const batchSelection = useRef<number[]>([]);
+  batchSelection.current = selectedDocuments.map((document) => document.id);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
-  // Tab principal: documentos individuales vs lotes
-  const [mainTab, setMainTab] = useState<'documents' | 'batches'>('documents');
   const [showBatchSelectDialog, setShowBatchSelectDialog] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
 
   // Create in editor dialog state
-  const [showCreateInEditorDialog, setShowCreateInEditorDialog] = useState(false);
+  const [showCreateInEditorDialog, setShowCreateInEditorDialog] =
+    useState(false);
   const [createInEditorData, setCreateInEditorData] = useState<{
     title: string;
     fileType: "docx" | "xlsx" | "pptx" | "txt" | "md";
@@ -171,44 +185,100 @@ function DocumentsPageContent() {
     documentTypeId?: number;
   }>({ title: "", fileType: "docx" });
   const [creatingInEditor, setCreatingInEditor] = useState(false);
-  const [directoryId, setDirectoryId] = useState<number | null>(() => {
-    const value = searchParams.get("directoryId");
-    return value ? Number(value) : null;
-  });
+  const [directoryId, setDirectoryId] = useState<number | null>(() =>
+    parseDirectoryId(searchParams.get("directoryId")),
+  );
   const [movingDocument, setMovingDocument] = useState<Document | null>(null);
   const [moveDestination, setMoveDestination] = useState<number | null>(null);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const skipNewMenuCloseRef = useRef(false);
+  const deleteEpoch = useRef<object | null>(null);
+  const moveEpoch = useRef<object | null>(null);
+  const editEpoch = useRef<object | null>(null);
+  const replaceEpoch = useRef<object | null>(null);
+  const contextKey = JSON.stringify([user?.id, documentTypeFilter, onlyMine, currentYearId,
+    directoryId, searchParams.get("directoryId"), documentView]);
+  const actionState = useRef({ key: contextKey, epoch: {}, ready: false, rows: [] as Document[], alive: true });
+  const batchSelectionEpoch = useRef<object | null>(null);
+  if (actionState.current.key !== contextKey) {
+    actionState.current = { key: contextKey, epoch: {}, ready: false, rows: [], alive: true };
+  }
+  useEffect(() => {
+    actionState.current.alive = true;
+    return () => { actionState.current.alive = false; };
+  }, []);
+  useEffect(() => {
+    setSelectedDocuments([]);
+    setDeleteConfirmId(null);
+    setMovingDocument(null);
+    setEditingDocument(null);
+    setReplaceFileDocument(null);
+    setShowEditDialog(false);
+    setShowReplaceFile(false);
+    setShowPreviewModal(false);
+    setVersionHistoryDocument(null);
+  }, [contextKey]);
+
+  // Autoridad de envío para la carpeta seleccionada. La raíz y las carpetas
+  // ordinarias conservan el comportamiento existente; una carpeta de recepción
+  // sin `submit` vigente no ofrece carga.
+  const submission = useDirectorySubmission(directoryId);
+  const folderAccess = useDirectoryAccess(directoryId, !isTrashView);
+  const moveAccess = useDirectoryAccess(moveDestination, movingDocument !== null);
+  const canUpload = directoryId === null ? submission.canSubmit :
+    folderAccess.ready && (folderAccess.directory?.receptionEnabled ? submission.canSubmit : folderAccess.canWrite);
+  const directoryInvalid =
+    typeof directoryId === "number" && Number.isNaN(directoryId);
 
   useEffect(() => {
-    const value = searchParams.get("directoryId");
-    setDirectoryId(value ? Number(value) : null);
+    setDirectoryId(parseDirectoryId(searchParams.get("directoryId")));
   }, [searchParams]);
 
   useEffect(() => {
     setNewMenuOpen(newActionRequested);
   }, [newActionRequested]);
 
+  // Acción explícita desde Home: abre directamente el diálogo de carga
+  // correspondiente sin pasar por el menú "Nuevo". Al alternar la acción en el
+  // mismo montaje se restablece el modo opuesto para no conservar una selección.
+  // Un destino inválido nunca abre el diálogo ni cae a la raíz.
+  useEffect(() => {
+    if (directoryInvalid) return;
+    if (uploadSingleActionRequested) {
+      setShowUploadMultipleModal(false);
+      setShowUploadModal(true);
+    } else if (uploadMultipleActionRequested) {
+      setShowUploadModal(false);
+      setShowUploadMultipleModal(true);
+    }
+  }, [
+    uploadSingleActionRequested,
+    uploadMultipleActionRequested,
+    directoryInvalid,
+  ]);
+
   // Queries
   const {
     data: documents,
     isLoading: loadingDocuments,
+    isFetching: fetchingDocuments,
     error: documentsError,
     refetch: refetchDocuments,
   } = useQuery({
     queryKey: [
       "documents",
-      categoryFilter,
+      documentTypeFilter,
       onlyMine,
       currentYearId,
       directoryId,
       documentView,
+      user?.id,
     ],
     queryFn: () =>
       documentsService.getAll({
-        categoryId: categoryFilter,
+        documentTypeId: documentTypeFilter,
         onlyMine: onlyMine || undefined,
-        directoryId,
+        directoryId: isUnfilteredView ? undefined : directoryId,
         ...(isUnfilteredView
           ? { view: documentView }
           : {
@@ -218,72 +288,76 @@ function DocumentsPageContent() {
         page: 1,
         limit: 50,
       }),
-    enabled: !isTrashView,
+    enabled: !!user?.id && !isTrashView && !directoryInvalid,
+    placeholderData: () => undefined,
   });
 
-  const filteredDocuments = documents?.data.filter(
-    (document) =>
-      documentView === "all" ||
-      !isResidualWorkflowFilename(document.versions?.[0]?.filename),
-  ) ?? [];
+  actionState.current.ready = !!user?.id && !loadingDocuments && !fetchingDocuments &&
+    !documentsError && !!documents && !directoryInvalid && !isTrashView &&
+    Object.is(directoryId, parseDirectoryId(searchParams.get("directoryId")));
+  const filteredDocuments =
+    (actionState.current.ready ? documents?.data : undefined)?.filter(
+      (document) =>
+        documentView === "all" ||
+        !isResidualWorkflowFilename(document.versions?.[0]?.filename),
+    ) ?? [];
+  actionState.current.rows = filteredDocuments;
+  const canAct = (id: number, action: Exclude<keyof DocumentActionCapabilities, "scope">, epoch?: object | null) => {
+    const current = actionState.current;
+    const query = queryClient.getQueryState(["documents", documentTypeFilter, onlyMine,
+      currentYearId, directoryId, documentView, user?.id]);
+    return current.alive && current.ready && (!epoch || current.epoch === epoch) &&
+      query?.fetchStatus === "idle" && !query.isInvalidated &&
+       readDocumentActionCapabilities(current.rows.find((doc) => doc.id === id), user?.id ?? null)?.[action] === true;
+  };
+  const batchEpoch = actionState.current.epoch;
+  const canBatchAct = (action: BatchAction, ids: number[]) => {
+    const current = actionState.current;
+    const selection = batchSelection.current;
+    const query = queryClient.getQueryState(["documents", documentTypeFilter, onlyMine,
+      currentYearId, directoryId, documentView, user?.id]);
+    return current.alive && current.ready && current.epoch === batchEpoch &&
+      batchSelectionEpoch.current === current.epoch &&
+      query?.status === "success" && query.fetchStatus === "idle" && !query.isInvalidated &&
+      ids.length > 0 && ids.length === selection.length && new Set(ids).size === ids.length &&
+      ids.every((id) => selection.includes(id) &&
+        readBatchActionCapabilities(current.rows.find((document) => document.id === id))?.[action] === true);
+  };
 
   const { thumbnailUrls } = useDocumentThumbnails(filteredDocuments);
 
   const { data: stats } = useQuery({
-    queryKey: ["stats"],
+    queryKey: ["stats", user?.id],
     queryFn: () => documentsService.getStats(),
-    enabled: !isTrashView,
+    enabled: !!user?.id && !isTrashView,
   });
 
   const {
     categories,
     loadingCategories,
     uploadDocumentTypes,
-    defaultDocumentType,
+    academicYears,
   } = useUploadMetadata();
 
   // Mutations
   const deleteMutation = useMutation({
-    mutationFn: documentsService.delete,
-    onSuccess: () => {
-       invalidateDirectoryQueries(queryClient);
+    mutationFn: ({ id, epoch }: { id: number; epoch: object }) => {
+      if (!canAct(id, "trash", epoch)) throw new Error("Los permisos han cambiado.");
+      return documentsService.delete(id);
+    },
+    onSuccess: (_data, { id, epoch }) => {
+      if (!canAct(id, "trash", epoch)) return;
+      invalidateDirectoryQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ["stats"] });
       toast.success("Documento eliminado exitosamente");
     },
-    onError: () => {
+    onError: (_error, { epoch }) => {
+      if (actionState.current.epoch !== epoch || !actionState.current.alive) return;
       toast.error("Error al eliminar documento");
     },
   });
 
   // Handlers
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
-    }
-  };
-
-  const handleUploadDataChange = (value: UploadMetadata) => {
-    setUploadData(value);
-    if (value.documentTypeId) {
-      setUploadValidationError(undefined);
-    }
-  };
-
-  const prepareUpload = () => {
-    setUploadData({
-      ...EMPTY_UPLOAD_METADATA,
-      directoryId,
-    });
-    setUploadValidationError(undefined);
-  };
-
-  const hasValidUploadMetadata = () => {
-    if (!uploadData.documentTypeId) {
-      setUploadValidationError("Selecciona un tipo de documento");
-      return false;
-    }
-    return true;
-  };
 
   const handleCreateInEditor = async () => {
     if (!createInEditorData.title.trim()) {
@@ -297,8 +371,6 @@ function DocumentsPageContent() {
       setCreateInEditorData({
         title: "",
         fileType: "docx",
-        documentTypeId: defaultDocumentType?.id,
-        categoryId: defaultDocumentType?.categoryId,
       });
       if (
         createInEditorData.fileType === "txt" ||
@@ -315,76 +387,10 @@ function DocumentsPageContent() {
     }
   };
 
-  const handleUpload = async () => {
-    if (!selectedFile) {
-      toast.error("Selecciona un archivo");
-      return;
-    }
-    if (!hasValidUploadMetadata()) return;
-    setUploading(true);
-    try {
-      await documentsService.upload(selectedFile, uploadData);
-      toast.success("Archivo subido exitosamente");
-      setSelectedFile(null);
-      setUploadData({
-        categoryId: undefined,
-        courseId: undefined,
-        subjectId: undefined,
-        academicYearId: undefined,
-        documentTypeId: undefined,
-        description: "",
-        isPublic: false,
-      });
-      setUploadValidationError(undefined);
-      setShowUploadModal(false);
-      invalidateDirectoryQueries(queryClient);
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-    } catch (error) {
-      const message =
-        (error as { response?: { data?: { message?: string } } }).response?.data
-          ?.message || "Error al subir archivo";
-      toast.error(message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleUploadMultiple = async () => {
-    if (selectedFiles.length === 0) {
-      toast.error("Selecciona al menos un archivo");
-      return;
-    }
-    if (!hasValidUploadMetadata()) return;
-    setUploading(true);
-    try {
-      await documentsService.uploadMultiple(selectedFiles, uploadData);
-      toast.success(
-        `${selectedFiles.length} archivo(s) subido(s) exitosamente`,
-      );
-      setSelectedFiles([]);
-      setUploadData({
-        categoryId: undefined,
-        courseId: undefined,
-        subjectId: undefined,
-        academicYearId: undefined,
-        documentTypeId: undefined,
-        description: "",
-        isPublic: false,
-      });
-      setUploadValidationError(undefined);
-      setShowUploadMultipleModal(false);
-      invalidateDirectoryQueries(queryClient);
-      queryClient.invalidateQueries({ queryKey: ["stats"] });
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-    } catch (error) {
-      const message =
-        (error as { response?: { data?: { message?: string } } }).response?.data
-          ?.message || "Error al subir archivos";
-      toast.error(message);
-    } finally {
-      setUploading(false);
-    }
+  const handleUploadSuccess = () => {
+    invalidateDirectoryQueries(queryClient);
+    queryClient.invalidateQueries({ queryKey: ["stats"] });
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
   };
 
   const handleDownload = async (id: number, filename: string) => {
@@ -405,18 +411,41 @@ function DocumentsPageContent() {
   };
 
   const handleDelete = (id: number) => {
+    if (!canAct(id, "trash")) return;
+    deleteEpoch.current = actionState.current.epoch;
     setDeleteConfirmId(id);
   };
 
   const moveMutation = useMutation({
-    mutationFn: () => documentsService.moveToDirectory(movingDocument!.id, moveDestination),
-    onSuccess: () => {
-       invalidateDirectoryQueries(queryClient);
+    mutationFn: ({ id, destination, epoch }: { id: number; destination: number | null; epoch: object }) => {
+      if (!canAct(id, "move", epoch) || destination !== moveDestination || !moveAccess.canWriteNow())
+        throw new Error("Los permisos han cambiado.");
+      return documentsService.moveToDirectory(id, destination);
+    },
+    onSuccess: (_data, { id, epoch }) => {
+      if (!canAct(id, "move", epoch)) return;
+      invalidateDirectoryQueries(queryClient);
       setMovingDocument(null);
       toast.success("Documento movido exitosamente");
     },
-    onError: () => toast.error("No se pudo mover el documento"),
+    onError: (_error, { epoch }) => {
+      if (actionState.current.epoch === epoch && actionState.current.alive)
+        toast.error("No se pudo mover el documento");
+    },
   });
+
+  const handleEdit = (doc: Document) => {
+    if (!canAct(doc.id, "editMetadata")) return;
+    editEpoch.current = actionState.current.epoch;
+    setEditingDocument(doc);
+    setShowEditDialog(true);
+  };
+  const handleMove = (doc: Document) => {
+    if (!canAct(doc.id, "move")) return;
+    moveEpoch.current = actionState.current.epoch;
+    setMovingDocument(doc);
+    setMoveDestination(doc.directoryId ?? null);
+  };
 
   const handlePreview = async (doc: Document) => {
     setPreviewDocument(doc);
@@ -437,6 +466,8 @@ function DocumentsPageContent() {
 
   // Handlers para batch actions
   const handleToggleDocument = (doc: Document) => {
+    if (!actionState.current.ready || !filteredDocuments.some((current) => current.id === doc.id)) return;
+    batchSelectionEpoch.current = actionState.current.epoch;
     setSelectedDocuments((prev) => {
       const isSelected = prev.some((d) => d.id === doc.id);
       if (isSelected) {
@@ -448,6 +479,8 @@ function DocumentsPageContent() {
   };
 
   const handleSelectAll = () => {
+    if (!actionState.current.ready) return;
+    batchSelectionEpoch.current = actionState.current.epoch;
     if (selectedDocuments.length === filteredDocuments.length) {
       setSelectedDocuments([]);
     } else {
@@ -480,6 +513,8 @@ function DocumentsPageContent() {
   };
 
   const handleShowReplaceFile = (doc: Document) => {
+    if (!canAct(doc.id, "editContent")) return;
+    replaceEpoch.current = actionState.current.epoch;
     setReplaceFileDocument(doc);
     setShowReplaceFile(true);
   };
@@ -516,6 +551,54 @@ function DocumentsPageContent() {
     callback();
   };
 
+  // No ofrece el diálogo de carga mientras la carpeta seleccionada no tenga
+  // permisos vigentes (recepción sin submit, comprobación pendiente, error o
+  // destino inválido).
+  const openUploadDialog = (multiple: boolean) => {
+    if (directoryInvalid || !canUpload) return;
+    if (multiple) setShowUploadMultipleModal(true);
+    else setShowUploadModal(true);
+  };
+
+  const handleUploadDialogOpenChange = (open: boolean) => {    if (open) return;
+    setShowUploadModal(false);
+    setShowUploadMultipleModal(false);
+
+    // Consume la acción de la URL al cerrar para que recargar o remontar no
+    // reabra el diálogo. Se preservan los demás parámetros (directoryId, etc.).
+    if (uploadSingleActionRequested || uploadMultipleActionRequested) {
+      const nextSearchParams = new URLSearchParams(queryString);
+      nextSearchParams.delete("action");
+      const nextQuery = nextSearchParams.toString();
+      router.replace(`/dashboard/documents${nextQuery ? `?${nextQuery}` : ""}`, {
+        scroll: false,
+      });
+    }
+  };
+
+  if (directoryInvalid) {
+    return (
+      <div className="bg-background">
+        <div className="mx-auto max-w-7xl space-y-6 p-8">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Carpeta no válida</AlertTitle>
+            <AlertDescription>
+              La dirección solicitada no corresponde a una carpeta válida.
+              Revisa el enlace o vuelve a la raíz.
+            </AlertDescription>
+          </Alert>
+          <Button
+            variant="outline"
+            onClick={() => router.replace("/dashboard/documents")}
+          >
+            Volver a la raíz
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   if (isTrashView) {
     return <TrashView />;
   }
@@ -524,9 +607,20 @@ function DocumentsPageContent() {
     <div className="bg-background">
       <DirectoryVisitRecorder
         directoryId={directoryId}
-        navigationSucceeded={directoryId !== null && !loadingDocuments && !documentsError && documents !== undefined}
+        navigationSucceeded={
+          directoryId !== null &&
+          !loadingDocuments &&
+          !documentsError &&
+          documents !== undefined
+        }
       />
       <div className="mx-auto max-w-7xl space-y-6">
+        {/* Contexto de bandeja de recepción para el lector actual */}
+        {submission.isReception && submission.directoryName ? (
+          <h2 className="text-lg font-semibold">
+            Bandeja de recepción: {submission.directoryName}
+          </h2>
+        ) : null}
         {/* Estadísticas compactas */}
         {stats && (
           <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card/50 p-1.5">
@@ -558,298 +652,280 @@ function DocumentsPageContent() {
           </div>
         )}
 
-        {/* Tabs: Documentos / Lotes */}
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'batches')}>
-          <TabsList>
-            <TabsTrigger value="documents">
-              <FileText className="mr-2 h-4 w-4" />
-              Documentos
-            </TabsTrigger>
-            <TabsTrigger value="batches">
-              <Layers className="mr-2 h-4 w-4" />
-              Lotes
-            </TabsTrigger>
-          </TabsList>
+        <FolderBrowser enabled={!isUnfilteredView} directoryId={directoryId} onNavigate={(id) => {
+              const params = new URLSearchParams(queryString);
+              if (id === null) params.delete("directoryId");
+              else params.set("directoryId", String(id));
+              params.delete("action");
+              setDirectoryId(id);
+              router.push(`/dashboard/documents${params.size ? `?${params.toString()}` : ""}`);
+            }}>
+            {/* Lista de documentos */}
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <CardTitle>{documentViewTitle}</CardTitle>
+                      <CardDescription>
+                        {filteredDocuments.length} documento(s) encontrado(s)
+                        {selectedDocuments.length > 0 && (
+                          <span className="ml-2 text-primary">
+                            ({selectedDocuments.length} seleccionado
+                            {selectedDocuments.length > 1 ? "s" : ""})
+                          </span>
+                        )}
+                      </CardDescription>
+                    </div>
+                    <div className="flex shrink-0 justify-start sm:justify-end">
+                      {/* Botón Nuevo */}
+                      <NewDocumentButton
+                        onUploadSingle={() =>
+                          handleNewMenuSelection(() => openUploadDialog(false))
+                        }
+                        onUploadMultiple={() =>
+                          handleNewMenuSelection(() => openUploadDialog(true))
+                        }
+                        uploadDisabled={!canUpload}
+                        onFromTemplate={() =>
+                          handleNewMenuSelection(() =>
+                            router.push("/dashboard/templates"),
+                          )
+                        }
+                        onBatchGenerate={() =>
+                          handleNewMenuSelection(() =>
+                            setShowBatchSelectDialog(true),
+                          )
+                        }
+                        onCreateInEditor={() =>
+                          handleNewMenuSelection(() =>
+                            setShowCreateInEditorDialog(true),
+                          )
+                        }
+                        open={newMenuOpen}
+                        onOpenChange={handleNewMenuOpenChange}
+                      />
+                    </div>
+                  </div>
 
-          <TabsContent value="documents" className="mt-4">
-        {/* Lista de documentos */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <CardTitle>{documentViewTitle}</CardTitle>
-                  <CardDescription>
-                    {filteredDocuments.length} documento(s) encontrado(s)
-                    {selectedDocuments.length > 0 && (
-                      <span className="ml-2 text-primary">
-                        ({selectedDocuments.length} seleccionado
-                        {selectedDocuments.length > 1 ? "s" : ""})
-                      </span>
+                  <div className="flex w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:justify-end">
+                    {!isUnfilteredView && (
+                      <div className="w-full sm:w-[200px]">
+                        <AcademicYearSelector label="Filtrar por año lectivo" />
+                      </div>
                     )}
-                  </CardDescription>
-                </div>
-                <div className="flex shrink-0 justify-start sm:justify-end">
-                  {/* Botón Nuevo */}
-                  <NewDocumentButton
-                    onUploadSingle={() => handleNewMenuSelection(() => { prepareUpload(); setShowUploadModal(true); })}
-                    onUploadMultiple={() => handleNewMenuSelection(() => { prepareUpload(); setShowUploadMultipleModal(true); })}
-                    onFromTemplate={() => handleNewMenuSelection(() => router.push("/dashboard/templates"))}
-                    onBatchGenerate={() => handleNewMenuSelection(() => setShowBatchSelectDialog(true))}
-                    onCreateInEditor={() => handleNewMenuSelection(() => setShowCreateInEditorDialog(true))}
-                    open={newMenuOpen}
-                    onOpenChange={handleNewMenuOpenChange}
-                  />
-                </div>
-              </div>
-
-              <div className="flex w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:justify-end">
-                {/* Filtro de categorías */}
-                <Select
-                  value={categoryFilter?.toString() || "all"}
-                  onValueChange={(value) =>
-                    setCategoryFilter(value === "all" ? undefined : parseInt(value))
-                  }
-                >
-                  <SelectTrigger size="sm" className="w-full sm:w-[180px]">
-                    <Filter className="mr-1.5 h-3.5 w-3.5" />
-                    <SelectValue placeholder="Categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    {!loadingCategories &&
-                      categories
-                        ?.filter((cat) => cat.isActive)
-                        .map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id.toString()}>
-                            {cat.name}
+                    {/* Filtro de tipos de documento */}
+                    <Select
+                      value={documentTypeFilter?.toString() || "all"}
+                      onValueChange={(value) =>
+                        setDocumentTypeFilter(
+                          value === "all" ? undefined : parseInt(value),
+                        )
+                      }
+                    >
+                      <SelectTrigger
+                        size="sm"
+                        className="w-full sm:w-[200px]"
+                        aria-label="Filtrar por tipo de documento"
+                      >
+                        <Filter className="mr-1.5 h-3.5 w-3.5" />
+                        <SelectValue placeholder="Tipo de documento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los tipos</SelectItem>
+                        {uploadDocumentTypes?.map((type) => (
+                          <SelectItem key={type.id} value={type.id.toString()}>
+                            {type.name}
                           </SelectItem>
                         ))}
-                  </SelectContent>
-                </Select>
+                      </SelectContent>
+                    </Select>
 
-                <div
-                  className="flex items-center gap-1 rounded-md border bg-muted p-1"
-                  role="group"
-                  aria-label="Cambiar vista"
-                >
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={viewMode === "grid" ? "default" : "ghost"}
-                    className="h-7 px-2 text-xs focus-visible:ring-2"
-                    aria-label="Vista de tarjetas"
-                    aria-pressed={viewMode === "grid"}
-                    onClick={() => setViewMode("grid")}
-                  >
-                    <LayoutGrid className="h-3.5 w-3.5" />
-                    <span className="sr-only">Tarjetas</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={viewMode === "list" ? "default" : "ghost"}
-                    className="h-7 px-2 text-xs focus-visible:ring-2"
-                    aria-label="Vista de lista"
-                    aria-pressed={viewMode === "list"}
-                    onClick={() => setViewMode("list")}
-                  >
-                    <List className="h-3.5 w-3.5" />
-                    <span className="sr-only">Lista</span>
-                  </Button>
-                </div>
-                {/* Control segmentado Todos / Mis documentos */}
-                <div className="flex items-center rounded-md border bg-muted p-1 gap-1">
-                  <Button
-                    size="sm"
-                    variant={!onlyMine ? "default" : "ghost"}
-                    className="h-7 px-3 text-xs"
-                    onClick={() => setOnlyMine(false)}
-                  >
-                    Todos
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={onlyMine ? "default" : "ghost"}
-                    className="h-7 px-3 text-xs gap-1.5"
-                    onClick={() => setOnlyMine(true)}
-                  >
-                    <User className="h-3 w-3" />
-                    Mis documentos
-                  </Button>
-                </div>
-              {filteredDocuments.length > 0 && (
-                <label
-                  onClick={handleSelectAll}
-                  className="inline-flex h-8 items-center gap-2 rounded-md border px-2 text-xs hover:bg-accent cursor-pointer"
-                >
-                  <Checkbox
-                    checked={filteredDocuments.length > 0 && selectedDocuments.length === filteredDocuments.length}
-                  />
-                  {selectedDocuments.length === filteredDocuments.length
-                    ? "Deseleccionar todos"
-                    : "Seleccionar todos"}
-                </label>
-              )}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {documentsError ? (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Error al cargar documentos</AlertTitle>
-                <AlertDescription className="flex flex-col gap-3">
-                  <p>
-                    No se pudieron cargar los documentos. Verifica que el
-                    servidor esté ejecutándose y que tengas conexión a internet.
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => refetchDocuments()}
-                      variant="outline"
-                      size="sm"
+                    <div
+                      className="flex items-center gap-1 rounded-md border bg-muted p-1"
+                      role="group"
+                      aria-label="Cambiar vista"
                     >
-                      <RefreshCw className="mr-2 h-4 w-4" />
-                      Reintentar
-                    </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={viewMode === "grid" ? "default" : "ghost"}
+                        className="h-7 px-2 text-xs focus-visible:ring-2"
+                        aria-label="Vista de tarjetas"
+                        aria-pressed={viewMode === "grid"}
+                        onClick={() => setViewMode("grid")}
+                      >
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                        <span className="sr-only">Tarjetas</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={viewMode === "list" ? "default" : "ghost"}
+                        className="h-7 px-2 text-xs focus-visible:ring-2"
+                        aria-label="Vista de lista"
+                        aria-pressed={viewMode === "list"}
+                        onClick={() => setViewMode("list")}
+                      >
+                        <List className="h-3.5 w-3.5" />
+                        <span className="sr-only">Lista</span>
+                      </Button>
+                    </div>
+                    {/* Control segmentado Todos / Mis documentos */}
+                    <div className="flex items-center rounded-md border bg-muted p-1 gap-1">
+                      <Button
+                        size="sm"
+                        variant={!onlyMine ? "default" : "ghost"}
+                        className="h-7 px-3 text-xs"
+                        onClick={() => setOnlyMine(false)}
+                      >
+                        Todos
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={onlyMine ? "default" : "ghost"}
+                        className="h-7 px-3 text-xs gap-1.5"
+                        onClick={() => setOnlyMine(true)}
+                      >
+                        <User className="h-3 w-3" />
+                        Mis documentos
+                      </Button>
+                    </div>
+                    {filteredDocuments.length > 0 && (
+                      <label
+                        onClick={handleSelectAll}
+                        className="inline-flex h-8 items-center gap-2 rounded-md border px-2 text-xs hover:bg-accent cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={
+                            filteredDocuments.length > 0 &&
+                            selectedDocuments.length ===
+                              filteredDocuments.length
+                          }
+                        />
+                        {selectedDocuments.length === filteredDocuments.length
+                          ? "Deseleccionar todos"
+                          : "Seleccionar todos"}
+                      </label>
+                    )}
                   </div>
-                </AlertDescription>
-              </Alert>
-            ) : loadingDocuments ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                <p className="text-muted-foreground mt-4">
-                  Cargando documentos...
-                </p>
-              </div>
-            ) : filteredDocuments.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium">No hay documentos</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Comienza subiendo tu primer documento
-                </p>
-              </div>
-            ) : (
-              viewMode === "grid" ? (
-                <ul
-                  aria-label="Documentos"
-                  className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5"
-                >
-                  {filteredDocuments.map((doc) => (
-                    <DocumentCard
-                      key={doc.id}
-                      doc={doc}
-                      isSelected={selectedDocuments.some((d) => d.id === doc.id)}
-                      onToggle={handleToggleDocument}
-                      thumbnailUrl={thumbnailUrls[doc.id]?.url}
-                      onPreview={handlePreview}
-                      onDownload={handleDownload}
-                      onShowVersionHistory={handleShowVersionHistory}
-                      onEdit={(d) => { setEditingDocument(d); setShowEditDialog(true); }}
-                      onReplaceFile={handleShowReplaceFile}
-                      onDelete={handleDelete}
-                      canDelete={isAdmin() || doc.uploadedById === String(user?.id)}
-                      isOwn={doc.uploadedById === user?.id}
-                      isDeleting={deleteMutation.isPending}
-                      onMove={(document) => { setMovingDocument(document); setMoveDestination(document.directoryId ?? null); }}
-                    />
-                  ))}
-                </ul>
-              ) : (
-                <div className="space-y-4">
-                  {filteredDocuments.map((doc, index) => (
-                    <DocumentListItem
-                      key={doc.id}
-                      doc={doc}
-                      index={index}
-                      isSelected={selectedDocuments.some((d) => d.id === doc.id)}
-                      onToggle={handleToggleDocument}
-                      thumbnailUrl={thumbnailUrls[doc.id]?.url}
-                      onPreview={handlePreview}
-                      onDownload={handleDownload}
-                      onShowVersionHistory={handleShowVersionHistory}
-                      onEdit={(d) => { setEditingDocument(d); setShowEditDialog(true); }}
-                      onReplaceFile={handleShowReplaceFile}
-                      onDelete={handleDelete}
-                      canDelete={isAdmin() || doc.uploadedById === String(user?.id)}
-                      isOwn={doc.uploadedById === user?.id}
-                      isDeleting={deleteMutation.isPending}
-                      onMove={(document) => { setMovingDocument(document); setMoveDestination(document.directoryId ?? null); }}
-                    />
-                  ))}
                 </div>
-              )
-            )}
-          </CardContent>
-        </Card>
-          </TabsContent>
-
-          <TabsContent value="batches" className="mt-4">
-            <BatchListSection />
-          </TabsContent>
-        </Tabs>
+              </CardHeader>
+              <CardContent>
+                {documentsError ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error al cargar documentos</AlertTitle>
+                    <AlertDescription className="flex flex-col gap-3">
+                      <p>
+                        No se pudieron cargar los documentos. Verifica que el
+                        servidor esté ejecutándose y que tengas conexión a
+                        internet.
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={() => refetchDocuments()}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Reintentar
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                ) : loadingDocuments || fetchingDocuments ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                    <p className="text-muted-foreground mt-4">
+                      Cargando documentos...
+                    </p>
+                  </div>
+                ) : filteredDocuments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium">No hay documentos</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Comienza subiendo tu primer documento
+                    </p>
+                  </div>
+                ) : viewMode === "grid" ? (
+                  <ul
+                    aria-label="Documentos"
+                    className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5"
+                  >
+                    {filteredDocuments.map((doc) => (
+                      <DocumentCard
+                        key={doc.id}
+                        doc={doc}
+                        isSelected={selectedDocuments.some(
+                          (d) => d.id === doc.id,
+                        )}
+                        onToggle={handleToggleDocument}
+                        thumbnailUrl={thumbnailUrls[doc.id]?.url}
+                        onPreview={handlePreview}
+                        onDownload={handleDownload}
+                        onShowVersionHistory={handleShowVersionHistory}
+                        onEdit={handleEdit}
+                        onReplaceFile={handleShowReplaceFile}
+                        onDelete={handleDelete}
+                        canDelete={false}
+                        isOwn={doc.uploadedById === user?.id}
+                        actorId={user?.id ?? null}
+                        isDeleting={deleteMutation.isPending}
+                        onMove={handleMove}
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredDocuments.map((doc, index) => (
+                      <DocumentListItem
+                        key={doc.id}
+                        doc={doc}
+                        index={index}
+                        isSelected={selectedDocuments.some(
+                          (d) => d.id === doc.id,
+                        )}
+                        onToggle={handleToggleDocument}
+                        thumbnailUrl={thumbnailUrls[doc.id]?.url}
+                        onPreview={handlePreview}
+                        onDownload={handleDownload}
+                        onShowVersionHistory={handleShowVersionHistory}
+                        onEdit={handleEdit}
+                        onReplaceFile={handleShowReplaceFile}
+                        onDelete={handleDelete}
+                        canDelete={false}
+                        isOwn={doc.uploadedById === user?.id}
+                        actorId={user?.id ?? null}
+                        isDeleting={deleteMutation.isPending}
+                        onMove={handleMove}
+                      />
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            </FolderBrowser>
 
         {/* Modal de subir documento */}
-        <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Subir Documento</DialogTitle>
-              <DialogDescription>
-                Selecciona un archivo y su tipo de documento
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 py-4">
-              {/* Seleccionar archivo */}
-              <div className="space-y-2">
-                <label htmlFor="upload-file" className="text-sm font-medium">Archivo *</label>
-                <Input
-                  id="upload-file"
-                  type="file"
-                  onChange={handleFileChange}
-                  className="cursor-pointer"
-                />
-                {selectedFile && (
-                  <p className="text-sm text-muted-foreground">
-                    Archivo seleccionado: {selectedFile.name} (
-                    {formatFileSize(selectedFile.size)})
-                  </p>
-                )}
-              </div>
-
-                <DocumentMetadataForm
-                  value={uploadData}
-                  onChange={handleUploadDataChange}
-                  uploadDocumentTypes={uploadDocumentTypes}
-                  documentTypeError={uploadValidationError}
-                />
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowUploadModal(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleUpload}
-                disabled={uploading || !selectedFile}
-              >
-                {uploading ? "Subiendo..." : "Subir Documento"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <UploadDocumentsDialog
+          open={(showUploadModal || showUploadMultipleModal) && (directoryId === null ||
+            (folderAccess.ready && (folderAccess.directory?.receptionEnabled === true || folderAccess.canWrite)))}
+          multiple={showUploadMultipleModal}
+          directoryId={directoryId}
+          uploadDocumentTypes={uploadDocumentTypes}
+          academicYears={academicYears}
+          onOpenChange={handleUploadDialogOpenChange}
+          onSuccess={handleUploadSuccess}
+        />
 
         {/* Modal de vista previa de documento */}
         <Dialog open={showPreviewModal} onOpenChange={setShowPreviewModal}>
           <DialogContent className="sm:max-w-[90vw] sm:max-h-[90vh] h-[90vh]">
             <DialogHeader>
               <DialogTitle>
-                Vista Previa: {((previewDocument?.versions?.[0]?.filename) ?? '')}
+                Vista Previa: {previewDocument?.name?.trim() || previewDocument?.versions?.[0]?.filename || ""}
               </DialogTitle>
               <DialogDescription>
                 {previewDocument?.description ||
@@ -869,7 +945,7 @@ function DocumentsPageContent() {
                 <iframe
                   src={previewUrl}
                   className="w-full h-full border rounded-md"
-                  title={((previewDocument?.versions?.[0]?.filename) ?? '')}
+                  title={previewDocument?.name?.trim() || previewDocument?.versions?.[0]?.filename || ""}
                 />
               ) : null}
             </div>
@@ -884,7 +960,10 @@ function DocumentsPageContent() {
               {previewDocument && (
                 <Button
                   onClick={() =>
-                    handleDownload(previewDocument.id, ((previewDocument?.versions?.[0]?.filename) ?? ''))
+                    handleDownload(
+                      previewDocument.id,
+                      previewDocument?.versions?.[0]?.filename ?? "",
+                    )
                   }
                   disabled={loadingPreview}
                 >
@@ -907,116 +986,37 @@ function DocumentsPageContent() {
         )}
 
         {/* Modal de reemplazar archivo */}
-        {replaceFileDocument && (
+        {replaceFileDocument && replaceEpoch.current === actionState.current.epoch && (
           <ReplaceFileDialog
+            key={`${contextKey}:${replaceFileDocument.id}`}
+            authorize={() => canAct(replaceFileDocument.id, "editContent", replaceEpoch.current)}
             documentId={replaceFileDocument.id}
-            documentName={replaceFileDocument.versions?.[0]?.filename ?? ''}
-            open={showReplaceFile}
+            documentName={replaceFileDocument.versions?.[0]?.filename ?? ""}
+            open={showReplaceFile && (fetchingDocuments || canAct(replaceFileDocument.id, "editContent", replaceEpoch.current))}
             onOpenChange={setShowReplaceFile}
           />
         )}
 
         {/* Modal de editar documento */}
-        {editingDocument && (
+        {editingDocument && editEpoch.current === actionState.current.epoch && (
           <EditDocumentDialog
+            key={`${contextKey}:${editingDocument.id}`}
+            authorize={() => canAct(editingDocument.id, "editMetadata", editEpoch.current)}
             document={editingDocument}
-            open={showEditDialog}
+            open={showEditDialog && (fetchingDocuments || canAct(editingDocument.id, "editMetadata", editEpoch.current))}
             onOpenChange={setShowEditDialog}
           />
         )}
 
-        {/* Modal de subir múltiples documentos */}
-        <Dialog
-          open={showUploadMultipleModal}
-          onOpenChange={setShowUploadMultipleModal}
-        >
-          <DialogContent className="sm:max-w-[600px]">
-            <DialogHeader>
-              <DialogTitle>Subir Múltiples Documentos</DialogTitle>
-              <DialogDescription>
-                Selecciona varios archivos y un tipo de documento para subirlos al mismo tiempo
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 py-4">
-              {/* Seleccionar archivos múltiples */}
-              <div className="space-y-2">
-                <label htmlFor="upload-files" className="text-sm font-medium">Archivos *</label>
-                <Input
-                  id="upload-files"
-                  type="file"
-                  multiple
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files || []);
-                    setSelectedFiles(files);
-                  }}
-                  className="cursor-pointer"
-                />
-                {selectedFiles.length > 0 && (
-                  <div className="space-y-1 mt-2">
-                    <p className="text-sm font-medium">
-                      {selectedFiles.length} archivo(s) seleccionado(s):
-                    </p>
-                    {selectedFiles.map((file, idx) => (
-                      <p key={idx} className="text-sm text-muted-foreground">
-                        • {file.name} ({formatFileSize(file.size)})
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-                <DocumentMetadataForm
-                  value={uploadData}
-                  onChange={handleUploadDataChange}
-                  uploadDocumentTypes={uploadDocumentTypes}
-                  documentTypeError={uploadValidationError}
-                />
-            </div>
-
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowUploadMultipleModal(false);
-                  setSelectedFiles([]);
-                  setUploadData({
-                    categoryId: undefined,
-                    courseId: undefined,
-                    subjectId: undefined,
-                    academicYearId: undefined,
-                    documentTypeId: undefined,
-                    description: "",
-                    isPublic: false,
-                  });
-                }}
-                disabled={uploading}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleUploadMultiple}
-                disabled={uploading || selectedFiles.length === 0}
-              >
-                {uploading ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Subiendo...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Subir {selectedFiles.length} archivo(s)
-                  </>
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
         {/* Batch Actions Bar */}
         <BatchActionsBar
-          selectedDocuments={selectedDocuments}
+          key={contextKey}
+          contextKey={contextKey}
+          authorize={canBatchAct}
+          selectedDocuments={batchSelectionEpoch.current === actionState.current.epoch
+            ? selectedDocuments.map((selected) =>
+              filteredDocuments.find((document) => document.id === selected.id) ?? selected)
+            : []}
           onClearSelection={handleClearSelection}
           onSuccess={handleBatchSuccess}
         />
@@ -1029,22 +1029,31 @@ function DocumentsPageContent() {
         />
 
         {/* Create in editor dialog */}
-        <Dialog open={showCreateInEditorDialog} onOpenChange={setShowCreateInEditorDialog}>
+        <Dialog
+          open={showCreateInEditorDialog}
+          onOpenChange={setShowCreateInEditorDialog}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Crear en Editor</DialogTitle>
               <DialogDescription>
-                Se creará un documento en blanco y se abrirá en el editor correspondiente.
+                Se creará un documento en blanco y se abrirá en el editor
+                correspondiente.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-1">
-                <label className="text-sm font-medium">Nombre del documento</label>
+                <label className="text-sm font-medium">
+                  Nombre del documento
+                </label>
                 <Input
                   placeholder="Ej. Notas de reunión"
                   value={createInEditorData.title}
                   onChange={(e) =>
-                    setCreateInEditorData((prev) => ({ ...prev, title: e.target.value }))
+                    setCreateInEditorData((prev) => ({
+                      ...prev,
+                      title: e.target.value,
+                    }))
                   }
                   onKeyDown={(e) => e.key === "Enter" && handleCreateInEditor()}
                 />
@@ -1065,15 +1074,21 @@ function DocumentsPageContent() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="docx">Documento Word (.docx)</SelectItem>
-                    <SelectItem value="xlsx">Hoja de cálculo (.xlsx)</SelectItem>
+                    <SelectItem value="xlsx">
+                      Hoja de cálculo (.xlsx)
+                    </SelectItem>
                     <SelectItem value="pptx">Presentación (.pptx)</SelectItem>
-                    <SelectItem value="txt">Documento de texto (.txt)</SelectItem>
+                    <SelectItem value="txt">
+                      Documento de texto (.txt)
+                    </SelectItem>
                     <SelectItem value="md">Markdown (.md)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium">Categoría (opcional)</label>
+                <label className="text-sm font-medium">
+                  Categoría (opcional)
+                </label>
                 <Select
                   value={createInEditorData.categoryId?.toString() ?? "none"}
                   onValueChange={(v) =>
@@ -1099,10 +1114,16 @@ function DocumentsPageContent() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowCreateInEditorDialog(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setShowCreateInEditorDialog(false)}
+              >
                 Cancelar
               </Button>
-              <Button onClick={handleCreateInEditor} disabled={creatingInEditor || !createInEditorData.title.trim()}>
+              <Button
+                onClick={handleCreateInEditor}
+                disabled={creatingInEditor || !createInEditorData.title.trim()}
+              >
                 {creatingInEditor ? "Creando..." : "Crear y Abrir"}
               </Button>
             </DialogFooter>
@@ -1110,7 +1131,7 @@ function DocumentsPageContent() {
         </Dialog>
 
         <ConfirmDialog
-          open={deleteConfirmId !== null}
+          open={deleteConfirmId !== null && canAct(deleteConfirmId, "trash", deleteEpoch.current)}
           onOpenChange={(open) => !open && setDeleteConfirmId(null)}
           title="Eliminar documento"
           description="¿Estás seguro de eliminar este documento? Será enviado a la papelera."
@@ -1118,21 +1139,41 @@ function DocumentsPageContent() {
           variant="destructive"
           loading={deleteMutation.isPending}
           onConfirm={() => {
-            if (deleteConfirmId !== null) deleteMutation.mutate(deleteConfirmId);
+            if (deleteConfirmId !== null && deleteEpoch.current && canAct(deleteConfirmId, "trash", deleteEpoch.current))
+              deleteMutation.mutate({ id: deleteConfirmId, epoch: deleteEpoch.current });
             setDeleteConfirmId(null);
           }}
         />
 
-        <Dialog open={movingDocument !== null} onOpenChange={(open) => !open && setMovingDocument(null)}>
+        <Dialog
+          open={movingDocument !== null && canAct(movingDocument.id, "move", moveEpoch.current)}
+          onOpenChange={(open) => !open && setMovingDocument(null)}
+        >
           <DialogContent className="sm:max-w-[700px]">
             <DialogHeader>
               <DialogTitle>Mover documento</DialogTitle>
-              <DialogDescription>Selecciona el directorio de destino.</DialogDescription>
+              <DialogDescription>
+                Selecciona el directorio de destino.
+              </DialogDescription>
             </DialogHeader>
-            <DirectoryNavigation value={moveDestination} onChange={setMoveDestination} picker />
+            <DirectoryNavigation
+              value={moveDestination}
+              onChange={setMoveDestination}
+              picker
+            />
             <DialogFooter>
-              <Button variant="outline" onClick={() => setMovingDocument(null)}>Cancelar</Button>
-              <Button onClick={() => moveMutation.mutate()} disabled={moveMutation.isPending}>Mover aquí</Button>
+              <Button variant="outline" onClick={() => setMovingDocument(null)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => {
+                  if (movingDocument && moveEpoch.current && moveAccess.canWrite && canAct(movingDocument.id, "move", moveEpoch.current))
+                    moveMutation.mutate({ id: movingDocument.id, destination: moveDestination, epoch: moveEpoch.current });
+                }}
+                disabled={moveMutation.isPending || !movingDocument || !moveAccess.canWrite || !canAct(movingDocument.id, "move", moveEpoch.current)}
+              >
+                Mover aquí
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

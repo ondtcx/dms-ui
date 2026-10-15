@@ -24,7 +24,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
-      command: 'cd ../dms-backend && WORKFLOW_FEATURE_ENABLED=true npm run start:dev',
+      command: 'cd ../dms-backend && npm run start:dev',
       url: 'http://localhost:3001/api',
       reuseExistingServer: !process.env.CI,
     },

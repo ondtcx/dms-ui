@@ -16,11 +16,11 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 // Store global para el año lectivo activo en el contexto de la sesión.
-// La clave de persistencia incluye el userId para evitar que sesiones de
-// distintos usuarios en el mismo navegador compartan la misma selección.
+// La selección persistida registra su propietario y se restablece al cambiar de usuario.
 export const useAcademicYearStore = create<{
   currentYearId: number | null;
   persistedUserId: string | null;
+  hasInitializedYear: boolean;
   setCurrentYearId: (id: number | null) => void;
   resetForUser: (userId: string) => void;
 }>()(
@@ -28,45 +28,46 @@ export const useAcademicYearStore = create<{
     (set) => ({
       currentYearId: null,
       persistedUserId: null,
-      setCurrentYearId: (id) => set({ currentYearId: id }),
+      hasInitializedYear: false,
+      setCurrentYearId: (id) => set({ currentYearId: id, hasInitializedYear: true }),
       resetForUser: (userId) =>
-        set({ currentYearId: null, persistedUserId: userId }),
+        set({ currentYearId: null, persistedUserId: userId, hasInitializedYear: false }),
     }),
-    { name: "academic-year-storage" },
+    {
+      name: "academic-year-storage",
+      version: 1,
+      migrate: (persistedState) => {
+        const state = persistedState as { currentYearId: number | null; persistedUserId: string | null };
+        return { ...state, hasInitializedYear: typeof state.currentYearId === "number" };
+      },
+    },
   ),
 );
 
-export function AcademicYearSelector() {
+export function AcademicYearSelector({ label = "Filtrar por año lectivo" }: { label?: string } = {}) {
   const { user } = useAuth();
   const { data: years, isLoading } = useQuery({
     queryKey: ["academic-years"],
     queryFn: () => academicYearsService.getAll(),
   });
 
-  const { currentYearId, persistedUserId, setCurrentYearId, resetForUser } =
+  const { currentYearId, persistedUserId, hasInitializedYear, setCurrentYearId, resetForUser } =
     useAcademicYearStore();
 
-  // Reset del store cuando cambia el usuario (ej: otro usuario en el mismo navegador)
+  // Inicializar solo para el usuario autenticado, sin reemplazar una elección explícita.
   useEffect(() => {
-    if (user?.id && persistedUserId && persistedUserId !== user.id) {
+    if (!user?.id) return;
+    if (persistedUserId !== user.id) {
       resetForUser(user.id);
-    } else if (user?.id && !persistedUserId) {
-      resetForUser(user.id);
+      return;
     }
-  }, [user?.id, persistedUserId, resetForUser]);
-
-  // Auto-seleccionar el año isCurrent si no hay ninguno seleccionado
-  useEffect(() => {
-    if (years?.data && currentYearId === null) {
-      const current = years.data.find((y) => y.isCurrent);
-      if (current) {
-        setCurrentYearId(current.id);
-      } else {
-        const firstActive = years.data.find((y) => y.isActive);
-        if (firstActive) setCurrentYearId(firstActive.id);
-      }
+    if (hasInitializedYear || !years?.data) return;
+    const initialYear = years.data.find((year) => year.isCurrent && year.isActive)
+      ?? years.data.find((year) => year.isActive);
+    if (initialYear) {
+      setCurrentYearId(initialYear.id);
     }
-  }, [years, currentYearId, setCurrentYearId]);
+  }, [user?.id, persistedUserId, hasInitializedYear, years, resetForUser, setCurrentYearId]);
 
   if (isLoading) {
     return (
@@ -90,7 +91,7 @@ export function AcademicYearSelector() {
         setCurrentYearId(val === "all" ? null : Number(val))
       }
     >
-      <SelectTrigger className="w-full h-9">
+      <SelectTrigger className="w-full h-9" aria-label={label}>
         <div className="flex items-center gap-2">
           <Calendar className="h-4 w-4 shrink-0" />
           <SelectValue placeholder="Selecciona año" />

@@ -1,9 +1,23 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import WorkflowsPage from "@/app/dashboard/workflows/page";
 import { workflowsService } from "@/lib/services/workflows.service";
 
 let canManage = true;
+let authenticated = true;
+const push = jest.fn();
+
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
+}));
+
+jest.mock("@/lib/contexts/AuthContext", () => ({
+  useAuth: () => ({
+    loading: false,
+    isAuthenticated: authenticated,
+    user: { role: "admin" },
+  }),
+}));
 
 jest.mock("@/hooks/use-permissions", () => ({
   usePermissions: () => ({ hasPermission: () => canManage }),
@@ -73,6 +87,8 @@ function renderPage() {
 describe("Workflow administration definition states", () => {
   beforeEach(() => {
     canManage = true;
+    authenticated = true;
+    push.mockReset();
     process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = "true";
     jest.mocked(workflowsService.getDefinitions).mockReset();
     jest.mocked(workflowsService.getDefinition).mockReset();
@@ -89,22 +105,25 @@ describe("Workflow administration definition states", () => {
     }
   });
 
-  it("keeps workflow data and mutation controls absent for an unauthorized bookmark", () => {
+  it("redirects an unauthorized bookmark without mounting administration", async () => {
     canManage = false;
     renderPage();
 
-    expect(
-      screen.getByText("No tienes permiso para administrar flujos de trabajo."),
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Flujos de trabajo" })).not.toBeInTheDocument();
     expect(
       screen.queryByText("Definiciones existentes"),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /crear|activar/i }),
     ).not.toBeInTheDocument();
+    expect(workflowsService.getDefinitions).not.toHaveBeenCalled();
+    expect(workflowsService.getDefinition).not.toHaveBeenCalled();
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/errors/unauthorized"));
   });
 
-  it("keeps the guarded administration surface available for an authorized bookmark", async () => {
+  it.each([undefined, "false", "malformed"])("keeps authorized bookmarks available despite legacy flag %s", async (value) => {
+    if (value === undefined) delete process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED;
+    else process.env.NEXT_PUBLIC_WORKFLOW_FEATURE_ENABLED = value;
     jest.mocked(workflowsService.getDefinitions).mockResolvedValue(definitions);
     renderPage();
 
@@ -117,6 +136,8 @@ describe("Workflow administration definition states", () => {
     expect(
       screen.queryByText("No tienes permiso para administrar flujos de trabajo."),
     ).not.toBeInTheDocument();
+    await waitFor(() => expect(workflowsService.getDefinitions).toHaveBeenCalled());
+    expect(push).not.toHaveBeenCalled();
   });
 
   it("renders loading without empty or definition details", async () => {
