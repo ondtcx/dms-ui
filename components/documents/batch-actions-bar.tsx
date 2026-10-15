@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { batchService } from '@/lib/services/batch.service';
+import { BatchAction, readBatchActionCapabilities } from '@/lib/batch-action-capabilities';
 import { Document } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
@@ -27,75 +27,115 @@ import {
 
 interface BatchActionsBarProps {
   selectedDocuments: Document[];
+  contextKey: string;
+  authorize: (action: BatchAction, documentIds: number[]) => boolean;
   onClearSelection: () => void;
   onSuccess?: () => void;
 }
 
 export function BatchActionsBar({
   selectedDocuments,
+  contextKey,
+  authorize,
   onClearSelection,
   onSuccess,
 }: BatchActionsBarProps) {
   const [loading, setLoading] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ permanent: boolean } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ permanent: boolean; epoch: object } | null>(null);
+  const reasonId = useId();
+  const selectedIds = selectedDocuments.map((d) => d.id);
+  const allDeleted = selectedDocuments.every((d) => d.deletedAt);
+  const selectionKey = JSON.stringify([contextKey, selectedIds, allDeleted]);
+  const current = useRef({ key: selectionKey, epoch: {}, alive: true, selectedDocuments, authorize });
+  if (current.current.key !== selectionKey) {
+    current.current = { key: selectionKey, epoch: {}, alive: true, selectedDocuments, authorize };
+  } else {
+    current.current.selectedDocuments = selectedDocuments;
+    current.current.authorize = authorize;
+  }
+  const epoch = current.current.epoch;
+  const operation = useRef<{ epoch: object; token: object } | null>(null);
+  useEffect(() => {
+    current.current.alive = true;
+    return () => { current.current.alive = false; };
+  }, []);
+  useEffect(() => { setLoading(false); setDeleteConfirm(null); }, [selectionKey]);
 
-  if (selectedDocuments.length === 0) {
-    return null;
+  const canRun = (action: BatchAction, expectedEpoch = epoch) => {
+    const latest = current.current;
+    const ids = latest.selectedDocuments.map((document) => document.id);
+    return latest.alive && latest.epoch === expectedEpoch && ids.length > 0 &&
+      ids.every((id) => Number.isSafeInteger(id) && id > 0) && new Set(ids).size === ids.length &&
+      latest.selectedDocuments.every((document) => readBatchActionCapabilities(document)?.[action] === true) &&
+      latest.authorize(action, ids);
+  };
+
+  async function runAction(action: BatchAction, request: () => Promise<unknown>,
+    settle: (result: unknown) => void, errorMessage: string) {
+    if (!canRun(action) || operation.current?.epoch === epoch) return;
+    const token = {};
+    operation.current = { epoch, token };
+    setLoading(true);
+    try {
+      const result = await request();
+      if (canRun(action, epoch) && operation.current?.token === token) settle(result);
+    } catch (error: any) {
+      if (canRun(action, epoch) && operation.current?.token === token) {
+        toast.error(error.response?.data?.message || errorMessage);
+      }
+    } finally {
+      if (current.current.alive && current.current.epoch === epoch && operation.current?.token === token) {
+        operation.current = null;
+        setLoading(false);
+      }
+    }
   }
 
-  const selectedIds = selectedDocuments.map((d) => d.id);
-
-  const handleBatchDelete = async (permanent: boolean = false) => {
-    setLoading(true);
-    try {
-      await batchService.delete({
-        documentIds: selectedIds,
-        permanent,
-      });
-      toast.success(
-        permanent
-          ? `${selectedDocuments.length} documento(s) eliminados permanentemente`
-          : `${selectedDocuments.length} documento(s) movidos a la papelera`
-      );
+  const handleBatchDelete = (permanent: boolean) => runAction(
+    permanent ? 'permanentDelete' : 'trash',
+    () => batchService.delete({ documentIds: selectedIds, permanent }),
+    () => {
+      toast.success(permanent
+        ? `${selectedIds.length} documento(s) eliminados permanentemente`
+        : `${selectedIds.length} documento(s) movidos a la papelera`);
       onClearSelection();
       onSuccess?.();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al eliminar documentos');
-    } finally {
-      setLoading(false);
-    }
-  };
+    }, 'Error al eliminar documentos',
+  );
 
-  const handleBatchExport = async () => {
-    setLoading(true);
-    try {
-      await batchService.downloadExport(
-        selectedIds,
-        `documents-${Date.now()}.zip`
-      );
-      toast.success(`Descargando ${selectedDocuments.length} documento(s)...`);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al exportar documentos');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleBatchExport = () => runAction('export',
+    () => batchService.export({ documentIds: selectedIds }),
+    (result) => {
+      const url = window.URL.createObjectURL(result as Blob);
+      const link = document.createElement('a');
+      try {
+        link.href = url;
+        link.download = `documents-${Date.now()}.zip`;
+        document.body.appendChild(link);
+        link.click();
+        toast.success(`Descargando ${selectedIds.length} documento(s)...`);
+      } finally {
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }
+    }, 'Error al exportar documentos',
+  );
 
-  const allDeleted = selectedDocuments.every((d) => d.deletedAt);
-
-  const handleBatchRestore = async () => {
-    setLoading(true);
-    try {
-      await batchService.restore(selectedIds);
+  const handleBatchRestore = () => runAction('restore',
+    () => batchService.restore(selectedIds),
+    () => {
       toast.success(`${selectedDocuments.length} documento(s) restaurados`);
       onClearSelection();
       onSuccess?.();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Error al restaurar documentos');
-    } finally {
-      setLoading(false);
-    }
-  };
+    }, 'Error al restaurar documentos',
+  );
+
+  if (selectedDocuments.length === 0) return null;
+  const deleteAction = allDeleted ? 'permanentDelete' : 'trash';
+  const visibleActions: BatchAction[] = allDeleted ? ['restore', deleteAction] : ['export', 'update', deleteAction];
+  const blockedActions = visibleActions.filter((action) => !canRun(action));
+  const actionLabels: Record<BatchAction, string> = { update: 'Editar', trash: 'Eliminar',
+    restore: 'Restaurar', permanentDelete: 'Eliminar permanentemente', export: 'Descargar ZIP' };
 
   return (
     <>
@@ -123,7 +163,8 @@ export function BatchActionsBar({
                 variant="outline"
                 size="sm"
                 onClick={handleBatchRestore}
-                disabled={loading}
+                disabled={loading || !canRun('restore')}
+                aria-describedby={!canRun('restore') ? reasonId : undefined}
               >
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Restaurar
@@ -134,7 +175,8 @@ export function BatchActionsBar({
                   variant="outline"
                   size="sm"
                   onClick={handleBatchExport}
-                  disabled={loading}
+                  disabled={loading || !canRun('export')}
+                  aria-describedby={!canRun('export') ? reasonId : undefined}
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Descargar ZIP
@@ -142,7 +184,8 @@ export function BatchActionsBar({
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" disabled={loading}>
+                    <Button variant="outline" size="sm" disabled={loading || !canRun('update')}
+                      aria-describedby={!canRun('update') ? reasonId : undefined}>
                       <Pencil className="h-4 w-4 mr-2" />
                       Editar
                       <ChevronDown className="h-4 w-4 ml-2" />
@@ -165,18 +208,25 @@ export function BatchActionsBar({
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => setDeleteConfirm({ permanent: allDeleted })}
-              disabled={loading}
+              onClick={() => { if (canRun(deleteAction)) setDeleteConfirm({ permanent: allDeleted, epoch }); }}
+              disabled={loading || !canRun(deleteAction)}
+              aria-describedby={!canRun(deleteAction) ? reasonId : undefined}
             >
               <Trash2 className="h-4 w-4 mr-2" />
               {allDeleted ? 'Eliminar permanentemente' : 'Eliminar'}
             </Button>
           </div>
+          {blockedActions.length > 0 && (
+            <p id={reasonId} className="max-w-xs text-xs text-muted-foreground" role="status">
+              {blockedActions.map((action) => actionLabels[action]).join(', ')}: la selección completa
+              no dispone de permisos vigentes o está pendiente de verificación. No se ejecutará sobre un subconjunto.
+            </p>
+          )}
         </div>
       </div>
 
       <ConfirmDialog
-        open={deleteConfirm !== null}
+        open={deleteConfirm !== null && deleteConfirm.epoch === epoch && canRun(deleteConfirm.permanent ? 'permanentDelete' : 'trash')}
         onOpenChange={(open) => !open && setDeleteConfirm(null)}
         title={deleteConfirm?.permanent ? "Eliminar permanentemente" : "Eliminar documentos"}
         description={
@@ -188,7 +238,7 @@ export function BatchActionsBar({
         variant="destructive"
         loading={loading}
         onConfirm={() => {
-          handleBatchDelete(deleteConfirm?.permanent ?? false);
+          if (deleteConfirm?.epoch === epoch) handleBatchDelete(deleteConfirm.permanent);
           setDeleteConfirm(null);
         }}
       />

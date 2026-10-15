@@ -6,6 +6,7 @@ export interface CreateUserDto {
   password: string;
   name: string;
   role?: string;
+  catalogRoleId?: number;
 }
 
 export const usersService = {

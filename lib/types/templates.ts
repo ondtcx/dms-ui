@@ -17,29 +17,39 @@ export interface DocumentType {
   id: number;
   name: string;
   description: string | null;
-  categoryId: number;
+  categoryId: number | null;
   isActive: boolean;
-  isDefault: boolean;
+  /** The persisted `Documento general` type; authoritative default marker. */
+  isDefault?: boolean;
   createdAt: string;
   updatedAt: string;
   category?: { id: number; name: string; color: string; icon: string } | null;
-  _count?: { documents: number; documentTemplates: number };
+  _count?: { documents: number };
+}
+
+/**
+ * Resolves the persisted default document type (`Documento general`) from an
+ * active-types list. The `isDefault` flag is the only source of truth; the
+ * frontend never fetches a dedicated default endpoint.
+ */
+export function findDefaultDocumentType<T extends { isDefault?: boolean }>(
+  types: readonly T[] | null | undefined,
+): T | undefined {
+  return types?.find((type) => type.isDefault === true);
 }
 
 export interface CreateDocumentTypeDto {
   name: string;
   description?: string;
-  categoryId: number;
+  categoryId?: number | null;
   isActive?: boolean;
-  isDefault?: boolean;
 }
 
 export interface UpdateDocumentTypeDto {
   name?: string;
   description?: string;
-  categoryId?: number;
+  categoryId?: number | null;
   isActive?: boolean;
-  isDefault?: boolean;
 }
 
 export interface DocumentTemplate {
@@ -88,7 +98,7 @@ export interface DocumentTemplatesResponse {
 
 export interface CreateDocumentTemplateDto {
   name: string;
-  documentTypeId?: number;
+  documentTypeId?: number | null;
   description?: string;
   fields: TemplateFields;
   htmlTemplate: string;

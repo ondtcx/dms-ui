@@ -27,11 +27,12 @@ export function DocumentPreviewDialog({
   loadingPreview,
   onDownload,
 }: DocumentPreviewDialogProps) {
+  const displayName = document?.name?.trim() || document?.versions?.[0]?.filename || "";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[90vw] sm:max-h-[90vh] h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Vista Previa: {((document?.versions?.[0]?.filename) ?? '')}</DialogTitle>
+          <DialogTitle>Vista Previa: {displayName}</DialogTitle>
           <DialogDescription>
             {document?.description || "Previsualización del documento"}
           </DialogDescription>
@@ -48,7 +49,7 @@ export function DocumentPreviewDialog({
             <iframe
               src={previewUrl}
               className="w-full h-full border rounded-md"
-              title={((document?.versions?.[0]?.filename) ?? '')}
+              title={displayName}
             />
           ) : null}
         </div>

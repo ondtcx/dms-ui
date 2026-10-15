@@ -1,5 +1,5 @@
 export enum UserRole {
-  RECTOR    = "rector",
+  RECTOR = "rector",
   VICERRECTOR = "vicerrector",
   COORDINADOR = "coordinador",
   PROFESOR = "profesor",
@@ -7,8 +7,8 @@ export enum UserRole {
   PADRE = "padre",
   ESTUDIANTE = "estudiante",
   MODERADOR = "moderador",
-  ADMIN = "admin",     // Mantener para compatibilidad
-  USER = "user",       // Mantener para compatibilidad
+  ADMIN = "admin", // Mantener para compatibilidad
+  USER = "user", // Mantener para compatibilidad
 }
 
 export interface User {
@@ -31,8 +31,9 @@ export interface Permission {
   isActive: boolean;
 }
 
-export interface RolePermission extends Partial<Pick<Permission, 'id' | 'key' | 'label'>> {
-  permission?: Pick<Permission, 'id' | 'key' | 'label'>;
+export interface RolePermission
+  extends Partial<Pick<Permission, "id" | "key" | "label">> {
+  permission?: Pick<Permission, "id" | "key" | "label">;
 }
 
 export interface CatalogRole {
@@ -66,7 +67,7 @@ export interface AuthorizationProfile {
 
 export interface AuthResponse {
   user: User;
-  access_token: string;
+  access_token?: string;
   permissions?: string[];
   roles?: string[];
   authRevision?: number;
@@ -75,6 +76,19 @@ export interface AuthResponse {
 export interface LoginDto {
   email: string;
   password: string;
+  code?: string;
+}
+
+export interface TwoFactorStatus {
+  enabled: boolean;
+}
+export interface TwoFactorSetup {
+  secret: string;
+  otpauthUri: string;
+}
+export interface TwoFactorEnableResponse {
+  enabled: boolean;
+  recoveryCodes: string[];
 }
 
 export interface RegisterDto {
@@ -124,7 +138,18 @@ export interface UpdateCategoryDto {
   prefix?: string | null;
 }
 
+export type VersionRetentionUpdate =
+  | { mode: "normal" | "permanent"; preserveUntil?: never }
+  | { mode: "until"; preserveUntil: string };
+
 export interface DocumentVersion {
+  supersededAt?: string | null;
+  retentionGraceUntil?: string | null;
+  preservePermanently?: boolean;
+  preserveUntil?: string | null;
+  expiresAt?: string | null;
+  canManageRetention?: boolean;
+  isRetentionProtected?: boolean;
   id: number;
   documentId: number;
   version: number;
@@ -133,6 +158,7 @@ export interface DocumentVersion {
   storedName: string;
   path: string;
   size: number;
+  pageCount?: number | null;
   checksumSHA256: string | null;
   comment: string | null;
   createdBy: {
@@ -198,7 +224,15 @@ export interface DocumentTemplateData {
 }
 
 export interface Document {
+  sharingSummary?: SharingSummary;
+  sharingProvenance?: SharingProvenance[];
+  canRequestChanges?: boolean;
+  actionCapabilities?: import("@/lib/document-action-capabilities").DocumentActionCapabilities;
+  batchCapabilities?: import("@/lib/batch-action-capabilities").BatchActionCapabilities;
   id: number;
+  name?: string | null;
+  originDate?: string | null;
+  warnings?: string[];
   description: string | null;
   categoryId: number | null;
   category: Category | null;
@@ -247,6 +281,36 @@ export interface Document {
   directory?: Directory | null;
 }
 
+export interface ResourceCapabilities {
+  owner: boolean;
+  canView: boolean;
+  canEdit: boolean;
+  canUploadVersion: boolean;
+  canShare: boolean;
+}
+
+export interface SharingSummary {
+  shared: boolean;
+  direct: boolean;
+  inherited: boolean;
+  public: boolean;
+}
+
+export interface SharingProvenance {
+  grantId?: number | string | null;
+  grantedBy?: { id?: string; name?: string | null; email?: string } | null;
+  sourceDirectory?: { id: number; name: string } | null;
+  inherited?: boolean;
+  public?: boolean;
+  ownership?: boolean;
+  legacy?: boolean;
+  canView?: boolean;
+  canEdit?: boolean;
+  canUploadVersion?: boolean;
+  canShare?: boolean;
+  authoritySource?: { grantId?: number | string; directory?: { id: number; name: string } | null };
+}
+
 export interface Directory {
   id: number;
   name: string;
@@ -254,6 +318,12 @@ export interface Directory {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  receptionEnabled?: boolean;
+  singleDocumentPerParticipant?: boolean;
+  navigationOnly?: boolean;
+  capabilities?: ResourceCapabilities;
+  sharingSummary?: SharingSummary;
+  sharingProvenance?: SharingProvenance[];
 }
 
 export interface DirectoryNavigationSummary {
@@ -285,6 +355,97 @@ export interface UpdateDirectoryDto {
   parentId?: number | null;
 }
 
+/**
+ * Capacidades de recepción calculadas por el backend para el actor actual.
+ * Nunca se derivan del rol global; son la lectura viva de la carpeta.
+ */
+export interface ReceptionCapabilities {
+  configure: boolean;
+  manageParticipants: boolean;
+  readAll: boolean;
+  review: boolean;
+  manageDelegates: boolean;
+  manageStructure: boolean;
+  owner: boolean;
+  discover: boolean;
+  submit: boolean;
+  peerRead: boolean;
+}
+
+export interface ReceptionSettings {
+  directoryId: number;
+  enabled: true;
+  singleDocumentPerParticipant: boolean;
+  capabilities: ReceptionCapabilities;
+}
+
+export interface ConfigureReception {
+  enabled: boolean;
+  singleDocumentPerParticipant?: boolean;
+}
+
+/**
+ * Participante directo (usuario) de una carpeta de recepción. El backend solo
+ * devuelve el identificador; los nombres se obtienen por búsqueda autorizada.
+ */
+export interface DirectoryUserParticipant {
+  directoryId: number;
+  userId: string;
+  peerRead: boolean;
+}
+
+/** Participante por rol de catálogo (asignación viva). */
+export interface DirectoryRoleParticipant {
+  directoryId: number;
+  roleId: number;
+  peerRead: boolean;
+}
+
+/** Delegación operativa acotada sobre una carpeta de recepción. */
+export interface DirectoryDelegate {
+  directoryId: number;
+  userId: string;
+  full: boolean;
+  configure: boolean;
+  manageParticipants: boolean;
+  readAll: boolean;
+  review: boolean;
+  manageDelegates: boolean;
+  manageStructure: boolean;
+}
+
+export interface DirectoryMembership {
+  users: DirectoryUserParticipant[];
+  roles: DirectoryRoleParticipant[];
+  delegates: DirectoryDelegate[];
+}
+
+/** Destinatario de usuario devuelto por la búsqueda autorizada acotada. */
+export interface DirectoryRecipientUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
+/** Destinatario de rol activo devuelto por la búsqueda autorizada acotada. */
+export interface DirectoryRecipientRole {
+  id: number;
+  key: string;
+  label: string;
+}
+
+/** Carga de participante: exactamente un usuario o un rol, más la visibilidad. */
+export interface DirectoryParticipantInput {
+  userId?: string;
+  roleId?: number;
+  peerRead: boolean;
+}
+
+export type DirectoryDelegateFlags = Omit<
+  DirectoryDelegate,
+  "directoryId" | "userId"
+>;
+
 export interface DocumentsResponse {
   data: Document[];
   meta: {
@@ -301,14 +462,21 @@ export type DocumentListView =
   | "all"
   | "trash";
 
-export interface DashboardDocumentRow extends Pick<
-  Document,
-  "id" | "description" | "documentNumber" | "createdAt" | "updatedAt"
-> {
+export interface DashboardDocumentRow
+  extends Pick<
+    Document,
+    "id" | "description" | "documentNumber" | "createdAt" | "updatedAt"
+  > {
   uploadedBy: Pick<Document["uploadedBy"], "id" | "name" | "email">;
   category: Pick<Category, "id" | "name" | "color" | "icon"> | null;
-  versions: Pick<DocumentVersion, "id" | "version" | "filename" | "mimetype" | "size">[];
-  workflow: Pick<NonNullable<Document["workflow"]>, "id" | "status" | "currentState"> | null;
+  versions: Pick<
+    DocumentVersion,
+    "id" | "version" | "filename" | "mimetype" | "size"
+  >[];
+  workflow: Pick<
+    NonNullable<Document["workflow"]>,
+    "id" | "status" | "currentState"
+  > | null;
 }
 
 export interface DashboardSummary {
@@ -321,15 +489,22 @@ export interface DashboardSummary {
 }
 
 export interface UploadDocumentDto {
+  name?: string;
+  documentNumber?: string;
   description?: string;
+  originDate?: string;
   categoryId?: number;
-  documentTypeId?: number;
+  documentTypeId?: number | null;
   courseId?: number;
   subjectId?: number;
   isPublic?: boolean;
   academicYearId?: number;
   directoryId?: number | null;
 }
+
+export type UpdateDocumentDto = Omit<UploadDocumentDto, "originDate" | "documentNumber"> & {
+  documentNumber?: string | null;
+};
 
 export interface CategoryCount {
   categoryId: number;
@@ -379,10 +554,10 @@ export interface BatchResponse {
 // ===== VERSIONES =====
 
 export enum DocumentVersionSource {
-  UPLOAD_INICIAL      = 'UPLOAD_INICIAL',
-  REEMPLAZO_MANUAL    = 'REEMPLAZO_MANUAL',
-  RESTAURACION        = 'RESTAURACION',
-  CAMBIOS_SOLICITADOS = 'CAMBIOS_SOLICITADOS',
+  UPLOAD_INICIAL = "UPLOAD_INICIAL",
+  REEMPLAZO_MANUAL = "REEMPLAZO_MANUAL",
+  RESTAURACION = "RESTAURACION",
+  CAMBIOS_SOLICITADOS = "CAMBIOS_SOLICITADOS",
 }
 
 // ===== WORKFLOWS =====
@@ -409,6 +584,7 @@ export enum ApprovalAction {
 export interface SearchQueryDto {
   query?: string;
   categoryIds?: number[];
+  documentTypeIds?: number[];
   courseIds?: number[];
   subjectIds?: number[];
   uploadedById?: string;
@@ -419,10 +595,11 @@ export interface SearchQueryDto {
   mimetypes?: string[];
   isPublic?: boolean;
   includeDeleted?: boolean;
+  includeContent?: boolean;
   page?: number;
   limit?: number;
   sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
+  sortOrder?: "asc" | "desc";
 }
 
 export interface SearchResponse {
@@ -613,19 +790,20 @@ export interface CreateShareDto {
   maxViews?: number;
 }
 
-export * from './templates';
+export * from "./templates";
+export * from "./audit";
 
 // ─── Año Lectivo ──────────────────────────────────────────────────────────────
 
 export interface AcademicYear {
   id: number;
-  name: string;       // "2025-2026"
-  startDate: string;  // ISO string
-  endDate: string;    // ISO string
+  name: string; // "2025-2026"
+  startDate: string; // ISO string
+  endDate: string; // ISO string
   isCurrent: boolean;
   isActive: boolean;
   _count?: {
-    levels: number;   // Cursos cuyo campo academicYear coincide con este name
+    levels: number; // Cursos cuyo campo academicYear coincide con este name
     documents: number;
   };
   createdAt?: string;
@@ -665,7 +843,11 @@ export interface DocumentComposition {
   components: DocumentCompositionItem[];
   partOf: {
     id: number;
-    parent: { id: number; versions?: { filename: string }[]; documentNumber: string | null };
+    parent: {
+      id: number;
+      versions?: { filename: string }[];
+      documentNumber: string | null;
+    };
   }[];
 }
 
@@ -693,23 +875,19 @@ export interface ChangePasswordDto {
 // ─── Upload Metadata ──────────────────────────────────────────────────────────
 
 export interface UploadMetadata {
+  name?: string;
+  documentNumber?: string;
   categoryId: number | undefined;
-  courseId: number | undefined;
-  subjectId: number | undefined;
-  academicYearId: number | undefined;
-  documentTypeId: number | undefined;
-  description: string;
+  originDate?: string;
+  documentTypeId: number | null | undefined;
+  description?: string;
   isPublic: boolean;
   directoryId?: number | null;
 }
 
 export const EMPTY_UPLOAD_METADATA: UploadMetadata = {
   categoryId: undefined,
-  courseId: undefined,
-  subjectId: undefined,
-  academicYearId: undefined,
   documentTypeId: undefined,
-  description: "",
   isPublic: false,
   directoryId: null,
 };

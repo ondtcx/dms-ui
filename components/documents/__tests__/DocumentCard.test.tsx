@@ -4,6 +4,10 @@ import type { Document } from "@/lib/types";
 import { DocumentCard } from "@/components/documents/DocumentCard";
 
 const documentFixture = {
+  actionCapabilities: {
+    scope: "ordinary", editMetadata: true, editContent: true, move: true,
+    trash: true, restore: false, permanentDelete: false, manageSharing: true,
+  },
   id: 42,
   description: "A document description",
   categoryId: 7,
@@ -82,7 +86,65 @@ const createProps = (overrides: Partial<React.ComponentProps<typeof DocumentCard
 });
 
 describe("DocumentCard", () => {
-  it("renders a semantic card with only the filename as visible identity", () => {
+  it('shows owner outgoing sharing without needing recipient lookup', () => {
+    render(<DocumentCard {...createProps({ doc: { ...documentFixture, sharingSummary: { shared: true, direct: true, inherited: false, public: false } } })} />);
+    expect(screen.getByRole('note', { name: 'Compartido con otras personas' })).toBeInTheDocument();
+  });
+  it('shows incoming actual sharer and inherited folder provenance', () => {
+    render(<DocumentCard {...createProps({ doc: { ...documentFixture, sharingProvenance: [{ grantedBy: { name: 'Delegada' }, sourceDirectory: { id: 7, name: 'Académico' }, inherited: true }] } })} />);
+    expect(screen.getByRole('note', { name: 'Compartido por Delegada · Heredado de Académico' })).toBeInTheDocument();
+  });
+  it('denies non-owner trash even when legacy ownership props and snapshot disagree', async () => {
+    render(<DocumentCard {...createProps({ actorId: 'delegate', isOwn: true, canDelete: true })} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Más acciones' }));
+    expect(screen.queryByRole('menuitem', { name: 'Eliminar' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Compartir' })).toBeInTheDocument();
+  });
+  it("shows the original upload date instead of origin, update, or version dates", () => {
+    const createdAt = "2026-09-01T12:00:00.000Z";
+    const doc = {
+      ...documentFixture,
+      createdAt,
+      originDate: "2020-02-03",
+      updatedAt: "2026-10-05T12:00:00.000Z",
+      versions: [{ ...documentFixture.versions![0], createdAt: "2026-11-06T12:00:00.000Z" }],
+    } as Document;
+    render(<DocumentCard {...createProps({ doc })} />);
+
+    const date = screen.getByText("01 sept 2026");
+    expect(date.tagName).toBe("TIME");
+    expect(date).toHaveAttribute("datetime", createdAt);
+    expect(date.parentElement).toHaveTextContent(/^01 sept 2026$/);
+    expect(screen.queryByText(/Fecha de subida/)).not.toBeInTheDocument();
+    const heading = screen.getByRole("heading", { level: 3 });
+    expect(heading.parentElement).toContainElement(date);
+    expect(heading.compareDocumentPosition(date) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each(["not-a-date", "", undefined, null])(
+    "shows a safe upload date fallback for %s",
+    (createdAt) => {
+      const doc = { ...documentFixture, createdAt } as unknown as Document;
+      const { container } = render(<DocumentCard {...createProps({ doc })} />);
+
+      expect(screen.getByText("Fecha no disponible")).toBeInTheDocument();
+      expect(screen.queryByText(/Fecha de subida/)).not.toBeInTheDocument();
+      expect(container.querySelector("time")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+    },
+  );
+
+  it("shows logical identity but downloads the original filename", async () => {
+    const user = userEvent.setup();
+    const props = createProps({ doc: { ...documentFixture, name: "Consejo" } as Document });
+    render(<DocumentCard {...props} />);
+    expect(screen.getByRole("link", { name: "Consejo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Vista previa de Consejo" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Más acciones" }));
+    await user.click(screen.getByRole("menuitem", { name: "Descargar" }));
+    expect(props.onDownload).toHaveBeenCalledWith(42, "Informe administrativo.pdf");
+  });
+  it("renders a semantic card with a logical title and no unrequested metadata", () => {
     render(<DocumentCard {...createProps()} />);
 
     expect(screen.getByRole("listitem")).toContainElement(screen.getByRole("article"));
@@ -97,7 +159,6 @@ describe("DocumentCard", () => {
     );
     expect(within(card).queryByText("DOC-0042")).not.toBeInTheDocument();
     expect(within(card).queryByText("Administrativo")).not.toBeInTheDocument();
-    expect(within(card).queryByText("A document description")).not.toBeInTheDocument();
     expect(within(card).queryByText("2 KB")).not.toBeInTheDocument();
     expect(within(card).queryByText("Tú")).not.toBeInTheDocument();
     expect(within(card).queryByText("Privado")).not.toBeInTheDocument();
@@ -132,6 +193,73 @@ describe("DocumentCard", () => {
       "/thumbnail.png",
     );
   });
+
+  it("offers sharing inside the actions menu instead of a visible button", async () => {
+    const user = userEvent.setup();
+    render(<DocumentCard {...createProps()} />);
+
+    expect(screen.queryByRole("button", { name: "Compartir" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Más acciones" }));
+    expect(screen.getByRole("menuitem", { name: "Compartir" })).toBeInTheDocument();
+  });
+
+  it('hides sharing inside the menu when the snapshot denies it', async () => {
+    const user = userEvent.setup();
+    render(<DocumentCard {...createProps({ doc: {
+      ...documentFixture,
+      actionCapabilities: { ...documentFixture.actionCapabilities!, manageSharing: false },
+    } as Document })} />);
+
+    await user.click(screen.getByRole("button", { name: "Más acciones" }));
+    expect(screen.queryByRole("menuitem", { name: "Compartir" })).not.toBeInTheDocument();
+  });
+
+  it('shows the description and the page count of the current version', () => {
+    render(<DocumentCard {...createProps({ doc: {
+      ...documentFixture,
+      description: "Acta del consejo de docentes",
+      versions: [{ ...documentFixture.versions![0], pageCount: 3 }],
+    } as Document })} />);
+
+    expect(screen.getByText('Acta del consejo de docentes')).toBeInTheDocument();
+    expect(screen.getByText('3 páginas')).toBeInTheDocument();
+  });
+
+  it('names a single page in singular', () => {
+    render(<DocumentCard {...createProps({ doc: {
+      ...documentFixture,
+      versions: [{ ...documentFixture.versions![0], pageCount: 1 }],
+    } as Document })} />);
+
+    expect(screen.getByText('1 página')).toBeInTheDocument();
+  });
+
+  it.each([null, undefined, 0, -2, 1.5])(
+    'omits the page count %s without inventing one',
+    (pageCount) => {
+      render(<DocumentCard {...createProps({ doc: {
+        ...documentFixture,
+        versions: [{ ...documentFixture.versions![0], pageCount }],
+      } as unknown as Document })} />);
+
+      expect(screen.queryByText(/página/)).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([null, '', '   '])(
+    'renders no empty description row for %s',
+    (description) => {
+      const { container } = render(<DocumentCard {...createProps({ doc: {
+        ...documentFixture,
+        description,
+      } as Document })} />);
+
+      const paragraphs = Array.from(container.querySelectorAll('p')).map(
+        (element) => element.textContent?.trim() ?? '',
+      );
+      expect(paragraphs).not.toContain('');
+    },
+  );
 
   it("reports selection changes for the current document", async () => {
     const user = userEvent.setup();
@@ -176,10 +304,13 @@ describe("DocumentCard", () => {
     expect(props.onMove).toHaveBeenCalledWith(documentFixture);
   });
 
-  it("hides edit, replace, and delete actions when deletion is not permitted", async () => {
+  it("hides mutation actions when the snapshot denies them", async () => {
     const user = userEvent.setup();
 
-    render(<DocumentCard {...createProps({ canDelete: false })} />);
+    render(<DocumentCard {...createProps({ doc: { ...documentFixture,
+      actionCapabilities: { ...documentFixture.actionCapabilities!,
+        editMetadata: false, editContent: false, trash: false },
+    } })} />);
 
     await user.click(screen.getByRole("button", { name: "Más acciones" }));
     expect(screen.getByRole("menuitem", { name: "Descargar" })).toBeInTheDocument();

@@ -78,7 +78,7 @@ describe("workflow UI contracts", () => {
     expect(api.get).toHaveBeenCalledWith("/workflow-definitions/7");
     expect(api.patch).toHaveBeenCalledWith("/workflow-definitions/7", { name: "Aprobación" });
     expect(api.post).toHaveBeenNthCalledWith(1, "/workflow-definitions/7/versions", versionPayload);
-    expect(api.post).toHaveBeenNthCalledWith(2, "/workflow-definitions/7/versions/12/validate", { versionId: 12 });
+    expect(api.post).toHaveBeenNthCalledWith(2, "/workflow-definitions/7/versions/12/validate", undefined);
     expect(api.post).toHaveBeenNthCalledWith(3, "/workflow-definitions/7/versions/12/activate");
     expect(api.post).toHaveBeenNthCalledWith(4, "/workflow-definitions/7/versions/12/deactivate");
   });

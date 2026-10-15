@@ -8,6 +8,7 @@ import type {
   WorkflowAssignment,
   WorkflowDefinition,
   WorkflowDefinitionDetail,
+  WorkflowDefinitionMetadataResponse,
   WorkflowDefinitionVersion,
   WorkflowExecution,
   WorkflowValidationResult,
@@ -25,10 +26,10 @@ export const workflowsService = {
   async getStartableDefinitions(documentId: number): Promise<ApplicableWorkflowDefinition[]> {
     return (await api.get<ApplicableWorkflowDefinition[]>(`/documents/${documentId}/workflow-definitions`)).data;
   },
-  async createDefinition(data: CreateWorkflowDefinitionDto): Promise<WorkflowDefinition> {
-    return (await api.post<WorkflowDefinition>("/workflow-definitions", data)).data;
+  async createDefinition(data: CreateWorkflowDefinitionDto): Promise<WorkflowDefinitionVersion> {
+    return (await api.post<WorkflowDefinitionVersion>("/workflow-definitions", data)).data;
   },
-  async updateMetadata(id: number, data: UpdateWorkflowDefinitionMetadataDto): Promise<WorkflowDefinition> {
+  async updateMetadata(id: number, data: UpdateWorkflowDefinitionMetadataDto): Promise<WorkflowDefinitionMetadataResponse> {
     return (await api.patch<WorkflowDefinition>(`/workflow-definitions/${id}`, data)).data;
   },
   async createVersion(id: number, data: CreateWorkflowVersionAdminDto): Promise<WorkflowDefinitionVersion> {
@@ -37,7 +38,7 @@ export const workflowsService = {
   async validate(templateId: number, versionId: number): Promise<WorkflowValidationResult> {
     const response = await api.post<WorkflowValidationResult & { errors?: WorkflowValidationResult["issues"] }>(
       `/workflow-definitions/${templateId}/versions/${versionId}/validate`,
-      { versionId },
+      undefined,
     );
     return {
       versionId,

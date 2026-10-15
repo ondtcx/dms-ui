@@ -1,3 +1,5 @@
+import type { WorkflowActionCapabilities } from "@/lib/workflow-action-capabilities";
+
 export enum WorkflowStatus {
   DRAFT = "DRAFT",
   PENDING = "PENDING",
@@ -83,13 +85,13 @@ export interface WorkflowAssignment {
   workflowId: number;
   stageDefinitionId: number;
   userId: string;
-  userNameSnapshot: string;
+  userNameSnapshot?: string | null;
   roleKeySnapshot: string;
   status: "PENDING" | "COMPLETED" | "REASSIGNED";
   reassignedAt?: string | null;
   reassignmentReason?: string | null;
   completedAt?: string | null;
-  stageDefinition: WorkflowStage;
+  stageDefinition?: WorkflowStage;
 }
 
 export interface WorkflowTransition {
@@ -117,6 +119,7 @@ export interface WorkflowExecution {
   id: number;
   documentId: number;
   status: WorkflowStatus;
+  actionCapabilities?: WorkflowActionCapabilities | null;
   currentState?: string | null;
   currentStateOrder: number;
   active: boolean;
@@ -140,6 +143,15 @@ export interface CreateWorkflowDefinitionDto {
 }
 
 export type CreateWorkflowVersionDto = Partial<CreateWorkflowDefinitionDto>;
+
+export interface WorkflowDefinitionMetadataResponse {
+  id: number;
+  name: string;
+  description?: string | null;
+  categoryId?: number | null;
+  allowedInitiatorRoles: string[];
+  isActive: boolean;
+}
 
 export interface UpdateWorkflowDefinitionMetadataDto {
   name?: string;

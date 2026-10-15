@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
 import toast from "react-hot-toast";
@@ -17,12 +17,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Upload, FileUp } from "lucide-react";
+import { useDocumentActionGuard } from "@/hooks/use-document-action-guard";
 
 interface ReplaceFileDialogProps {
   documentId: number;
   documentName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  authorize?: () => boolean;
 }
 
 export function ReplaceFileDialog({
@@ -30,25 +32,35 @@ export function ReplaceFileDialog({
   documentName,
   open,
   onOpenChange,
+  authorize,
 }: ReplaceFileDialogProps) {
   const queryClient = useQueryClient();
+  const guard = useDocumentActionGuard(documentId, "editContent", open, authorize);
   const [file, setFile] = useState<File | null>(null);
   const [comment, setComment] = useState("");
+  useEffect(() => {
+    setFile(null);
+    setComment("");
+  }, [guard.identity]);
 
   const replaceMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (epoch: object) => {
+      guard.assert(epoch);
       if (!file) throw new Error("No se ha seleccionado un archivo");
       return documentsService.replaceFile(documentId, file, comment || undefined);
     },
-    onSuccess: () => {
-      toast.success("Archivo reemplazado exitosamente. Nueva versión creada.");
+    onSuccess: (_data, epoch) => {
+      if (!guard.isCurrent(epoch)) return;
+      toast.success("Documento actualizado exitosamente. Nueva versión creada.");
       queryClient.invalidateQueries({ queryKey: ["documents"] });
+      queryClient.invalidateQueries({ queryKey: ["document-action-readback"] });
       queryClient.invalidateQueries({ queryKey: ["document", documentId] });
       queryClient.invalidateQueries({ queryKey: ["document-versions", documentId] });
       handleClose();
     },
-    onError: (error: unknown) => {
-      const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Error al reemplazar el archivo";
+    onError: (error: unknown, epoch) => {
+      if (!guard.isCurrent(epoch)) return;
+      const message = (error as { response?: { data?: { message?: string } } }).response?.data?.message || "Error al actualizar el documento";
       toast.error(message);
     },
   });
@@ -67,11 +79,12 @@ export function ReplaceFileDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!guard.canAct || replaceMutation.isPending) return;
     if (!file) {
       toast.error("Por favor selecciona un archivo");
       return;
     }
-    replaceMutation.mutate();
+    replaceMutation.mutate(guard.capture());
   };
 
   return (
@@ -80,10 +93,10 @@ export function ReplaceFileDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileUp className="h-5 w-5" />
-            Reemplazar Archivo
+            Actualizar documento
           </DialogTitle>
           <DialogDescription>
-            Al reemplazar el archivo, se creará una nueva versión automáticamente.
+            Al actualizar el documento, se creará una nueva versión automáticamente.
             El archivo anterior se mantendrá en el historial.
           </DialogDescription>
         </DialogHeader>
@@ -101,6 +114,7 @@ export function ReplaceFileDialog({
               Nuevo archivo *
             </Label>
             <Input
+              key={guard.identity}
               id="file"
               type="file"
               onChange={handleFileChange}
@@ -142,10 +156,10 @@ export function ReplaceFileDialog({
             </Button>
             <Button
               type="submit"
-              disabled={!file || replaceMutation.isPending}
+              disabled={!file || replaceMutation.isPending || !guard.canAct}
             >
               <Upload className="h-4 w-4 mr-2" />
-              {replaceMutation.isPending ? "Subiendo..." : "Reemplazar"}
+              {replaceMutation.isPending ? "Subiendo..." : "Actualizar"}
             </Button>
           </DialogFooter>
         </form>

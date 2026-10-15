@@ -1,8 +1,6 @@
 "use client";
 
-import { Plus, FileText, Upload, Scan, FolderInput, Layers, PenLine } from "lucide-react";
-import { usePermissions } from "@/hooks/use-permissions";
-import { UserRole } from "@/lib/types";
+import { Plus, Upload, FolderInput } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,26 +14,32 @@ import {
 interface NewDocumentButtonProps {
   onUploadSingle: () => void;
   onUploadMultiple: () => void;
-  onFromTemplate: () => void;
+  // Se conservan por compatibilidad con flujos internos que aún los cablean,
+  // aunque el menú compartido ya no muestre opciones de plantilla, editor o lote.
+  onFromTemplate?: () => void;
   onBatchGenerate?: () => void;
   onCreateInEditor?: () => void;
   "aria-label"?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Deshabilita solo las dos opciones de carga; el resto de llamadas no cambia. */
+  uploadDisabled?: boolean;
 }
 
 export function NewDocumentButton({
   onUploadSingle,
   onUploadMultiple,
-  onFromTemplate,
-  onBatchGenerate,
-  onCreateInEditor,
   "aria-label": ariaLabel,
   open,
   onOpenChange,
+  uploadDisabled = false,
 }: NewDocumentButtonProps) {
-  const { hasAnyRole } = usePermissions();
-  const canUseTemplateCreation = hasAnyRole([UserRole.ADMIN, UserRole.RECTOR]);
+  // Guarda el manejador además del atributo `disabled` para que ningún consumidor
+  // pueda disparar una carga denegada por vía programática.
+  const guard = (callback: () => void) => () => {
+    if (uploadDisabled) return;
+    callback();
+  };
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -49,43 +53,20 @@ export function NewDocumentButton({
         <DropdownMenuLabel>Crear Documento</DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {canUseTemplateCreation && (
-          <DropdownMenuItem onClick={onFromTemplate}>
-            <FileText className="mr-2 h-4 w-4" />
-            <span>Desde Plantilla</span>
-          </DropdownMenuItem>
-        )}
-
-        <DropdownMenuItem onClick={onCreateInEditor}>
-          <PenLine className="mr-2 h-4 w-4" />
-          <span>Crear en Editor</span>
-        </DropdownMenuItem>
-
-        {canUseTemplateCreation && (
-          <DropdownMenuItem onClick={onBatchGenerate}>
-            <Layers className="mr-2 h-4 w-4" />
-            <span>Generar en Lote</span>
-          </DropdownMenuItem>
-        )}
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem onClick={onUploadSingle}>
+        <DropdownMenuItem
+          disabled={uploadDisabled}
+          onClick={guard(onUploadSingle)}
+        >
           <Upload className="mr-2 h-4 w-4" />
           <span>Subir Archivo</span>
         </DropdownMenuItem>
 
-        <DropdownMenuItem onClick={onUploadMultiple}>
+        <DropdownMenuItem
+          disabled={uploadDisabled}
+          onClick={guard(onUploadMultiple)}
+        >
           <FolderInput className="mr-2 h-4 w-4" />
           <span>Subir Múltiples Archivos</span>
-        </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <DropdownMenuItem disabled>
-          <Scan className="mr-2 h-4 w-4" />
-          <span>Escanear Documento</span>
-          <span className="ml-auto text-xs text-muted-foreground">Próximamente</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

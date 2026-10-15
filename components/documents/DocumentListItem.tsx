@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { RequestChangesDialog } from "./RequestChangesDialog";
 import {
   FileText,
   Download,
@@ -35,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Document } from "@/lib/types";
+import { readDocumentActionCapabilities } from "@/lib/document-action-capabilities";
 import { formatMimeType, formatRole, formatFileSize } from "@/lib/utils";
 import { WORKFLOW_STATUS_CONFIG } from "@/lib/workflow-status-config";
 
@@ -78,6 +81,9 @@ function getFilePreviewContent(doc: Document): string {
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
+import { DocumentSharingAction } from './DocumentSharingAction';
+import { SharingIndicator } from './SharingIndicator';
+
 interface DocumentListItemProps {
   doc: Document;
   index: number;
@@ -94,6 +100,7 @@ interface DocumentListItemProps {
   isOwn: boolean;
   isDeleting: boolean;
   onMove: (doc: Document) => void;
+  actorId?: string | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -110,13 +117,16 @@ export function DocumentListItem({
   onEdit,
   onReplaceFile,
   onDelete,
-  canDelete,
   isOwn,
   isDeleting,
   onMove,
+  actorId,
 }: DocumentListItemProps) {
+  const [showRequestChanges, setShowRequestChanges] = useState(false);
   const FileIcon = getFileIcon(((doc?.versions?.[0]?.mimetype) ?? ''), !!doc.template);
   const previewContent = getFilePreviewContent(doc);
+  const capabilities = readDocumentActionCapabilities(doc, actorId);
+  const displayName = doc.name?.trim() || doc.versions?.[0]?.filename || "";
   const ownerName = getOwnerName(doc);
   const ownerInitials = doc.uploadedBy?.name?.trim()
     ? ownerName
@@ -130,6 +140,7 @@ export function DocumentListItem({
   return (
     <div>
       {index > 0 && <Separator />}
+      {showRequestChanges && <RequestChangesDialog key={doc.id} documentId={doc.id} open onOpenChange={setShowRequestChanges} />}
       <div className="py-4 flex gap-4">
         {/* Checkbox */}
         <div className="flex items-start pt-1">
@@ -145,7 +156,7 @@ export function DocumentListItem({
             {thumbnailUrl ? (
               <img
                 src={thumbnailUrl}
-                alt={((doc?.versions?.[0]?.filename) ?? '')}
+                alt={displayName}
                 className="w-full h-full object-cover"
               />
             ) : (
@@ -174,7 +185,7 @@ export function DocumentListItem({
               )}
               <h3 className="font-medium text-lg leading-tight">
                 <Link href={`/dashboard/documents/${doc.id}`} className="hover:underline">
-                  {((doc?.versions?.[0]?.filename) ?? '')}
+                  {displayName}
                 </Link>
               </h3>
             </div>
@@ -191,6 +202,7 @@ export function DocumentListItem({
                 <span className="hidden sm:inline">Descargar</span>
               </Button>
 
+              <DocumentSharingAction document={doc} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -198,23 +210,29 @@ export function DocumentListItem({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
+                  {doc.canRequestChanges === true && <DropdownMenuItem onClick={() => setShowRequestChanges(true)}>Solicitar cambios</DropdownMenuItem>}
                   <DropdownMenuItem onClick={() => onShowVersionHistory(doc)}>
                     <History className="mr-2 h-4 w-4" />
                     Ver Versiones
                   </DropdownMenuItem>
 
-                  {canDelete && (
+                  {capabilities && (
                     <>
+                      {capabilities.editMetadata && (
                       <DropdownMenuItem onClick={() => onEdit(doc)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar Info
                       </DropdownMenuItem>
+                      )}
 
+                      {capabilities.editContent && (
                       <DropdownMenuItem onClick={() => onReplaceFile(doc)}>
                         <FileUp className="mr-2 h-4 w-4" />
                         Reemplazar Archivo
                       </DropdownMenuItem>
+                      )}
 
+                      {capabilities.trash && (<>
                       <DropdownMenuSeparator />
 
                       <DropdownMenuItem
@@ -225,12 +243,13 @@ export function DocumentListItem({
                         <Trash2 className="mr-2 h-4 w-4" />
                         Eliminar
                       </DropdownMenuItem>
+                      </>)}
                     </>
                   )}
-                  <DropdownMenuItem onClick={() => onMove(doc)}>
+                  {capabilities?.move && (<DropdownMenuItem onClick={() => onMove(doc)}>
                     <FolderInput className="mr-2 h-4 w-4" />
-                    Mover a directorio
-                  </DropdownMenuItem>
+                    Mover a carpeta
+                  </DropdownMenuItem>)}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -238,6 +257,7 @@ export function DocumentListItem({
 
           {/* Badges */}
           <div className="flex flex-wrap items-center gap-2 mb-2">
+            <SharingIndicator summary={doc.sharingSummary} provenance={doc.sharingProvenance} reception={capabilities?.scope === "reception"} />
             {doc.category && (
               <Badge
                 variant="outline"
@@ -272,7 +292,7 @@ export function DocumentListItem({
             ) : (
               <Badge variant="secondary" className="gap-1">
                 <Lock className="h-3 w-3" />
-                Privado
+                {doc.sharingSummary?.public ? 'Privado local' : 'Privado'}
               </Badge>
             )}
           </div>
