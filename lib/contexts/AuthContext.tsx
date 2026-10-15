@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, code?: string) => Promise<import('@/lib/types').AuthResponse>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -47,10 +47,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadUser();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const response = await authService.login({ email, password });
-    setUser({ ...response.user, permissions: response.permissions, roles: response.roles, authRevision: response.authRevision });
-    router.push("/dashboard/home");
+  const login = async (email: string, password: string, code?: string) => {
+    const response = await authService.login({ email, password, code });
+    if (response.access_token) {
+      setUser({ ...response.user, permissions: response.permissions, roles: response.roles, authRevision: response.authRevision });
+      router.push("/dashboard/home");
+    }
+    return response;
   };
 
   const register = async (email: string, password: string, name: string) => {
