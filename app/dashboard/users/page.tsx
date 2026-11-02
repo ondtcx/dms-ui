@@ -37,7 +37,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, UserPlus, Pencil, Trash2, KeyRound, Copy, Check, Loader2 } from "lucide-react";
+import { Users, UserPlus, Pencil, Trash2, KeyRound, Copy, Check, Loader2, UserCheck } from "lucide-react";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.RECTOR]: "Rector",
@@ -71,6 +71,7 @@ const ROLE_BADGE_VARIANT: Record<
 function UsersManagementContent() {
   const queryClient = useQueryClient();
   const [isCreating, setIsCreating] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
@@ -81,8 +82,8 @@ function UsersManagementContent() {
   });
 
   const { data: users, isLoading } = useQuery({
-    queryKey: ["users"],
-    queryFn: () => usersService.getAll(),
+    queryKey: ["users", statusFilter],
+    queryFn: () => usersService.getAll(statusFilter),
   });
 
   const { data: roles, isLoading: rolesLoading, isError: rolesError } = useQuery({
@@ -112,13 +113,27 @@ function UsersManagementContent() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: usersService.delete,
+    mutationFn: (id: string) => usersService.deactivate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success("Usuario eliminado");
+      toast.success("Usuario desactivado");
+    },
+    onError: (error) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "Error al desactivar usuario";
+      toast.error(message);
+    },
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: usersService.reactivate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Usuario reactivado");
     },
     onError: () => {
-      toast.error("Error al eliminar usuario");
+      toast.error("Error al reactivar usuario");
     },
   });
 
@@ -189,10 +204,24 @@ function UsersManagementContent() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setIsCreating(true)}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Crear usuario
-        </Button>
+        <div className="flex items-center gap-2">
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as "active" | "inactive" | "all")
+            }
+            aria-label="Filtrar usuarios por estado"
+          >
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+            <option value="all">Todos</option>
+          </select>
+          <Button onClick={() => setIsCreating(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Crear usuario
+          </Button>
+        </div>
       </div>
 
       {/* Tabla de usuarios */}
@@ -229,7 +258,14 @@ function UsersManagementContent() {
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {user.name}
+                        {user.isActive === false && (
+                          <Badge variant="outline">Inactivo</Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {user.email}
                     </TableCell>
@@ -267,15 +303,28 @@ function UsersManagementContent() {
                         >
                           <Pencil className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirmId(user.id)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {user.isActive === false ? (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => reactivateMutation.mutate(user.id)}
+                            disabled={reactivateMutation.isPending}
+                            title="Reactivar usuario"
+                          >
+                            <UserCheck className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeleteConfirmId(user.id)}
+                            disabled={deleteMutation.isPending}
+                            title="Desactivar usuario"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -373,13 +422,13 @@ function UsersManagementContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm eliminar */}
+      {/* Confirm desactivar */}
       <ConfirmDialog
         open={deleteConfirmId !== null}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Eliminar usuario"
-        description="¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer."
-        confirmLabel="Eliminar"
+        title="Desactivar usuario"
+        description="El usuario conservará su historial, pero no podrá iniciar sesión. Podrás reactivarlo después."
+        confirmLabel="Desactivar"
         variant="destructive"
         loading={deleteMutation.isPending}
         onConfirm={() => {

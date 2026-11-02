@@ -22,6 +22,9 @@ export interface User {
   roles?: string[];
   catalogRoles?: Pick<CatalogRole, "id" | "key" | "label" | "isActive">[];
   authRevision?: number;
+  isActive?: boolean;
+  deactivatedAt?: string | null;
+  deactivationReason?: string | null;
 }
 
 export interface Permission {

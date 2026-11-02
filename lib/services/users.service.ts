@@ -10,8 +10,10 @@ export interface CreateUserDto {
 }
 
 export const usersService = {
-  async getAll(): Promise<User[]> {
-    const response = await api.get<User[]>("/users");
+  async getAll(
+    status: "active" | "inactive" | "all" = "active",
+  ): Promise<User[]> {
+    const response = await api.get<User[]>("/users", { params: { status } });
     return response.data;
   },
 
@@ -50,8 +52,12 @@ export const usersService = {
     return response.data;
   },
 
-  async delete(id: string): Promise<void> {
-    await api.delete(`/users/${id}`);
+  async deactivate(id: string, reason?: string): Promise<void> {
+    await api.delete(`/users/${id}`, { data: { reason } });
+  },
+
+  async reactivate(id: string): Promise<void> {
+    await api.post(`/users/${id}/reactivate`);
   },
 
   async generateResetToken(userId: string): Promise<ResetTokenResponse> {

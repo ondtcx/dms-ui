@@ -7,7 +7,7 @@ import { rolesService } from "@/lib/services/roles.service";
 jest.mock("@/guards/ProtectedRoute", () => ({ __esModule: true, default: ({ children }: any) => children }));
 jest.mock("@/components/users/EditUserDialog", () => ({ EditUserDialog: () => null }));
 jest.mock("@/lib/services/users.service", () => ({ usersService: {
-  getAll: jest.fn(), create: jest.fn(), delete: jest.fn(), generateResetToken: jest.fn(),
+  getAll: jest.fn(), create: jest.fn(), deactivate: jest.fn(), reactivate: jest.fn(), generateResetToken: jest.fn(),
 } }));
 jest.mock("@/lib/services/roles.service", () => ({ rolesService: { getAll: jest.fn() } }));
 
