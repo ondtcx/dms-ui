@@ -26,7 +26,7 @@ export function TwoFactorSettings() {
     }
   };
   return <Card>
-    <CardHeader><CardTitle>Autenticación de dos factores</CardTitle><CardDescription>Protege tu cuenta con una aplicación autenticadora. Esta opción es individual y no es un requisito global del sistema.</CardDescription></CardHeader>
+    <CardHeader><CardTitle>Autenticación de dos factores</CardTitle><CardDescription>Protege tu cuenta con una aplicación autenticadora. La institución puede exigir esta configuración como requisito global.</CardDescription></CardHeader>
     <CardContent className="space-y-4">
       <p className="text-sm">Estado: <strong>{enabled ? "Habilitada" : "Deshabilitada"}</strong></p>
       {!enabled && !setup && <Button onClick={start}>Configurar 2FA</Button>}

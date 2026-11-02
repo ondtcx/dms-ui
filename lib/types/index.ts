@@ -66,6 +66,7 @@ export interface AuthorizationProfile {
   roles: string[];
   permissions: string[];
   authRevision: number;
+  twoFactorSetupRequired?: boolean;
 }
 
 export interface AuthResponse {
@@ -74,6 +75,7 @@ export interface AuthResponse {
   permissions?: string[];
   roles?: string[];
   authRevision?: number;
+  twoFactorSetupRequired?: boolean;
 }
 
 export interface LoginDto {

@@ -61,6 +61,19 @@ api.interceptors.response.use(
       error.config?.url === "/auth/login" &&
       (error.response.data as { code?: string })?.code === "TWO_FACTOR_REQUIRED";
 
+    const requiresTwoFactorSetup =
+      status === 403 &&
+      (error.response.data as { code?: string })?.code ===
+        "TWO_FACTOR_SETUP_REQUIRED";
+
+    if (requiresTwoFactorSetup) {
+      if (window.location.pathname !== "/dashboard/mi-cuenta") {
+        toast.error("Debes configurar la autenticación de dos factores");
+        window.location.href = "/dashboard/mi-cuenta";
+      }
+      return Promise.reject(error);
+    }
+
     if (status === 401 && !isTotpLoginChallenge) {
       // Token expirado o inválido — side effect crítico, siempre se ejecuta
       Cookies.remove("token", { path: "/" });

@@ -47,6 +47,10 @@ export function LoginForm({
         toast.error("Ingrese su código de autenticación");
         return;
       }
+      if (response.twoFactorSetupRequired) {
+        toast.error("Debes configurar la autenticación de dos factores para continuar");
+        return;
+      }
       toast.success("¡Bienvenido!");
       router.push("/dashboard");
     } catch (error) {
