@@ -20,7 +20,6 @@ import {
   PowerOff,
   FileSearch,
   ArrowUpDown,
-  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -411,15 +410,6 @@ function TemplatesPageContent() {
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     Usar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`/dashboard/templates/${template.id}/batch`)}
-                    disabled={!template.isActive}
-                    title="Generar en lote"
-                  >
-                    <Layers className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"
