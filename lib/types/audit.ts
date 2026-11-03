@@ -25,6 +25,7 @@ export const AUDIT_ACTIONS = [
   "ARCHIVE",
   "LOGIN",
   "LOGOUT",
+  "ANONYMIZE",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -60,6 +60,10 @@ export const usersService = {
     await api.post(`/users/${id}/reactivate`);
   },
 
+  async anonymize(id: string): Promise<void> {
+    await api.post(`/users/${id}/anonymize`);
+  },
+
   async generateResetToken(userId: string): Promise<ResetTokenResponse> {
     const response = await api.post<ResetTokenResponse>(
       "/auth/admin/generate-reset-token",

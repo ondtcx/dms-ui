@@ -25,6 +25,8 @@ export interface User {
   isActive?: boolean;
   deactivatedAt?: string | null;
   deactivationReason?: string | null;
+  anonymizedAt?: string | null;
+  anonymizedById?: string | null;
 }
 
 export interface Permission {

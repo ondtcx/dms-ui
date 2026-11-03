@@ -4,6 +4,7 @@ import ProtectedRoute from "@/guards/ProtectedRoute";
 import { UserRole, User } from "@/lib/types";
 import { EditUserDialog } from "@/components/users/EditUserDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/contexts/AuthContext";
 import { usersService } from "@/lib/services/users.service";
 import { rolesService } from "@/lib/services/roles.service";
 import { useState } from "react";
@@ -37,7 +38,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, UserPlus, Pencil, Trash2, KeyRound, Copy, Check, Loader2, UserCheck } from "lucide-react";
+import { Users, UserPlus, Pencil, Trash2, KeyRound, Copy, Check, Loader2, UserCheck, UserX } from "lucide-react";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.RECTOR]: "Rector",
@@ -70,9 +71,12 @@ const ROLE_BADGE_VARIANT: Record<
 
 function UsersManagementContent() {
   const queryClient = useQueryClient();
+  const { user: actor } = useAuth();
+  const isAdmin = actor?.role === UserRole.ADMIN || actor?.roles?.includes("admin") === true;
   const [isCreating, setIsCreating] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [anonymizeUser, setAnonymizeUser] = useState<User | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
     name: "",
@@ -123,6 +127,21 @@ function UsersManagementContent() {
         (error as { response?: { data?: { message?: string } } }).response?.data
           ?.message || "Error al desactivar usuario";
       toast.error(message);
+    },
+  });
+
+  const anonymizeMutation = useMutation({
+    mutationFn: usersService.anonymize,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Usuario anonimizado");
+      setAnonymizeUser(null);
+    },
+    onError: (error) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "Error al anonimizar usuario";
+      toast.error(Array.isArray(message) ? message.join(". ") : message);
     },
   });
 
@@ -261,9 +280,11 @@ function UsersManagementContent() {
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {user.name}
-                        {user.isActive === false && (
+                        {user.anonymizedAt ? (
+                          <Badge variant="secondary">Anonimizado</Badge>
+                        ) : user.isActive === false ? (
                           <Badge variant="outline">Inactivo</Badge>
-                        )}
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -288,31 +309,48 @@ function UsersManagementContent() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleGenerateToken(user)}
-                          title="Generar token de restablecimiento"
-                        >
-                          <KeyRound className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditingUser(user)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        {user.isActive === false ? (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => reactivateMutation.mutate(user.id)}
-                            disabled={reactivateMutation.isPending}
-                            title="Reactivar usuario"
-                          >
-                            <UserCheck className="h-4 w-4" />
-                          </Button>
+                        {!user.anonymizedAt && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleGenerateToken(user)}
+                              title="Generar token de restablecimiento"
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingUser(user)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {user.anonymizedAt ? null : user.isActive === false ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => reactivateMutation.mutate(user.id)}
+                              disabled={reactivateMutation.isPending}
+                              title="Reactivar usuario"
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </Button>
+                            {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setAnonymizeUser(user)}
+                                title="Anonimizar usuario"
+                              >
+                                <UserX className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </>
                         ) : (
                           <Button
                             variant="ghost"
@@ -434,6 +472,20 @@ function UsersManagementContent() {
         onConfirm={() => {
           if (deleteConfirmId !== null) deleteMutation.mutate(deleteConfirmId);
           setDeleteConfirmId(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={anonymizeUser !== null}
+        onOpenChange={(open) => !open && setAnonymizeUser(null)}
+        title="Anonimizar usuario"
+        description={`Esta acción es irreversible. Se borrarán el nombre, email, teléfono, cargo, credenciales y actividad personal de ${anonymizeUser?.name ?? "el usuario"}. Los documentos, versiones, comentarios, workflows y transferencias se conservarán bajo una identidad genérica. El usuario debe estar desactivado, no puede tener documentos propios ni transferencias pendientes.`}
+        confirmLabel="Anonimizar"
+        variant="destructive"
+        requireTyped="ANONIMIZAR"
+        loading={anonymizeMutation.isPending}
+        onConfirm={() => {
+          if (anonymizeUser) anonymizeMutation.mutate(anonymizeUser.id);
         }}
       />
 

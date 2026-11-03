@@ -46,6 +46,7 @@ const ACTION_LABELS: Record<AuditAction, string> = {
   ARCHIVE: "Archivo",
   LOGIN: "Inicio de sesión",
   LOGOUT: "Cierre de sesión",
+  ANONYMIZE: "Anonimización",
 };
 
 const RESOURCE_LABELS: Record<AuditResource, string> = {
