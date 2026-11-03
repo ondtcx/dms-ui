@@ -170,6 +170,7 @@ export interface AuthoringDocument {
     id: number;
     status: AuthoringStatus;
     templateVersionId?: number | null;
+    pageFrame?: PageFrame | null;
     reviewerId?: string | null;
     reviewerName?: string | null;
     submittedAt?: string | null;

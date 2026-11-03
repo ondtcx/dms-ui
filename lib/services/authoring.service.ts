@@ -128,7 +128,11 @@ export const authoringService = {
 
   async saveDraft(
     id: number,
-    payload: { formData: Record<string, any>; createVersion?: boolean },
+    payload: {
+      formData: Record<string, any>;
+      createVersion?: boolean;
+      pageFrame?: PageFrame;
+    },
   ): Promise<AuthoringDocument> {
     const response = await api.put<AuthoringDocument>(
       `/authoring/documents/${id}/draft`,

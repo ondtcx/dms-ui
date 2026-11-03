@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -24,9 +24,22 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { authoringService } from '@/lib/services/authoring.service';
-import type { AuthoringDocument } from '@/lib/types/authoring';
+import type { AuthoringDocument, PageFrame } from '@/lib/types/authoring';
 import { AuthoringDocumentForm } from '@/components/authoring/AuthoringDocumentForm';
 import { AuthoringStatusBadge } from '@/components/authoring/AuthoringStatusBadge';
+import { PageFrameEditor } from '@/components/authoring/PageFrameEditor';
+import { getByPath } from '@/lib/authoring/fields';
+
+function formatDateEs(value: string): string {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T12:00:00`)
+    : new Date(value);
+  return date.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
 function EditDocumentContent() {
   const params = useParams<{ id: string }>();
@@ -34,6 +47,10 @@ function EditDocumentContent() {
   const queryClient = useQueryClient();
   const documentId = Number(params.id);
   const latestForm = useRef<Record<string, any> | null>(null);
+  const latestPageFrame = useRef<PageFrame | null>(null);
+  const initializedFrame = useRef(false);
+  const [pageFrame, setPageFrame] = useState<PageFrame | null>(null);
+  const [formSnapshot, setFormSnapshot] = useState<Record<string, any>>({});
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [autoSaving, setAutoSaving] = useState(false);
@@ -68,8 +85,18 @@ function EditDocumentContent() {
   }, [document, router]);
 
   useEffect(() => {
-    if (document && !latestForm.current) {
+    if (!document) return;
+    if (!latestForm.current) {
       latestForm.current = document.templateData?.formData ?? {};
+      setFormSnapshot(latestForm.current);
+    }
+    if (!initializedFrame.current) {
+      initializedFrame.current = true;
+      const frame = document.authoring.pageFrame;
+      if (frame?.mode === 'fullPage') {
+        setPageFrame(frame);
+        latestPageFrame.current = frame;
+      }
     }
   }, [document]);
 
@@ -81,6 +108,7 @@ function EditDocumentContent() {
       try {
         const saved = await authoringService.saveDraft(document.id, {
           formData: latestForm.current,
+          pageFrame: latestPageFrame.current ?? undefined,
           createVersion: false,
         });
         queryClient.setQueryData(['authoring-document', document.id], saved);
@@ -99,8 +127,34 @@ function EditDocumentContent() {
     meta?: { user?: boolean },
   ) => {
     latestForm.current = formData;
+    setFormSnapshot(formData);
     if (meta?.user) setDirty(true);
   };
+
+  const handleFrameChange = (frame: PageFrame) => {
+    setPageFrame(frame);
+    latestPageFrame.current = frame;
+    setDirty(true);
+  };
+
+  const previewVariables = useMemo(() => {
+    const value = (path: string) => {
+      const current = getByPath(formSnapshot, path);
+      return current === undefined || current === null ? '' : String(current);
+    };
+    const date = value('acta.fecha');
+    const formattedDate = date ? formatDateEs(date) : '';
+    return {
+      '{{acta.lugar}}': value('acta.lugar'),
+      '{{formatDate acta.fecha}}': formattedDate,
+      '{{recibidoPor.nombre}}': value('recibidoPor.nombre'),
+      '{{recibidoPor.cargo}}': value('recibidoPor.cargo'),
+      '{{entregadoPor.nombre}}': value('entregadoPor.nombre'),
+      '{{entregadoPor.cargo}}': value('entregadoPor.cargo'),
+      '{{vistoBueno.nombre}}': value('vistoBueno.nombre'),
+      '{{vistoBueno.cargo}}': value('vistoBueno.cargo'),
+    };
+  }, [formSnapshot]);
 
   const save = async (createVersion: boolean) => {
     if (!document || !latestForm.current) return null;
@@ -108,6 +162,7 @@ function EditDocumentContent() {
     try {
       const saved = await authoringService.saveDraft(document.id, {
         formData: latestForm.current,
+        pageFrame: latestPageFrame.current ?? undefined,
         createVersion,
       });
       queryClient.setQueryData(['authoring-document', document.id], saved);
@@ -255,6 +310,21 @@ function EditDocumentContent() {
           />
         </CardContent>
       </Card>
+
+      {pageFrame?.mode === 'fullPage' && (
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Edita cualquier texto de la página. Los campos de arriba actualizan
+            las variables del documento.
+          </p>
+          <PageFrameEditor
+            key={`frame-${document.id}`}
+            value={pageFrame}
+            onChange={handleFrameChange}
+            variables={previewVariables}
+          />
+        </div>
+      )}
 
       <Dialog open={showSubmit} onOpenChange={setShowSubmit}>
         <DialogContent>

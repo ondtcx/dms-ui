@@ -46,7 +46,10 @@ const PREVIEW_VARIABLES: Record<string, string> = {
   '{{vistoBueno.cargo}}': 'RECTOR U.E. “VICENTE FIERRO”',
 };
 
-function previewFrame(frame: PageFrame): PageFrame {
+function previewFrame(
+  frame: PageFrame,
+  variables?: Record<string, string>,
+): PageFrame {
   const clone = JSON.parse(JSON.stringify(frame)) as PageFrame;
   for (const area of [clone.header, clone.footer, clone.body].filter(Boolean) as PageFrameArea[]) {
     for (const box of area.boxes) {
@@ -56,7 +59,10 @@ function previewFrame(frame: PageFrame): PageFrame {
       if (box.type === 'pageNumber') {
         box.content = 'Página 1 de 1';
       } else {
-        for (const [token, value] of Object.entries(PREVIEW_VARIABLES)) {
+        for (const [token, value] of Object.entries({
+          ...PREVIEW_VARIABLES,
+          ...(variables ?? {}),
+        })) {
           box.content = box.content.split(token).join(value);
         }
       }
@@ -65,17 +71,23 @@ function previewFrame(frame: PageFrame): PageFrame {
   return clone;
 }
 
-function PagePreview({ frame }: { frame: PageFrame }) {
+function PagePreview({
+  frame,
+  variables,
+}: {
+  frame: PageFrame;
+  variables?: Record<string, string>;
+}) {
   const html = useMemo(() => {
     if (frame.mode === 'fullPage') {
-      return fullPageFrameToHtml(previewFrame(frame));
+      return fullPageFrameToHtml(previewFrame(frame, variables));
     }
     const base = PAGE_SIZES[frame.pageSize] ?? PAGE_SIZES.Letter;
     const dimensions =
       frame.orientation === 'landscape'
         ? { width: base.height, height: base.width }
         : base;
-    const preview = previewFrame(frame);
+    const preview = previewFrame(frame, variables);
     const header = pageFrameToHeaderHtml(preview);
     const footer = pageFrameToFooterHtml(preview);
     return `<!doctype html><html><head><meta charset="utf-8"/><style>
@@ -85,7 +97,7 @@ function PagePreview({ frame }: { frame: PageFrame }) {
       .footer { position:absolute; bottom:0; left:0; width:100%; height:${frame.margins.bottom}; }
       .body { position:absolute; top:${frame.margins.top}; bottom:${frame.margins.bottom}; left:${frame.margins.left}; right:${frame.margins.right}; border:1px dashed #cbd5e1; background:#f8fafc; display:flex; align-items:center; justify-content:center; color:#94a3b8; font-size:12pt; }
     </style></head><body><div class="page"><div class="header">${header}</div><div class="body">Contenido del documento</div><div class="footer">${footer}</div></div></body></html>`;
-  }, [frame]);
+  }, [frame, variables]);
 
   return (
     <iframe
@@ -263,9 +275,11 @@ function AreaEditor({
 export function PageFrameEditor({
   value,
   onChange,
+  variables,
 }: {
   value: PageFrame;
   onChange: (value: PageFrame) => void;
+  variables?: Record<string, string>;
 }) {
   const update = (patch: Partial<PageFrame>) => onChange({ ...value, ...patch });
 
@@ -282,7 +296,7 @@ export function PageFrameEditor({
             HTML.
           </CardContent>
         </Card>
-        <PagePreview frame={value} />
+        <PagePreview frame={value} variables={variables} />
         <AreaEditor
           title="Contenido de la página"
           area={value.body ?? { boxes: [] }}
@@ -385,7 +399,7 @@ export function PageFrameEditor({
         </CardContent>
       </Card>
 
-      <PagePreview frame={value} />
+      <PagePreview frame={value} variables={variables} />
 
       <AreaEditor
         title="Encabezado"
