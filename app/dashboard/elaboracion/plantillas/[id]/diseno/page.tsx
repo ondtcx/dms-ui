@@ -96,6 +96,34 @@ function TemplateDesignContent() {
     );
   }
 
+  if (latest.pageFrame?.mode === 'fullPage') {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-5 p-4 sm:p-6">
+        <Button
+          variant="ghost"
+          className="w-fit"
+          onClick={() => router.push(`/dashboard/elaboracion/plantillas/${template.id}`)}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Plantilla
+        </Button>
+        <h1 className="text-2xl font-semibold tracking-tight">Diseño de página completa</h1>
+        <p className="text-sm text-muted-foreground">
+          {template.name} usa el HTML fiel del documento original como página
+          completa. Para mantener la fidelidad, su encabezado, cuerpo y firmas se
+          editan en el HTML de una nueva versión.
+        </p>
+        <Button
+          className="w-fit"
+          onClick={() =>
+            router.push(`/dashboard/elaboracion/plantillas/${template.id}/versiones/nueva`)
+          }
+        >
+          Editar HTML del cuerpo
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

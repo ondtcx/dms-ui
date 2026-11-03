@@ -57,6 +57,7 @@ export interface PageFrameArea {
 
 export interface PageFrame {
   version: 1;
+  mode?: 'frame' | 'fullPage';
   pageSize: 'A4' | 'Letter' | 'Legal';
   orientation: 'portrait' | 'landscape';
   margins: {
