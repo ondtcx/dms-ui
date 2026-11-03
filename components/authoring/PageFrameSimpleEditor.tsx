@@ -141,6 +141,8 @@ export function PageFrameSimpleEditor({
   const history = useRef<PageFrame[]>([]);
   const future = useRef<PageFrame[]>([]);
   const clipboard = useRef<PageFrameBox | null>(null);
+  const activePointers = useRef(new Map<number, { x: number; y: number }>());
+  const pinch = useRef<{ distance: number; zoom: number } | null>(null);
   const drag = useRef<{
     id: string;
     items: Array<{ id: string; startX: number; startY: number }>;
@@ -162,6 +164,22 @@ export function PageFrameSimpleEditor({
     changed: boolean;
     isRichText: boolean;
     isImage: boolean;
+  } | null>(null);
+  const groupResize = useRef<{
+    bounds: { left: number; top: number; width: number; height: number };
+    pointerX: number;
+    pointerY: number;
+    startFrame: PageFrame;
+    changed: boolean;
+    items: Array<{
+      id: string;
+      startX: number;
+      startY: number;
+      startWidth: number;
+      startHeight: number;
+      isRichText: boolean;
+      isImage: boolean;
+    }>;
   } | null>(null);
 
   const dimensions = PAGE_SIZES[value.pageSize] ?? PAGE_SIZES.Letter;
@@ -334,6 +352,109 @@ export function PageFrameSimpleEditor({
       ...selectedMovable.map((box) => box.y + (box.height ?? 0)),
     );
     return { left, top, right, bottom, width: right - left, height: bottom - top };
+  };
+
+  const onCanvasPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    activePointers.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    if (activePointers.current.size === 2) {
+      const [a, b] = [...activePointers.current.values()];
+      pinch.current = {
+        distance: Math.hypot(a.x - b.x, a.y - b.y),
+        zoom,
+      };
+    }
+  };
+
+  const onCanvasPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!activePointers.current.has(event.pointerId)) return;
+    activePointers.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+    if (activePointers.current.size < 2 || !pinch.current) return;
+    const [a, b] = [...activePointers.current.values()];
+    const distance = Math.hypot(a.x - b.x, a.y - b.y);
+    if (pinch.current.distance > 0) {
+      event.preventDefault();
+      setZoom(
+        Math.max(
+          0.35,
+          Math.min(1.6, pinch.current.zoom * (distance / pinch.current.distance)),
+        ),
+      );
+    }
+  };
+
+  const onCanvasPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    activePointers.current.delete(event.pointerId);
+    if (activePointers.current.size < 2) pinch.current = null;
+  };
+
+  const startGroupResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    const bounds = selectionBounds();
+    if (!bounds || selectedMovable.length < 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+    groupResize.current = {
+      bounds,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      startFrame: cloneFrame(value),
+      changed: false,
+      items: selectedMovable.map((box) => ({
+        id: box.id,
+        startX: box.x,
+        startY: box.y,
+        startWidth: box.width ?? 0,
+        startHeight: box.height ?? 0,
+        isRichText: box.type === 'richText',
+        isImage: box.type === 'image',
+      })),
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const moveGroupResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    const current = groupResize.current;
+    if (!current) return;
+    const width = Math.max(20, current.bounds.width + (event.clientX - current.pointerX) / zoom);
+    const height = Math.max(20, current.bounds.height + (event.clientY - current.pointerY) / zoom);
+    const scaleX = current.bounds.width ? width / current.bounds.width : 1;
+    const scaleY = current.bounds.height ? height / current.bounds.height : 1;
+    const updated = new Map(
+      current.items.map((item) => [
+        item.id,
+        {
+          x: current.bounds.left + (item.startX - current.bounds.left) * scaleX,
+          y: current.bounds.top + (item.startY - current.bounds.top) * scaleY,
+          width: item.startWidth ? item.startWidth * scaleX : 0,
+          ...(item.isRichText || item.isImage
+            ? { height: Math.max(10, item.startHeight * scaleY) }
+            : {}),
+        },
+      ]),
+    );
+    current.changed = true;
+    onChange({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: boxes.map((box) =>
+          updated.has(box.id) ? { ...box, ...updated.get(box.id) } : box,
+        ),
+      },
+    });
+  };
+
+  const finishGroupResize = () => {
+    const current = groupResize.current;
+    if (current?.changed) {
+      recordHistory(current.startFrame);
+    }
+    groupResize.current = null;
   };
 
   const alignSelection = (
@@ -883,7 +1004,14 @@ export function PageFrameSimpleEditor({
           </CardContent>
         </Card>
 
-        <div className="min-w-0 overflow-auto rounded-md border border-border bg-muted/40 p-4">
+        <div
+          className="min-w-0 overflow-auto rounded-md border border-border bg-muted/40 p-4"
+          style={{ touchAction: 'none' }}
+          onPointerDown={onCanvasPointerDown}
+          onPointerMove={onCanvasPointerMove}
+          onPointerUp={onCanvasPointerEnd}
+          onPointerCancel={onCanvasPointerEnd}
+        >
           <style>{value.styles ?? ''}</style>
           <style>{SIMPLE_RICH_TEXT_CSS}</style>
           <div
@@ -954,6 +1082,34 @@ export function PageFrameSimpleEditor({
                   }}
                 />
               )}
+              {selectedIds.length > 1 && (() => {
+                const bounds = selectionBounds();
+                if (!bounds) return null;
+                return (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: `${bounds.left}pt`,
+                      top: `${bounds.top}pt`,
+                      width: `${Math.max(1, bounds.width)}pt`,
+                      height: `${Math.max(1, bounds.height)}pt`,
+                      border: '1px dashed #2563eb',
+                      zIndex: 4,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    <div
+                      data-group-resize
+                      className="pointer-events-auto absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-sm border border-primary bg-primary"
+                      style={{ touchAction: 'none' }}
+                      onPointerDown={startGroupResize}
+                      onPointerMove={moveGroupResize}
+                      onPointerUp={finishGroupResize}
+                      onPointerCancel={finishGroupResize}
+                    />
+                  </div>
+                );
+              })()}
               {boxes.map((box) => {
                 const shown = previewById.get(box.id) ?? box;
                 const selectedNow = isSelected(box.id);

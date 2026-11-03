@@ -76,6 +76,23 @@ test.describe('Editor simple de plantillas', () => {
       await page.getByRole('button', { name: 'Eliminar' }).click();
       await expect(newTextLayers).toHaveCount(2);
       await newTextLayers.first().click();
+      await newTextLayers.nth(1).click({ modifiers: ['Control'] });
+      const groupHandle = page.locator('[data-group-resize]');
+      await expect(groupHandle).toBeVisible();
+      const groupBounds = await groupHandle.boundingBox();
+      expect(groupBounds).not.toBeNull();
+      await page.mouse.move(
+        groupBounds!.x + groupBounds!.width / 2,
+        groupBounds!.y + groupBounds!.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        groupBounds!.x + groupBounds!.width / 2 + 40,
+        groupBounds!.y + groupBounds!.height / 2 + 20,
+        { steps: 8 },
+      );
+      await page.mouse.up();
+      await newTextLayers.first().click();
       await page.getByRole('button', { name: 'Al fondo' }).click();
       await page
         .getByRole('button', { name: 'Título', exact: true })
@@ -155,6 +172,10 @@ test.describe('Editor simple de plantillas', () => {
         (box: any) => box.id === 'acta-5',
       );
       expect(title?.x).toBe(after);
+      const resizedText = document.authoring?.pageFrame?.body?.boxes?.find(
+        (box: any) => box.content === 'Texto nuevo',
+      );
+      expect(resizedText?.width).toBeGreaterThan(200);
       const previewResponse = await request.get(
         `${API}/authoring/documents/${documentId}/preview`,
         { headers },
