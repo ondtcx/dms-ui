@@ -31,6 +31,57 @@ export interface AuthoringFieldsSchema {
   fields: AuthoringField[];
 }
 
+
+export type PageFrameBoxType = 'text' | 'image' | 'pageNumber';
+
+export interface PageFrameBox {
+  id: string;
+  type: PageFrameBoxType;
+  x: number;
+  y: number;
+  width: number;
+  height?: number;
+  fontSize: number;
+  fontWeight?: string;
+  fontStyle?: string;
+  fontFamily?: string;
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+  content: string;
+}
+
+export interface PageFrameArea {
+  backgroundSvg?: string;
+  boxes: PageFrameBox[];
+}
+
+export interface PageFrame {
+  version: 1;
+  pageSize: 'A4' | 'Letter' | 'Legal';
+  orientation: 'portrait' | 'landscape';
+  margins: {
+    top: string;
+    bottom: string;
+    left: string;
+    right: string;
+  };
+  header: PageFrameArea;
+  footer: PageFrameArea;
+  bodyPrefixHtml?: string;
+}
+
+export interface SignatureItem {
+  id: string;
+  title: string;
+  name: string;
+  role: string;
+  fullWidth?: boolean;
+}
+
+export interface SignatureBlock {
+  items: SignatureItem[];
+}
+
 export interface AuthoringTemplateVersion {
   id: number;
   templateId: number;
@@ -44,6 +95,8 @@ export interface AuthoringTemplateVersion {
   marginBottom?: string | null;
   marginLeft?: string | null;
   marginRight?: string | null;
+  pageFrame?: PageFrame | null;
+  signatures?: SignatureBlock | null;
   fields: AuthoringFieldsSchema;
   pageSize: string;
   orientation: string;
@@ -149,6 +202,8 @@ export interface CreateAuthoringTemplatePayload {
   marginBottom?: string;
   marginLeft?: string;
   marginRight?: string;
+  pageFrame?: PageFrame;
+  signatures?: SignatureBlock;
   fields: AuthoringFieldsSchema;
   pageSize?: string;
   orientation?: string;

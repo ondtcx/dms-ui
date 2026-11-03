@@ -9,6 +9,7 @@ import {
   Eye,
   EyeOff,
   FilePlus2,
+  LayoutTemplate,
   Loader2,
   Send,
 } from 'lucide-react';
@@ -144,6 +145,11 @@ function TemplateAdminContent() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href={`/dashboard/elaboracion/plantillas/${template.id}/diseno`}>
+              <LayoutTemplate className="mr-2 h-4 w-4" /> Editar diseño
+            </Link>
+          </Button>
           <Button asChild>
             <Link href={`/dashboard/elaboracion/plantillas/${template.id}/versiones/nueva`}>
               <FilePlus2 className="mr-2 h-4 w-4" /> Nueva versión

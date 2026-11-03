@@ -4,6 +4,8 @@ import type {
   AuthoringTemplate,
   AuthoringUser,
   AuthoringFieldsSchema,
+  PageFrame,
+  SignatureBlock,
 } from '@/lib/types/authoring';
 
 export interface AuthoringListResponse {
@@ -37,6 +39,8 @@ export const authoringService = {
     marginBottom?: string;
     marginLeft?: string;
     marginRight?: string;
+    pageFrame?: PageFrame;
+    signatures?: SignatureBlock;
     fields: AuthoringFieldsSchema;
     pageSize?: string;
     orientation?: string;
@@ -57,6 +61,8 @@ export const authoringService = {
       marginBottom?: string;
       marginLeft?: string;
       marginRight?: string;
+      pageFrame?: PageFrame;
+      signatures?: SignatureBlock;
       fields?: AuthoringFieldsSchema;
       pageSize?: string;
       orientation?: string;
