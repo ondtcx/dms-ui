@@ -181,6 +181,39 @@ test.describe('Editor simple de plantillas', () => {
         { headers },
       );
       expect(previewResponse.ok()).toBeTruthy();
+
+      await page.goto(`/dashboard/elaboracion/plantillas/${template.id}`);
+      await page.getByRole('button', { name: 'Duplicar', exact: true }).click();
+      const duplicateDialog = page.getByRole('dialog');
+      await duplicateDialog
+        .getByLabel('Nombre de la nueva plantilla')
+        .fill(`Prueba editor simple E2E copia ${marker}`);
+      await duplicateDialog
+        .getByRole('button', { name: 'Duplicar', exact: true })
+        .click();
+      await page.waitForURL(
+        (url) => {
+          const match = url.pathname.match(/\/plantillas\/(\d+)$/);
+          return Boolean(match && Number(match[1]) !== template.id);
+        },
+        { timeout: 30_000 },
+      );
+      const copyId = Number(page.url().match(/plantillas\/(\d+)$/)?.[1]);
+      expect(copyId).toBeGreaterThan(0);
+      expect(copyId).not.toBe(template.id);
+      const copyResponse = await request.get(
+        `${API}/authoring/templates/${copyId}`,
+        { headers },
+      );
+      expect(copyResponse.ok()).toBeTruthy();
+      const copy = await copyResponse.json();
+      expect(copy.name).toContain('copia');
+      expect(copy.versions?.[0]?.pageFrame?.mode).toBe('fullPage');
+
+      await request.post(`${API}/authoring/templates/${copyId}/deactivate`, {
+        headers,
+        data: {},
+      });
     } finally {
       await request.post(`${API}/authoring/templates/${template.id}/deactivate`, {
         headers,

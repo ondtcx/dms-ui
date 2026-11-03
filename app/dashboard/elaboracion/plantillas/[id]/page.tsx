@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
+  Copy,
   Eye,
   EyeOff,
   FilePlus2,
@@ -18,6 +19,15 @@ import ProtectedRoute from '@/guards/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { authoringService } from '@/lib/services/authoring.service';
 import type { AuthoringTemplateVersion } from '@/lib/types/authoring';
 
@@ -42,6 +52,9 @@ function TemplateAdminContent() {
   const templateId = Number(params.id);
   const [busyVersion, setBusyVersion] = useState<number | null>(null);
   const [deactivating, setDeactivating] = useState(false);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
+  const [duplicateName, setDuplicateName] = useState('');
+  const [duplicating, setDuplicating] = useState(false);
 
   const query = useQuery({
     queryKey: ['authoring-template', templateId],
@@ -95,6 +108,45 @@ function TemplateAdminContent() {
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
       toast.error('No se pudo generar la vista previa');
+    }
+  };
+
+  const openDuplicate = () => {
+    setDuplicateName(
+      template ? `${template.name} (copia)` : 'Nueva plantilla desde diseño',
+    );
+    setDuplicateOpen(true);
+  };
+
+  const duplicate = async () => {
+    if (!template || !latest || !duplicateName.trim()) return;
+    setDuplicating(true);
+    try {
+      const created = await authoringService.createTemplate({
+        name: duplicateName.trim(),
+        description: `${template.description || 'Plantilla institucional'} (copia)`,
+        bodyHtml: latest.bodyHtml,
+        styles: latest.styles ?? undefined,
+        headerHtml: latest.headerHtml ?? undefined,
+        footerHtml: latest.footerHtml ?? undefined,
+        marginTop: latest.marginTop ?? undefined,
+        marginBottom: latest.marginBottom ?? undefined,
+        marginLeft: latest.marginLeft ?? undefined,
+        marginRight: latest.marginRight ?? undefined,
+        pageFrame: latest.pageFrame ?? undefined,
+        signatures: latest.signatures ?? undefined,
+        fields: latest.fields,
+        pageSize: latest.pageSize ?? undefined,
+        orientation: latest.orientation ?? undefined,
+        numberPrefix: latest.numberPrefix,
+      });
+      setDuplicateOpen(false);
+      toast.success('Plantilla duplicada. Revisa y publica la versión.');
+      router.push(`/dashboard/elaboracion/plantillas/${created.id}`);
+    } catch {
+      toast.error('No se pudo duplicar la plantilla');
+    } finally {
+      setDuplicating(false);
     }
   };
 
@@ -158,6 +210,9 @@ function TemplateAdminContent() {
           <Button variant="outline" onClick={() => preview(published ?? latest)}>
             <Eye className="mr-2 h-4 w-4" /> Previsualizar
           </Button>
+          <Button variant="outline" onClick={openDuplicate}>
+            <Copy className="mr-2 h-4 w-4" /> Duplicar
+          </Button>
           {template.isActive && (
             <Button variant="outline" onClick={deactivate} disabled={deactivating}>
               {deactivating ? (
@@ -177,6 +232,41 @@ function TemplateAdminContent() {
           )}
         </div>
       </div>
+
+      <Dialog open={duplicateOpen} onOpenChange={setDuplicateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Duplicar plantilla</DialogTitle>
+            <DialogDescription>
+              Se creará una nueva plantilla con el mismo cuerpo, campos y diseño
+              de página. La nueva plantilla empieza como borrador.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1">
+            <label className="text-sm font-medium" htmlFor="duplicate-name">
+              Nombre de la nueva plantilla
+            </label>
+            <Input
+              id="duplicate-name"
+              value={duplicateName}
+              onChange={(event) => setDuplicateName(event.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDuplicateOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={duplicate} disabled={duplicating || !duplicateName.trim()}>
+              {duplicating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Copy className="mr-2 h-4 w-4" />
+              )}
+              Duplicar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader className="pb-2">
