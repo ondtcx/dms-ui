@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Check, RotateCcw, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { authoringService } from '@/lib/services/authoring.service';
 import { documentReviewService } from '@/lib/services/document-reviews.service';
 import type { DocumentReview } from '@/lib/types';
 
@@ -39,7 +41,13 @@ export function DocumentReviewPanel({
   onChanged: () => void;
 }) {
   const [observation, setObservation] = useState('');
+  const [reviewerId, setReviewerId] = useState('');
   const [busy, setBusy] = useState(false);
+  const usersQuery = useQuery({
+    queryKey: ['authoring-users'],
+    queryFn: () => authoringService.listUsers(),
+    enabled: review.status === 'DRAFT' || review.status === 'CHANGES_REQUESTED',
+  });
 
   const run = async (action: () => Promise<unknown>, message: string) => {
     setBusy(true);
@@ -73,18 +81,43 @@ export function DocumentReviewPanel({
         )}
 
         {(review.status === 'DRAFT' || review.status === 'CHANGES_REQUESTED') && (
-          <Button
-            size="sm"
-            disabled={busy}
-            onClick={() =>
-              run(
-                () => documentReviewService.submit(documentId),
-                'Documento enviado a revisión',
-              )
-            }
-          >
-            <Send className="mr-2 h-4 w-4" /> Enviar a revisión
-          </Button>
+          <div className="space-y-2">
+            <label className="text-sm font-medium" htmlFor="document-review-reviewer">
+              Revisor (opcional)
+            </label>
+            <select
+              id="document-review-reviewer"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={reviewerId}
+              onChange={(event) => setReviewerId(event.target.value)}
+            >
+              <option value="">Cualquier usuario del módulo</option>
+              {(usersQuery.data ?? []).map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name || user.email}
+                </option>
+              ))}
+            </select>
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                const reviewer = usersQuery.data?.find(
+                  (user) => user.id === reviewerId,
+                );
+                return run(
+                  () =>
+                    documentReviewService.submit(documentId, {
+                      reviewerId: reviewerId || undefined,
+                      reviewerName: reviewer?.name ?? undefined,
+                    }),
+                  'Documento enviado a revisión',
+                );
+              }}
+            >
+              <Send className="mr-2 h-4 w-4" /> Enviar a revisión
+            </Button>
+          </div>
         )}
 
         {review.status === 'IN_REVIEW' && (
