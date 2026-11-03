@@ -38,6 +38,7 @@ const SEGMENT_LABELS: Record<string, string> = {
   home: "Inicio",
   create: "Crear",
   batch: "Lote",
+  v2: "Vista de trabajo",
 };
 
 function useDocumentName(docId: number | null) {

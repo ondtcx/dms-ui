@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import DocumentsPage from "../page";
+import { DocumentsPageContent } from "../DocumentsPageContent";
 import { documentsService } from "@/lib/services/documents.service";
 import { academicYearsService } from "@/lib/services/academic-years.service";
 import type { Document } from "@/lib/types";
@@ -369,6 +370,17 @@ function renderPage() {
   return { ...view, client };
 }
 
+function renderWorkbenchPage() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <DocumentsPageContent variant="v2" />
+    </QueryClientProvider>,
+  );
+}
+
 function receptionSettings(submit: boolean): import("@/lib/types").ReceptionSettings {
   return {
     directoryId: 7,
@@ -429,6 +441,19 @@ describe("DocumentsPage presentation switching", () => {
       totalSize: 6,
       totalSizeMB: "6",
     });
+  });
+
+  it("renders the URL-only workbench variant without the card grid", async () => {
+    renderWorkbenchPage();
+
+    expect(
+      await screen.findByRole("heading", { name: "Documentos" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("list", { name: "Documentos" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("First document.pdf")).toBeInTheDocument();
+    expect(screen.queryByTestId("document-card")).not.toBeInTheDocument();
   });
 
   it("does not open trash or movement from missing capabilities despite admin role", async () => {
