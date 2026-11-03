@@ -32,7 +32,7 @@ const LOGO_PLACEHOLDER =
 
 const DEFAULT_ACTA_BODY_HTML = `<p>A través del presente, se entrega los bienes que reposan en la sala de vicerrectorado, a la Sra. MSc. Soraya Villarreal en calidad de vicerrectora, los mismos que serán utilizados como material de apoyo en el desarrollo de sus funciones como vicerrectora de la Unidad Educativa “Vicente Fierro”.</p><p>El material entregado está sujeto a control y auditoría, quedando bajo su estricta responsabilidad el cuidado de los mismos.</p><p>Como constancia de la presente acta, actúa la MSc. Soraya Villarreal identificado con el número de cédula 0400881454 y el. MSc. Byron Narváez, identificada con el número de cédula 0400881207 como representante del Honorable Consejo Ejecutivo de la Unidad Educativa “Vicente Fierro”, comisión de control interno.</p><p>Se adjunta analítica de existencias.</p><p>Se firman en original y copia con el mismo tenor.</p>`;
 
-const PREVIEW_VARIABLES: Record<string, string> = {
+export const PREVIEW_VARIABLES: Record<string, string> = {
   '{{{contenido}}}': DEFAULT_ACTA_BODY_HTML,
   '{{{prebody}}}': '',
   '{{institucion.nombre}}': 'UNIDAD EDUCATIVA VICENTE FIERRO',
@@ -48,9 +48,14 @@ const PREVIEW_VARIABLES: Record<string, string> = {
   '{{entregadoPor.cargo}}': 'DELEGADO CONSEJO EJECUTIVO',
   '{{vistoBueno.nombre}}': 'MSc. Hugo Tulcanaza',
   '{{vistoBueno.cargo}}': 'RECTOR U.E. “VICENTE FIERRO”',
+  '{{firmante.nombre}}': 'MSc. Hugo Tulcanaza',
+  '{{firmante.cargo}}': 'RECTOR U.E. “VICENTE FIERRO”',
+  '{{documento.fecha}}': '03 de noviembre de 2026',
+  '{{documento.numero}}': 'BORRADOR',
+  '{{acta.hora}}': '09:00',
 };
 
-function previewFrame(
+export function previewFrame(
   frame: PageFrame,
   variables?: Record<string, string>,
 ): PageFrame {
@@ -79,14 +84,21 @@ function PagePreview({
   frame,
   variables,
   onOverflowChange,
+  className = 'h-[620px]',
+  zoom = 1,
 }: {
   frame: PageFrame;
   variables?: Record<string, string>;
   onOverflowChange?: (overflow: boolean) => void;
+  className?: string;
+  zoom?: number;
 }) {
   const html = useMemo(() => {
     if (frame.mode === 'fullPage') {
-      return fullPageFrameToHtml(previewFrame(frame, variables));
+      const pageHtml = fullPageFrameToHtml(previewFrame(frame, variables));
+      return zoom === 1
+        ? pageHtml
+        : `${pageHtml}<style>.sheet{zoom:${zoom};}</style>`;
     }
     const base = PAGE_SIZES[frame.pageSize] ?? PAGE_SIZES.Letter;
     const dimensions =
@@ -117,7 +129,7 @@ function PagePreview({
           Boolean(node && node.scrollHeight > node.clientHeight + 1),
         );
       }}
-      className="h-[620px] w-full rounded-md border border-border bg-muted/30"
+      className={`${className} w-full rounded-md border border-border bg-muted/30`}
     />
   );
 }
@@ -304,11 +316,19 @@ export function PageFrameEditor({
   onChange,
   variables,
   contentOnly = false,
+  showPreview = true,
+  showContent = true,
+  previewClassName,
+  previewZoom = 1,
 }: {
   value: PageFrame;
   onChange: (value: PageFrame) => void;
   variables?: Record<string, string>;
   contentOnly?: boolean;
+  showPreview?: boolean;
+  showContent?: boolean;
+  previewClassName?: string;
+  previewZoom?: number;
 }) {
   const [bodyOverflows, setBodyOverflows] = useState(false);
   const update = (patch: Partial<PageFrame>) => onChange({ ...value, ...patch });
@@ -323,54 +343,60 @@ export function PageFrameEditor({
       );
       return (
         <div className="space-y-4">
-          <PagePreview
-            frame={value}
-            variables={variables}
-            onOverflowChange={setBodyOverflows}
-          />
-          {bodyOverflows && (
+          {showPreview && (
+            <PagePreview
+              frame={value}
+              variables={variables}
+              onOverflowChange={setBodyOverflows}
+              className={previewClassName}
+              zoom={previewZoom}
+            />
+          )}
+          {showPreview && bodyOverflows && (
             <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
               El cuerpo supera el espacio de la primera página. El PDF generará
               páginas de continuación con el mismo marco y las firmas al final.
             </div>
           )}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">
-                Título y etiquetas de firmas
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-xs text-muted-foreground">
-                El cuerpo se edita arriba con el editor. Aquí puedes ajustar el
-                título, el subtítulo y las etiquetas de firmas. Las líneas con
-                variables se actualizan desde los campos superiores.
-              </p>
-              {boxes.map((box) => (
-                <div key={box.id} className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    {contentSection(box)}
-                  </Label>
-                  <textarea
-                    className="min-h-16 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={box.content}
-                    onChange={(event) =>
-                      update({
-                        body: {
-                          ...(value.body ?? { boxes: [] }),
-                          boxes: (value.body?.boxes ?? []).map((item) =>
-                            item.id === box.id
-                              ? { ...item, content: event.target.value }
-                              : item,
-                          ),
-                        },
-                      })
-                    }
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          {showContent && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Título y etiquetas de firmas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  El cuerpo se edita arriba con el editor. Aquí puedes ajustar el
+                  título, el subtítulo y las etiquetas de firmas. Las líneas con
+                  variables se actualizan desde los campos superiores.
+                </p>
+                {boxes.map((box) => (
+                  <div key={box.id} className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      {contentSection(box)}
+                    </Label>
+                    <textarea
+                      className="min-h-16 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={box.content}
+                      onChange={(event) =>
+                        update({
+                          body: {
+                            ...(value.body ?? { boxes: [] }),
+                            boxes: (value.body?.boxes ?? []).map((item) =>
+                              item.id === box.id
+                                ? { ...item, content: event.target.value }
+                                : item,
+                            ),
+                          },
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
         </div>
       );
     }

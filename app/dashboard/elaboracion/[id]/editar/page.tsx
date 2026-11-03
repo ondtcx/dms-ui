@@ -14,7 +14,7 @@ import {
 import toast from 'react-hot-toast';
 import ProtectedRoute from '@/guards/ProtectedRoute';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -326,34 +326,61 @@ function EditDocumentContent() {
         </Card>
       )}
 
-      <Card>
-        <CardContent className="pt-6">
-          <AuthoringDocumentForm
-            key={document.id}
-            templateVersion={templateVersion}
-            initialFormData={document.templateData?.formData}
-            onChange={handleFormChange}
-            onRichTextHtmlChange={handleRichTextHtmlChange}
-          />
-        </CardContent>
-      </Card>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
+        <div className="min-w-0 space-y-5">
+          <Card>
+            <CardContent className="pt-6">
+              <AuthoringDocumentForm
+                key={document.id}
+                templateVersion={templateVersion}
+                initialFormData={document.templateData?.formData}
+                onChange={handleFormChange}
+                onRichTextHtmlChange={handleRichTextHtmlChange}
+              />
+            </CardContent>
+          </Card>
 
-      {pageFrame?.mode === 'fullPage' && (
-        <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">
-            El cuerpo se edita en el editor de arriba. Aquí ajustas el título,
-            el subtítulo y las etiquetas de firmas; los campos actualizan las
-            variables del documento.
-          </p>
-          <PageFrameEditor
-            key={`frame-${document.id}`}
-            value={pageFrame}
-            onChange={handleFrameChange}
-            variables={previewVariables}
-            contentOnly
-          />
+          {pageFrame?.mode === 'fullPage' && (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                El cuerpo se edita en el editor de arriba. Aquí ajustas el
+                título, el subtítulo y las etiquetas de firmas; los campos
+                actualizan las variables del documento.
+              </p>
+              <PageFrameEditor
+                key={`frame-${document.id}`}
+                value={pageFrame}
+                onChange={handleFrameChange}
+                variables={previewVariables}
+                contentOnly
+                showPreview={false}
+              />
+            </div>
+          )}
         </div>
-      )}
+
+        {pageFrame?.mode === 'fullPage' && (
+          <div className="min-w-0 xl:sticky xl:top-24 xl:self-start">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Vista previa</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PageFrameEditor
+                  key={`frame-preview-${document.id}`}
+                  value={pageFrame}
+                  onChange={handleFrameChange}
+                  variables={previewVariables}
+                  contentOnly
+                  showContent={false}
+                  previewClassName="h-[calc(100vh-20rem)] min-h-[560px] max-h-[900px]"
+                  previewZoom={0.62}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
+      </div>
 
       <Dialog open={showSubmit} onOpenChange={setShowSubmit}>
         <DialogContent>

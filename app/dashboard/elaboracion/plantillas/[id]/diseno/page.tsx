@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import ProtectedRoute from '@/guards/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { PageFrameEditor } from '@/components/authoring/PageFrameEditor';
+import { PageFrameSimpleEditor } from '@/components/authoring/PageFrameSimpleEditor';
 import { SignatureEditor } from '@/components/authoring/SignatureEditor';
 import { authoringService } from '@/lib/services/authoring.service';
 import type { PageFrame, SignatureBlock } from '@/lib/types/authoring';
@@ -30,6 +31,7 @@ function TemplateDesignContent() {
   const [signatures, setSignatures] = useState<SignatureBlock>(() =>
     clone(ACTA_SIGNATURES),
   );
+  const [editorMode, setEditorMode] = useState<'simple' | 'advanced'>('simple');
   const [initialized, setInitialized] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -98,7 +100,7 @@ function TemplateDesignContent() {
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-6">
+    <div className="mx-auto flex max-w-7xl flex-col gap-5 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <Button
@@ -124,7 +126,41 @@ function TemplateDesignContent() {
         </Button>
       </div>
 
-      <PageFrameEditor value={frame} onChange={setFrame} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1 rounded-md border border-border bg-muted/40 p-1">
+          <Button
+            type="button"
+            size="sm"
+            variant={editorMode === 'simple' ? 'secondary' : 'ghost'}
+            onClick={() => setEditorMode('simple')}
+            disabled={frame.mode !== 'fullPage'}
+            title={
+              frame.mode !== 'fullPage'
+                ? 'El modo simple está disponible para diseños de página completa'
+                : undefined
+            }
+          >
+            Simple
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={editorMode === 'advanced' ? 'secondary' : 'ghost'}
+            onClick={() => setEditorMode('advanced')}
+          >
+            Avanzado
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Simple: arrastrar y ubicar. Avanzado: coordenadas y tabla completa.
+        </p>
+      </div>
+
+      {editorMode === 'simple' && frame.mode === 'fullPage' ? (
+        <PageFrameSimpleEditor value={frame} onChange={setFrame} />
+      ) : (
+        <PageFrameEditor value={frame} onChange={setFrame} />
+      )}
       {frame.mode !== 'fullPage' && (
         <SignatureEditor value={signatures} onChange={setSignatures} />
       )}
