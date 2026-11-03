@@ -65,10 +65,19 @@ test.describe('Editor simple de plantillas', () => {
       await expect(
         page.getByRole('button', { name: 'Simple', exact: true }),
       ).toBeVisible({ timeout: 20_000 });
-      await page
-        .getByRole('button', { name: 'Título', exact: true })
-        .first()
-        .click();
+      await page.getByRole('button', { name: 'Agregar texto' }).click();
+      const newTextLayers = page.getByRole('button', { name: 'Texto nuevo' });
+      await expect(newTextLayers).toHaveCount(1);
+      await page.getByRole('button', { name: 'Duplicar' }).click();
+      await expect(newTextLayers).toHaveCount(2);
+      await page.getByRole('button', { name: 'Copiar' }).click();
+      await page.getByRole('button', { name: 'Pegar' }).click();
+      await expect(newTextLayers).toHaveCount(3);
+      await page.getByRole('button', { name: 'Eliminar' }).click();
+      await expect(newTextLayers).toHaveCount(2);
+      await newTextLayers.first().click();
+      await page.getByRole('button', { name: 'Al fondo' }).click();
+      await page.getByRole('button', { name: 'Título', exact: true }).first().click();
       const before = Number(
         await page.locator('input[type="number"]').first().inputValue(),
       );

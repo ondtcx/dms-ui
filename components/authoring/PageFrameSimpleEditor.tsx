@@ -131,6 +131,7 @@ export function PageFrameSimpleEditor({
   const [snap, setSnap] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
+  const [clipboardReady, setClipboardReady] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
   const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({
     x: null,
@@ -138,6 +139,7 @@ export function PageFrameSimpleEditor({
   });
   const history = useRef<PageFrame[]>([]);
   const future = useRef<PageFrame[]>([]);
+  const clipboard = useRef<PageFrameBox | null>(null);
   const drag = useRef<{
     id: string;
     startX: number;
@@ -205,6 +207,108 @@ export function PageFrameSimpleEditor({
     commit(frameWithPatch(id, patch));
   };
 
+  const addTextBox = () => {
+    const next: PageFrameBox = {
+      id: `custom-${Date.now()}`,
+      type: 'text',
+      role: 'content',
+      x: 121,
+      y: 200,
+      width: 200,
+      fontSize: 11,
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: '400',
+      fontStyle: 'normal',
+      color: '#000000',
+      align: 'left',
+      content: 'Texto nuevo',
+    };
+    commit({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: [...(value.body?.boxes ?? []), next],
+      },
+    });
+    setSelectedId(next.id);
+  };
+
+  const duplicateSelected = () => {
+    if (!selected || isLockedBox(selected) || selected.type === 'richText') {
+      return;
+    }
+    const clone: PageFrameBox = {
+      ...selected,
+      id: `custom-${Date.now()}`,
+      x: selected.x + 10,
+      y: selected.y + 10,
+    };
+    commit({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: [...(value.body?.boxes ?? []), clone],
+      },
+    });
+    setSelectedId(clone.id);
+  };
+
+  const copySelected = () => {
+    if (!selected || isLockedBox(selected) || selected.type === 'richText') {
+      return;
+    }
+    clipboard.current = JSON.parse(JSON.stringify(selected)) as PageFrameBox;
+    setClipboardReady(true);
+  };
+
+  const pasteClipboard = () => {
+    if (!clipboard.current) return;
+    const clone: PageFrameBox = {
+      ...clipboard.current,
+      id: `custom-${Date.now()}`,
+      x: clipboard.current.x + 10,
+      y: clipboard.current.y + 10,
+    };
+    commit({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: [...(value.body?.boxes ?? []), clone],
+      },
+    });
+    setSelectedId(clone.id);
+  };
+
+  const deleteSelected = () => {
+    if (!selected || isLockedBox(selected) || selected.type === 'richText') {
+      return;
+    }
+    commit({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: (value.body?.boxes ?? []).filter(
+          (box) => box.id !== selected.id,
+        ),
+      },
+    });
+    setSelectedId(null);
+  };
+
+  const moveLayer = (toFront: boolean) => {
+    if (!selected) return;
+    const rest = (value.body?.boxes ?? []).filter(
+      (box) => box.id !== selected.id,
+    );
+    commit({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: toFront ? [...rest, selected] : [selected, ...rest],
+      },
+    });
+  };
+
   const undo = () => {
     const previous = history.current.pop();
     if (!previous) return;
@@ -242,11 +346,34 @@ export function PageFrameSimpleEditor({
       }
     };
     const onNudge = (event: KeyboardEvent) => {
-      if (!event.key.startsWith('Arrow') || !selected || isLockedBox(selected)) {
-        return;
-      }
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+        return;
+      }
+      if (selected && (event.ctrlKey || event.metaKey)) {
+        const key = event.key.toLowerCase();
+        if (key === 'c') {
+          event.preventDefault();
+          copySelected();
+          return;
+        }
+        if (key === 'v') {
+          event.preventDefault();
+          pasteClipboard();
+          return;
+        }
+      }
+      if (
+        selected &&
+        (event.key === 'Delete' || event.key === 'Backspace') &&
+        !isLockedBox(selected) &&
+        selected.type !== 'richText'
+      ) {
+        event.preventDefault();
+        deleteSelected();
+        return;
+      }
+      if (!event.key.startsWith('Arrow') || !selected || isLockedBox(selected)) {
         return;
       }
       event.preventDefault();
@@ -380,6 +507,7 @@ export function PageFrameSimpleEditor({
       lineHeight: box.type === 'richText' ? 1.35 : 1.15,
       cursor: isLockedBox(box) ? 'default' : 'move',
       userSelect: 'none' as const,
+      touchAction: 'none' as const,
       zIndex: selectedId === box.id ? 3 : 1,
     };
   };
@@ -466,7 +594,10 @@ export function PageFrameSimpleEditor({
           Arrastra los elementos. El marco institucional está bloqueado en este
           modo; usa Avanzado para modificarlo.
         </p>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
+          <Button type="button" size="sm" variant="outline" onClick={addTextBox}>
+            <Plus className="mr-1 h-4 w-4" /> Agregar texto
+          </Button>
           <Button
             type="button"
             variant="ghost"
@@ -906,6 +1037,66 @@ export function PageFrameSimpleEditor({
                     />
                     Cursiva
                   </label>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={duplicateSelected}
+                    disabled={
+                      isLockedBox(selected) || selected.type === 'richText'
+                    }
+                  >
+                    Duplicar
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={copySelected}
+                    disabled={
+                      isLockedBox(selected) || selected.type === 'richText'
+                    }
+                  >
+                    Copiar
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={pasteClipboard}
+                    disabled={!clipboardReady}
+                  >
+                    Pegar
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={deleteSelected}
+                    disabled={
+                      isLockedBox(selected) || selected.type === 'richText'
+                    }
+                  >
+                    Eliminar
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => moveLayer(true)}
+                  >
+                    Al frente
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => moveLayer(false)}
+                  >
+                    Al fondo
+                  </Button>
                 </div>
               </>
             )}
