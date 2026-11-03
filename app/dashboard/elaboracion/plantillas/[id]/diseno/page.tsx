@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Loader2, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ProtectedRoute from '@/guards/ProtectedRoute';
@@ -26,6 +26,7 @@ function clone<T>(value: T): T {
 function TemplateDesignContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const templateId = Number(params.id);
   const [frame, setFrame] = useState<PageFrame>(() => clone(ACTA_PAGE_FRAME));
   const [signatures, setSignatures] = useState<SignatureBlock>(() =>
@@ -71,6 +72,14 @@ function TemplateDesignContent() {
         pageFrame: frame,
         signatures: isFullPage ? undefined : signatures,
       });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: ['authoring-template', template.id],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['authoring-templates'],
+        }),
+      ]);
       toast.success('Versión de diseño creada. Publícala para aplicarla.');
       router.push(`/dashboard/elaboracion/plantillas/${template.id}`);
     } catch {
