@@ -113,10 +113,12 @@ describe("documentsService directory integration", () => {
   });
 
   it("supports directory navigation and CRUD endpoints", async () => {
+    const currentDirectory = { id: 1, name: "Reports", parentId: null };
     jest
       .mocked(api.get)
-      .mockResolvedValueOnce({ data: [] })
-      .mockResolvedValueOnce({ data: [] });
+      .mockResolvedValueOnce({ data: [currentDirectory] })
+      .mockResolvedValueOnce({ data: [currentDirectory] })
+      .mockResolvedValueOnce({ data: [currentDirectory] });
     jest.mocked(api.post).mockResolvedValueOnce({ data: { id: 1 } });
     jest.mocked(api.patch).mockResolvedValueOnce({ data: { id: 1 } });
     jest.mocked(api.delete).mockResolvedValueOnce({});
