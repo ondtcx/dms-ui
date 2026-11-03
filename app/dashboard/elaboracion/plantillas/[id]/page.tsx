@@ -28,6 +28,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { usePermissions } from '@/hooks/use-permissions';
 import { authoringService } from '@/lib/services/authoring.service';
 import type { AuthoringTemplateVersion } from '@/lib/types/authoring';
 
@@ -49,6 +50,10 @@ function TemplateAdminContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
+  const canDesign = hasPermission('authoring.templates.design');
+  const canPublish = hasPermission('authoring.templates.publish');
+  const canManage = hasPermission('authoring.templates.manage');
   const templateId = Number(params.id);
   const [busyVersion, setBusyVersion] = useState<number | null>(null);
   const [deactivating, setDeactivating] = useState(false);
@@ -197,23 +202,29 @@ function TemplateAdminContent() {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link href={`/dashboard/elaboracion/plantillas/${template.id}/diseno`}>
-              <LayoutTemplate className="mr-2 h-4 w-4" /> Editar diseño
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href={`/dashboard/elaboracion/plantillas/${template.id}/versiones/nueva`}>
-              <FilePlus2 className="mr-2 h-4 w-4" /> Nueva versión
-            </Link>
-          </Button>
+          {canDesign && (
+            <Button asChild variant="outline">
+              <Link href={`/dashboard/elaboracion/plantillas/${template.id}/diseno`}>
+                <LayoutTemplate className="mr-2 h-4 w-4" /> Editar diseño
+              </Link>
+            </Button>
+          )}
+          {canDesign && (
+            <Button asChild>
+              <Link href={`/dashboard/elaboracion/plantillas/${template.id}/versiones/nueva`}>
+                <FilePlus2 className="mr-2 h-4 w-4" /> Nueva versión
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" onClick={() => preview(published ?? latest)}>
             <Eye className="mr-2 h-4 w-4" /> Previsualizar
           </Button>
-          <Button variant="outline" onClick={openDuplicate}>
-            <Copy className="mr-2 h-4 w-4" /> Duplicar
-          </Button>
-          {template.isActive && (
+          {canManage && (
+            <Button variant="outline" onClick={openDuplicate}>
+              <Copy className="mr-2 h-4 w-4" /> Duplicar
+            </Button>
+          )}
+          {canManage && template.isActive && (
             <Button variant="outline" onClick={deactivate} disabled={deactivating}>
               {deactivating ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -302,7 +313,7 @@ function TemplateAdminContent() {
                         <Button size="sm" variant="ghost" onClick={() => preview(version)}>
                           <Eye className="mr-1 h-3.5 w-3.5" /> Ver
                         </Button>
-                        {version.status === 'DRAFT' && (
+                        {version.status === 'DRAFT' && canPublish && (
                           <Button
                             size="sm"
                             onClick={() => publish(version)}

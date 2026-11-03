@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { usePermissions } from '@/hooks/use-permissions';
 import { authoringService } from '@/lib/services/authoring.service';
 import type { AuthoringField, AuthoringFieldType } from '@/lib/types/authoring';
 import {
@@ -34,6 +35,8 @@ const FIELD_TYPES: AuthoringFieldType[] = [
 
 function NewVersionContent() {
   const params = useParams<{ id: string }>();
+  const { hasPermission } = usePermissions();
+  const canDesign = hasPermission('authoring.templates.design');
   const router = useRouter();
   const templateId = Number(params.id);
   const initialized = useRef(false);
@@ -151,6 +154,23 @@ function NewVersionContent() {
       <div className="p-6">
         <p className="text-sm text-destructive">Plantilla no encontrada o sin versiones.</p>
         <Button className="mt-4" variant="outline" onClick={() => router.push('/dashboard/elaboracion')}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Volver
+        </Button>
+      </div>
+    );
+  }
+
+  if (!canDesign) {
+    return (
+      <div className="p-6">
+        <p className="text-sm text-destructive">
+          No tienes permiso para crear versiones de diseño.
+        </p>
+        <Button
+          className="mt-4"
+          variant="outline"
+          onClick={() => router.push('/dashboard/elaboracion')}
+        >
           <ArrowLeft className="mr-2 h-4 w-4" /> Volver
         </Button>
       </div>

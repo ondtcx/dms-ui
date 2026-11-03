@@ -9,9 +9,11 @@ import type { SignatureBlock, SignatureItem } from '@/lib/types/authoring';
 export function SignatureEditor({
   value,
   onChange,
+  readOnly = false,
 }: {
   value: SignatureBlock;
   onChange: (value: SignatureBlock) => void;
+  readOnly?: boolean;
 }) {
   const update = (id: string, patch: Partial<SignatureItem>) => {
     onChange({
@@ -46,9 +48,11 @@ export function SignatureEditor({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base">Firmas</CardTitle>
-        <Button type="button" size="sm" variant="outline" onClick={add}>
-          <Plus className="mr-1.5 h-4 w-4" /> Agregar firma
-        </Button>
+        {!readOnly && (
+          <Button type="button" size="sm" variant="outline" onClick={add}>
+            <Plus className="mr-1.5 h-4 w-4" /> Agregar firma
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="hidden gap-2 px-2 text-[10px] uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[1fr_1fr_1fr_90px_auto]">
@@ -69,6 +73,7 @@ export function SignatureEditor({
               className="h-8 text-xs"
               placeholder="RECIBÍ CONFORME"
               aria-label="Etiqueta de firma"
+              disabled={readOnly}
             />
             <Input
               value={item.name}
@@ -76,6 +81,7 @@ export function SignatureEditor({
               className="h-8 text-xs"
               placeholder="{{recibidoPor.nombre}}"
               aria-label="Nombre de firma"
+              disabled={readOnly}
             />
             <Input
               value={item.role}
@@ -83,6 +89,7 @@ export function SignatureEditor({
               className="h-8 text-xs"
               placeholder="{{recibidoPor.cargo}}"
               aria-label="Cargo de firma"
+              disabled={readOnly}
             />
             <label className="flex items-center gap-1 text-xs">
               <input
@@ -91,19 +98,22 @@ export function SignatureEditor({
                 onChange={(event) =>
                   update(item.id, { fullWidth: event.target.checked })
                 }
+                disabled={readOnly}
               />
               Completo
             </label>
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              onClick={() => remove(item.id)}
-              aria-label="Quitar firma"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            {!readOnly && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                onClick={() => remove(item.id)}
+                aria-label="Quitar firma"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         ))}
       </CardContent>

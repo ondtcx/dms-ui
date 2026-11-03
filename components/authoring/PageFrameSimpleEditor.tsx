@@ -119,9 +119,11 @@ function cloneFrame(frame: PageFrame): PageFrame {
 export function PageFrameSimpleEditor({
   value,
   onChange,
+  readOnly = false,
 }: {
   value: PageFrame;
   onChange: (value: PageFrame) => void;
+  readOnly?: boolean;
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>(() => {
     const bodyId = value.body?.boxes.find((box) => box.type === 'richText')?.id;
@@ -634,6 +636,10 @@ export function PageFrameSimpleEditor({
     event: React.PointerEvent<HTMLDivElement>,
     box: PageFrameBox,
   ) => {
+    if (readOnly) {
+      setSelectedId(box.id);
+      return;
+    }
     if (event.metaKey || event.ctrlKey) {
       event.preventDefault();
       setSelectedIds((current) =>
@@ -789,7 +795,7 @@ export function PageFrameSimpleEditor({
       textAlign: (box.center ? 'center' : box.align ?? 'left') as any,
       whiteSpace: box.type === 'richText' ? 'normal' : 'pre',
       lineHeight: box.type === 'richText' ? 1.35 : 1.15,
-      cursor: isLockedBox(box) ? 'default' : 'move',
+      cursor: readOnly || isLockedBox(box) ? 'default' : 'move',
       userSelect: 'none' as const,
       touchAction: 'none' as const,
       zIndex: isSelected(box.id) ? 3 : 1,
@@ -879,7 +885,7 @@ export function PageFrameSimpleEditor({
           modo; usa Avanzado para modificarlo.
         </p>
         <div className="flex flex-wrap items-center gap-1">
-          <Button type="button" size="sm" variant="outline" onClick={addTextBox}>
+          <Button type="button" size="sm" variant="outline" onClick={addTextBox} disabled={readOnly}>
             <Plus className="mr-1 h-4 w-4" /> Agregar texto
           </Button>
           <Button
@@ -934,7 +940,7 @@ export function PageFrameSimpleEditor({
             size="icon"
             className="h-8 w-8"
             onClick={undo}
-            disabled={history.current.length === 0}
+            disabled={readOnly || history.current.length === 0}
             aria-label="Deshacer"
             title="Deshacer"
           >
@@ -946,7 +952,7 @@ export function PageFrameSimpleEditor({
             size="icon"
             className="h-8 w-8"
             onClick={redo}
-            disabled={future.current.length === 0}
+            disabled={readOnly || future.current.length === 0}
             aria-label="Rehacer"
             title="Rehacer"
           >
@@ -1098,15 +1104,17 @@ export function PageFrameSimpleEditor({
                       pointerEvents: 'none',
                     }}
                   >
-                    <div
-                      data-group-resize
-                      className="pointer-events-auto absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-sm border border-primary bg-primary"
-                      style={{ touchAction: 'none' }}
-                      onPointerDown={startGroupResize}
-                      onPointerMove={moveGroupResize}
-                      onPointerUp={finishGroupResize}
-                      onPointerCancel={finishGroupResize}
-                    />
+                    {!readOnly && (
+                      <div
+                        data-group-resize
+                        className="pointer-events-auto absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-sm border border-primary bg-primary"
+                        style={{ touchAction: 'none' }}
+                        onPointerDown={startGroupResize}
+                        onPointerMove={moveGroupResize}
+                        onPointerUp={finishGroupResize}
+                        onPointerCancel={finishGroupResize}
+                      />
+                    )}
                   </div>
                 );
               })()}
@@ -1125,6 +1133,7 @@ export function PageFrameSimpleEditor({
                     onPointerCancel={finishDrag}
                     onDoubleClick={() => {
                       if (
+                        readOnly ||
                         isLockedBox(box) ||
                         isVariableBox(box) ||
                         box.type === 'richText'
@@ -1145,6 +1154,7 @@ export function PageFrameSimpleEditor({
                     )}
                     {selectedNow &&
                       selectedIds.length === 1 &&
+                      !readOnly &&
                       !isLockedBox(box) &&
                       editingId !== box.id && (
                         <div
@@ -1237,7 +1247,7 @@ export function PageFrameSimpleEditor({
                         </div>
                       )}
 
-                    {selectedNow && selectedIds.length === 1 && !isLockedBox(box) && editingId !== box.id && (
+                    {selectedNow && selectedIds.length === 1 && !readOnly && !isLockedBox(box) && editingId !== box.id && (
                       <div
                         className="pointer-events-none absolute inset-0"
                         style={{ zIndex: 6 }}
@@ -1339,23 +1349,23 @@ export function PageFrameSimpleEditor({
                   para mover el grupo.
                 </p>
                 <div className="grid grid-cols-3 gap-1">
-                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('left')}>Izq.</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('center')}>Centro</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('right')}>Der.</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('top')}>Arriba</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('middle')}>Medio</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('bottom')}>Abajo</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('left')} disabled={readOnly}>Izq.</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('center')} disabled={readOnly}>Centro</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('right')} disabled={readOnly}>Der.</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('top')} disabled={readOnly}>Arriba</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('middle')} disabled={readOnly}>Medio</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('bottom')} disabled={readOnly}>Abajo</Button>
                 </div>
                 <div className="grid grid-cols-2 gap-1">
-                  <Button type="button" size="sm" variant="outline" onClick={() => distributeSelection('horizontal')} disabled={selectedIds.length < 3}>Distribuir H</Button>
-                  <Button type="button" size="sm" variant="outline" onClick={() => distributeSelection('vertical')} disabled={selectedIds.length < 3}>Distribuir V</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => distributeSelection('horizontal')} disabled={readOnly || selectedIds.length < 3}>Distribuir H</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => distributeSelection('vertical')} disabled={readOnly || selectedIds.length < 3}>Distribuir V</Button>
                 </div>
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   onClick={deleteSelected}
-                  disabled={selectedIds.length === 0}
+                  disabled={readOnly || selectedIds.length === 0}
                 >
                   Eliminar seleccionados
                 </Button>
@@ -1393,7 +1403,7 @@ export function PageFrameSimpleEditor({
                     <Input
                       type="number"
                       value={selected.x}
-                      disabled={isLockedBox(selected)}
+                      disabled={readOnly || isLockedBox(selected)}
                       onChange={(event) =>
                         updateBox(selected.id, { x: Number(event.target.value) })
                       }
@@ -1405,7 +1415,7 @@ export function PageFrameSimpleEditor({
                     <Input
                       type="number"
                       value={selected.y}
-                      disabled={isLockedBox(selected)}
+                      disabled={readOnly || isLockedBox(selected)}
                       onChange={(event) =>
                         updateBox(selected.id, { y: Number(event.target.value) })
                       }
@@ -1419,7 +1429,7 @@ export function PageFrameSimpleEditor({
                     <Input
                       type="number"
                       value={selected.width}
-                      disabled={isLockedBox(selected)}
+                      disabled={readOnly || isLockedBox(selected)}
                       onChange={(event) =>
                         updateBox(selected.id, {
                           width: Number(event.target.value),
@@ -1433,7 +1443,7 @@ export function PageFrameSimpleEditor({
                     <Input
                       type="number"
                       value={selected.fontSize}
-                      disabled={isLockedBox(selected)}
+                      disabled={readOnly || isLockedBox(selected)}
                       onChange={(event) =>
                         updateBox(selected.id, {
                           fontSize: Number(event.target.value),
@@ -1466,7 +1476,7 @@ export function PageFrameSimpleEditor({
                         selected.fontWeight === '700' ||
                         selected.fontWeight === '900'
                       }
-                      disabled={isLockedBox(selected)}
+                      disabled={readOnly || isLockedBox(selected)}
                       onChange={(event) =>
                         updateBox(selected.id, {
                           fontWeight: event.target.checked ? '700' : '400',
@@ -1479,7 +1489,7 @@ export function PageFrameSimpleEditor({
                     <input
                       type="checkbox"
                       checked={selected.fontStyle === 'italic'}
-                      disabled={isLockedBox(selected)}
+                      disabled={readOnly || isLockedBox(selected)}
                       onChange={(event) =>
                         updateBox(selected.id, {
                           fontStyle: event.target.checked ? 'italic' : 'normal',
@@ -1496,7 +1506,7 @@ export function PageFrameSimpleEditor({
                     variant="outline"
                     onClick={duplicateSelected}
                     disabled={
-                      isLockedBox(selected) || selected.type === 'richText'
+                      readOnly || isLockedBox(selected) || selected.type === 'richText'
                     }
                   >
                     Duplicar
@@ -1507,7 +1517,7 @@ export function PageFrameSimpleEditor({
                     variant="outline"
                     onClick={copySelected}
                     disabled={
-                      isLockedBox(selected) || selected.type === 'richText'
+                      readOnly || isLockedBox(selected) || selected.type === 'richText'
                     }
                   >
                     Copiar
@@ -1517,7 +1527,7 @@ export function PageFrameSimpleEditor({
                     size="sm"
                     variant="outline"
                     onClick={pasteClipboard}
-                    disabled={!clipboardReady}
+                    disabled={readOnly || !clipboardReady}
                   >
                     Pegar
                   </Button>
@@ -1527,7 +1537,7 @@ export function PageFrameSimpleEditor({
                     variant="outline"
                     onClick={deleteSelected}
                     disabled={
-                      isLockedBox(selected) || selected.type === 'richText'
+                      readOnly || isLockedBox(selected) || selected.type === 'richText'
                     }
                   >
                     Eliminar
@@ -1537,6 +1547,7 @@ export function PageFrameSimpleEditor({
                     size="sm"
                     variant="outline"
                     onClick={() => moveLayer(true)}
+                    disabled={readOnly}
                   >
                     Al frente
                   </Button>
@@ -1545,6 +1556,7 @@ export function PageFrameSimpleEditor({
                     size="sm"
                     variant="outline"
                     onClick={() => moveLayer(false)}
+                    disabled={readOnly}
                   >
                     Al fondo
                   </Button>

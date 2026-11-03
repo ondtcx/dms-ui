@@ -52,6 +52,7 @@ const PERMISSION_GROUP_LABELS: Record<string, string> = {
   categories: "Categorías",
   "document-types": "Tipos de documento",
   templates: "Plantillas",
+  authoring: "Elaboración documental",
   roles: "Roles",
   documents: "Documentos",
   settings: "Configuración",

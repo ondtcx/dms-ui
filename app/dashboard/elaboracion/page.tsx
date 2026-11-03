@@ -9,6 +9,7 @@ import ProtectedRoute from '@/guards/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { usePermissions } from '@/hooks/use-permissions';
 import { authoringService } from '@/lib/services/authoring.service';
 import type { AuthoringDocument, AuthoringTemplate } from '@/lib/types/authoring';
 import { AuthoringStatusBadge } from '@/components/authoring/AuthoringStatusBadge';
@@ -102,6 +103,8 @@ function DocumentRow({ document }: { document: AuthoringDocument }) {
 
 function ElaboracionPageContent() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canManageTemplates = hasPermission('authoring.templates.manage');
   const [search, setSearch] = useState('');
 
   const templatesQuery = useQuery({
@@ -137,12 +140,14 @@ function ElaboracionPageContent() {
             Plantillas institucionales, borradores y documentos emitidos.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/elaboracion/plantillas/nueva">
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva plantilla
-          </Link>
-        </Button>
+        {canManageTemplates && (
+          <Button asChild>
+            <Link href="/dashboard/elaboracion/plantillas/nueva">
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva plantilla
+            </Link>
+          </Button>
+        )}
       </div>
 
       <section className="space-y-3">

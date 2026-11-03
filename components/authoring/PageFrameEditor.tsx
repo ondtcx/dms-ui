@@ -138,10 +138,12 @@ function BoxRow({
   box,
   onChange,
   onRemove,
+  readOnly = false,
 }: {
   box: PageFrameBox;
   onChange: (patch: Partial<PageFrameBox>) => void;
   onRemove: () => void;
+  readOnly?: boolean;
 }) {
   const isImage = box.type === 'image';
   return (
@@ -152,6 +154,7 @@ function BoxRow({
           onChange={(event) => onChange({ content: event.target.value })}
           className="h-8 text-xs"
           aria-label={`Texto de ${box.id}`}
+          disabled={readOnly}
         />
         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
           {box.type} · {box.id}
@@ -163,6 +166,7 @@ function BoxRow({
         onChange={(event) => onChange({ x: Number(event.target.value) })}
         className="h-8"
         aria-label="X"
+        disabled={readOnly}
       />
       <Input
         type="number"
@@ -170,6 +174,7 @@ function BoxRow({
         onChange={(event) => onChange({ y: Number(event.target.value) })}
         className="h-8"
         aria-label="Y"
+        disabled={readOnly}
       />
       <Input
         type="number"
@@ -177,6 +182,7 @@ function BoxRow({
         onChange={(event) => onChange({ width: Number(event.target.value) })}
         className="h-8"
         aria-label="Ancho"
+        disabled={readOnly}
       />
       <Input
         type="number"
@@ -184,7 +190,7 @@ function BoxRow({
         onChange={(event) => onChange({ fontSize: Number(event.target.value) })}
         className="h-8"
         aria-label="Tamaño de fuente"
-        disabled={isImage}
+        disabled={isImage || readOnly}
       />
       <label className="flex items-center gap-1 text-xs">
         <input
@@ -193,7 +199,7 @@ function BoxRow({
           onChange={(event) =>
             onChange({ fontWeight: event.target.checked ? '700' : '400' })
           }
-          disabled={isImage}
+          disabled={isImage || readOnly}
         />
         N
       </label>
@@ -204,20 +210,22 @@ function BoxRow({
           onChange={(event) =>
             onChange({ fontStyle: event.target.checked ? 'italic' : 'normal' })
           }
-          disabled={isImage}
+          disabled={isImage || readOnly}
         />
         I
       </label>
-      <Button
-        type="button"
-        size="icon"
-        variant="ghost"
-        className="h-8 w-8"
-        onClick={onRemove}
-        aria-label="Quitar caja"
-      >
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      {!readOnly && (
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={onRemove}
+          aria-label="Quitar caja"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -226,10 +234,12 @@ function AreaEditor({
   title,
   area,
   onChange,
+  readOnly = false,
 }: {
   title: string;
   area: PageFrameArea;
   onChange: (area: PageFrameArea) => void;
+  readOnly?: boolean;
 }) {
   const updateBox = (id: string, patch: Partial<PageFrameBox>) => {
     onChange({
@@ -270,9 +280,11 @@ function AreaEditor({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base">{title}</CardTitle>
-        <Button type="button" size="sm" variant="outline" onClick={addBox}>
-          <Plus className="mr-1.5 h-4 w-4" /> Agregar texto
-        </Button>
+        {!readOnly && (
+          <Button type="button" size="sm" variant="outline" onClick={addBox}>
+            <Plus className="mr-1.5 h-4 w-4" /> Agregar texto
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="hidden gap-2 px-2 text-[10px] uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1fr)_70px_70px_70px_70px_auto_auto_auto]">
@@ -291,6 +303,7 @@ function AreaEditor({
             box={box}
             onChange={(patch) => updateBox(box.id, patch)}
             onRemove={() => removeBox(box.id)}
+            readOnly={readOnly}
           />
         ))}
       </CardContent>
@@ -320,6 +333,7 @@ export function PageFrameEditor({
   showContent = true,
   previewClassName,
   previewZoom = 1,
+  readOnly = false,
 }: {
   value: PageFrame;
   onChange: (value: PageFrame) => void;
@@ -329,6 +343,7 @@ export function PageFrameEditor({
   showContent?: boolean;
   previewClassName?: string;
   previewZoom?: number;
+  readOnly?: boolean;
 }) {
   const [bodyOverflows, setBodyOverflows] = useState(false);
   const update = (patch: Partial<PageFrame>) => onChange({ ...value, ...patch });
@@ -417,6 +432,7 @@ export function PageFrameEditor({
           title="Contenido de la página"
           area={value.body ?? { boxes: [] }}
           onChange={(body) => update({ body })}
+          readOnly={readOnly}
         />
         <p className="text-xs text-muted-foreground">
           El fondo, las franjas y el logo forman parte del diseño base. Los
@@ -431,14 +447,16 @@ export function PageFrameEditor({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Marco de página</CardTitle>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => onChange(JSON.parse(JSON.stringify(ACTA_PAGE_FRAME)))}
-          >
-            <LayoutTemplate className="mr-1.5 h-4 w-4" /> Usar diseño Acta
-          </Button>
+          {!readOnly && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => onChange(JSON.parse(JSON.stringify(ACTA_PAGE_FRAME)))}
+            >
+              <LayoutTemplate className="mr-1.5 h-4 w-4" /> Usar diseño Acta
+            </Button>
+          )}
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1">
@@ -477,6 +495,7 @@ export function PageFrameEditor({
             <Input
               id="frame-margin-top"
               value={value.margins.top}
+              disabled={readOnly}
               onChange={(event) =>
                 update({ margins: { ...value.margins, top: event.target.value } })
               }
@@ -487,6 +506,7 @@ export function PageFrameEditor({
             <Input
               id="frame-margin-bottom"
               value={value.margins.bottom}
+              disabled={readOnly}
               onChange={(event) =>
                 update({ margins: { ...value.margins, bottom: event.target.value } })
               }
@@ -497,6 +517,7 @@ export function PageFrameEditor({
             <Input
               id="frame-margin-left"
               value={value.margins.left}
+              disabled={readOnly}
               onChange={(event) =>
                 update({ margins: { ...value.margins, left: event.target.value } })
               }
@@ -507,6 +528,7 @@ export function PageFrameEditor({
             <Input
               id="frame-margin-right"
               value={value.margins.right}
+              disabled={readOnly}
               onChange={(event) =>
                 update({ margins: { ...value.margins, right: event.target.value } })
               }
@@ -521,11 +543,13 @@ export function PageFrameEditor({
         title="Encabezado"
         area={value.header}
         onChange={(header) => update({ header })}
+        readOnly={readOnly}
       />
       <AreaEditor
         title="Pie de página"
         area={value.footer}
         onChange={(footer) => update({ footer })}
+        readOnly={readOnly}
       />
 
       <p className="text-xs text-muted-foreground">

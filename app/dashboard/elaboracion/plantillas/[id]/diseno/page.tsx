@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { PageFrameEditor } from '@/components/authoring/PageFrameEditor';
 import { PageFrameSimpleEditor } from '@/components/authoring/PageFrameSimpleEditor';
 import { SignatureEditor } from '@/components/authoring/SignatureEditor';
+import { usePermissions } from '@/hooks/use-permissions';
 import { authoringService } from '@/lib/services/authoring.service';
 import type { PageFrame, SignatureBlock } from '@/lib/types/authoring';
 import {
@@ -27,6 +28,9 @@ function TemplateDesignContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
+  const canDesign = hasPermission('authoring.templates.design');
+  const canPublish = hasPermission('authoring.templates.publish');
   const templateId = Number(params.id);
   const [frame, setFrame] = useState<PageFrame>(() => clone(ACTA_PAGE_FRAME));
   const [signatures, setSignatures] = useState<SignatureBlock>(() =>
@@ -133,24 +137,35 @@ function TemplateDesignContent() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => save(false)} disabled={saving}>
-            {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            Guardar diseño
-          </Button>
-          <Button onClick={() => save(true)} disabled={saving}>
-            {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            Guardar y publicar
-          </Button>
+          {canDesign && (
+            <Button variant="outline" onClick={() => save(false)} disabled={saving}>
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Guardar diseño
+            </Button>
+          )}
+          {canDesign && canPublish && (
+            <Button onClick={() => save(true)} disabled={saving}>
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Guardar y publicar
+            </Button>
+          )}
         </div>
       </div>
+
+      {!canDesign && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          No tienes permiso para diseñar plantillas. Esta vista es de solo
+          lectura.
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 rounded-md border border-border bg-muted/40 p-1">
@@ -183,12 +198,20 @@ function TemplateDesignContent() {
       </div>
 
       {editorMode === 'simple' && frame.mode === 'fullPage' ? (
-        <PageFrameSimpleEditor value={frame} onChange={setFrame} />
+        <PageFrameSimpleEditor
+          value={frame}
+          onChange={setFrame}
+          readOnly={!canDesign}
+        />
       ) : (
-        <PageFrameEditor value={frame} onChange={setFrame} />
+        <PageFrameEditor value={frame} onChange={setFrame} readOnly={!canDesign} />
       )}
       {frame.mode !== 'fullPage' && (
-        <SignatureEditor value={signatures} onChange={setSignatures} />
+        <SignatureEditor
+          value={signatures}
+          onChange={setSignatures}
+          readOnly={!canDesign}
+        />
       )}
 
       <p className="text-xs text-muted-foreground">

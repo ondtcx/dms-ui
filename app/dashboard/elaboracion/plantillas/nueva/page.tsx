@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { usePermissions } from '@/hooks/use-permissions';
 import { authoringService } from '@/lib/services/authoring.service';
 import type { AuthoringField, AuthoringFieldType } from '@/lib/types/authoring';
 import {
@@ -54,6 +55,8 @@ th, td { border: 1px solid #9ca3af; padding: 4px 6px; }`;
 
 function NewTemplateContent() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canManageTemplates = hasPermission('authoring.templates.manage');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [numberPrefix, setNumberPrefix] = useState('DOC');
@@ -146,6 +149,23 @@ function NewTemplateContent() {
       setSaving(false);
     }
   };
+
+  if (!canManageTemplates) {
+    return (
+      <div className="p-6">
+        <p className="text-sm text-destructive">
+          No tienes permiso para crear plantillas de elaboración.
+        </p>
+        <Button
+          className="mt-4"
+          variant="outline"
+          onClick={() => router.push('/dashboard/elaboracion')}
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Volver
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-6">
