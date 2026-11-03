@@ -31,6 +31,12 @@ export const authoringService = {
     description?: string;
     bodyHtml: string;
     styles?: string;
+    headerHtml?: string;
+    footerHtml?: string;
+    marginTop?: string;
+    marginBottom?: string;
+    marginLeft?: string;
+    marginRight?: string;
     fields: AuthoringFieldsSchema;
     pageSize?: string;
     orientation?: string;
@@ -45,6 +51,12 @@ export const authoringService = {
     payload: {
       bodyHtml?: string;
       styles?: string;
+      headerHtml?: string;
+      footerHtml?: string;
+      marginTop?: string;
+      marginBottom?: string;
+      marginLeft?: string;
+      marginRight?: string;
       fields?: AuthoringFieldsSchema;
       pageSize?: string;
       orientation?: string;

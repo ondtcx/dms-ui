@@ -12,6 +12,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { authoringService } from '@/lib/services/authoring.service';
 import type { AuthoringField, AuthoringFieldType } from '@/lib/types/authoring';
+import {
+  SAMPLE_BODY_PREFIX,
+  SAMPLE_FOOTER_HTML,
+  SAMPLE_HEADER_HTML,
+  SAMPLE_MARGINS,
+} from '@/lib/authoring/page-frame';
 
 const FIELD_TYPES: AuthoringFieldType[] = [
   'text',
@@ -34,6 +40,12 @@ function NewVersionContent() {
   const [numberPrefix, setNumberPrefix] = useState('');
   const [bodyHtml, setBodyHtml] = useState('');
   const [styles, setStyles] = useState('');
+  const [headerHtml, setHeaderHtml] = useState('');
+  const [footerHtml, setFooterHtml] = useState('');
+  const [marginTop, setMarginTop] = useState('2cm');
+  const [marginBottom, setMarginBottom] = useState('2.2cm');
+  const [marginLeft, setMarginLeft] = useState('2cm');
+  const [marginRight, setMarginRight] = useState('2cm');
   const [fields, setFields] = useState<AuthoringField[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -51,6 +63,12 @@ function NewVersionContent() {
     setNumberPrefix(latest.numberPrefix);
     setBodyHtml(latest.bodyHtml);
     setStyles(latest.styles ?? '');
+    setHeaderHtml(latest.headerHtml ?? '');
+    setFooterHtml(latest.footerHtml ?? '');
+    setMarginTop(latest.marginTop ?? '2cm');
+    setMarginBottom(latest.marginBottom ?? '2.2cm');
+    setMarginLeft(latest.marginLeft ?? '2cm');
+    setMarginRight(latest.marginRight ?? '2cm');
     setFields(latest.fields?.fields ?? []);
   }, [template, latest]);
 
@@ -60,6 +78,24 @@ function NewVersionContent() {
         position === index ? { ...field, ...patch } : field,
       ),
     );
+  };
+
+  const applySampleFrame = () => {
+    setHeaderHtml(SAMPLE_HEADER_HTML);
+    setFooterHtml(SAMPLE_FOOTER_HTML);
+    setMarginTop(SAMPLE_MARGINS.marginTop);
+    setMarginBottom(SAMPLE_MARGINS.marginBottom);
+    setMarginLeft(SAMPLE_MARGINS.marginLeft);
+    setMarginRight(SAMPLE_MARGINS.marginRight);
+    setBodyHtml((current) => {
+      const withoutHeader = current
+        .replace(/\{\{>\s*institutionHeader\s*\}\}/g, '')
+        .trim();
+      if (withoutHeader.includes('data-authoring-left-bar="true"')) {
+        return withoutHeader;
+      }
+      return `${SAMPLE_BODY_PREFIX}\n${withoutHeader}`;
+    });
   };
 
   const save = async () => {
@@ -78,6 +114,12 @@ function NewVersionContent() {
       await authoringService.createVersion(template.id, {
         bodyHtml,
         styles,
+        headerHtml: headerHtml.trim() || undefined,
+        footerHtml: footerHtml.trim() || undefined,
+        marginTop,
+        marginBottom,
+        marginLeft,
+        marginRight,
         numberPrefix: numberPrefix.trim().toUpperCase(),
         fields: { fields },
       });
@@ -158,6 +200,62 @@ function NewVersionContent() {
               value={styles}
               onChange={(event) => setStyles(event.target.value)}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Encabezado y pie de página</CardTitle>
+          <Button type="button" variant="outline" size="sm" onClick={applySampleFrame}>
+            Usar diseño de ejemplo
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Se repiten en cada página. Si defines un encabezado, el partial
+            <code className="mx-1">{'{{> institutionHeader}}'}</code>
+            del cuerpo se omite automáticamente. Puedes usar variables como
+            <code className="mx-1">{'{{institucion.nombre}}'}</code>,
+            <code className="mx-1">{'{{institucion.logo}}'}</code>,
+            <code className="mx-1">{'{{institucion.direccion}}'}</code> y las clases
+            <code className="mx-1">pageNumber</code>/<code className="mx-1">totalPages</code>.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="version-header">Encabezado HTML</Label>
+            <textarea
+              id="version-header"
+              className="min-h-40 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs"
+              value={headerHtml}
+              onChange={(event) => setHeaderHtml(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="version-footer">Pie de página HTML</Label>
+            <textarea
+              id="version-footer"
+              className="min-h-40 w-full rounded-md border border-input bg-background px-3 py-2 font-mono text-xs"
+              value={footerHtml}
+              onChange={(event) => setFooterHtml(event.target.value)}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="version-margin-top">Margen superior</Label>
+              <Input id="version-margin-top" value={marginTop} onChange={(event) => setMarginTop(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="version-margin-bottom">Margen inferior</Label>
+              <Input id="version-margin-bottom" value={marginBottom} onChange={(event) => setMarginBottom(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="version-margin-left">Margen izquierdo</Label>
+              <Input id="version-margin-left" value={marginLeft} onChange={(event) => setMarginLeft(event.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="version-margin-right">Margen derecho</Label>
+              <Input id="version-margin-right" value={marginRight} onChange={(event) => setMarginRight(event.target.value)} />
+            </div>
           </div>
         </CardContent>
       </Card>

@@ -38,6 +38,12 @@ export interface AuthoringTemplateVersion {
   status: 'DRAFT' | 'PUBLISHED' | 'RETIRED';
   bodyHtml: string;
   styles?: string | null;
+  headerHtml?: string | null;
+  footerHtml?: string | null;
+  marginTop?: string | null;
+  marginBottom?: string | null;
+  marginLeft?: string | null;
+  marginRight?: string | null;
   fields: AuthoringFieldsSchema;
   pageSize: string;
   orientation: string;
@@ -137,6 +143,12 @@ export interface CreateAuthoringTemplatePayload {
   description?: string;
   bodyHtml: string;
   styles?: string;
+  headerHtml?: string;
+  footerHtml?: string;
+  marginTop?: string;
+  marginBottom?: string;
+  marginLeft?: string;
+  marginRight?: string;
   fields: AuthoringFieldsSchema;
   pageSize?: string;
   orientation?: string;
