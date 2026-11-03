@@ -158,6 +158,12 @@ test.describe('Rol diseñador sin publicación', () => {
           })
           .first(),
       ).toBeVisible({ timeout: 20_000 });
+      await page
+        .getByRole('button', { name: 'Marcar todas como leídas' })
+        .click();
+      await expect(
+        page.getByRole('button', { name: /Notificaciones, 0 sin leer/ }),
+      ).toBeVisible({ timeout: 20_000 });
 
       const secretaryLogin = await request.post(`${API}/auth/login`, {
         data: {

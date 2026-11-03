@@ -29,17 +29,41 @@ function ActorNotifications() {
   }, [page, revision]);
   const unread = data?.unreadCount ?? 0;
 
+  const markAllRead = async () => {
+    setReading(true);
+    try {
+      await notificationsService.readAll();
+      setRevision(value => value + 1);
+    } catch {
+      setError(true);
+    } finally {
+      setReading(false);
+    }
+  };
+
   return <div className="relative">
     <button type="button" className="rounded p-2" aria-label={`Notificaciones, ${unread} sin leer`} aria-expanded={open} onClick={() => setOpen(value => !value)}>
       <Bell aria-hidden="true" className="size-5" />{unread > 0 && <span className="text-xs">{unread}</span>}
     </button>
     {open && <section aria-label="Notificaciones" className="absolute right-0 z-50 max-h-[70vh] w-80 overflow-auto rounded border bg-background p-3 text-foreground shadow">
-      <h2 className="font-semibold">Notificaciones</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="font-semibold">Notificaciones</h2>
+        {unread > 0 && (
+          <button
+            type="button"
+            className="text-xs underline"
+            disabled={reading}
+            onClick={markAllRead}
+          >
+            Marcar todas como leídas
+          </button>
+        )}
+      </div>
       {loading && <p role="status">Cargando...</p>}
       {error && <p role="alert">No se pudieron cargar las notificaciones.</p>}
       {data?.data.length === 0 && <p>No hay notificaciones.</p>}
       <ul>{data?.data.map(item => {
-        const safeUrl = item.actionUrl && /^\/dashboard\/(documents\/\d+|directories\?directoryId=\d+)$/.test(item.actionUrl) ? item.actionUrl : null;
+        const safeUrl = item.actionUrl && /^\/dashboard\/(documents\/\d+|directories\?directoryId=\d+|elaboracion\/plantillas\/\d+)$/.test(item.actionUrl) ? item.actionUrl : null;
         return <li key={item.id} className="space-y-1 border-b py-3">
           <p className="font-medium">{item.title}</p><p className="whitespace-pre-wrap break-words text-sm">{item.message}</p>
           {safeUrl && <Link href={safeUrl} onClick={() => setOpen(false)}>Abrir recurso</Link>}

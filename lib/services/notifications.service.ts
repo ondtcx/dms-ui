@@ -18,4 +18,7 @@ export const notificationsService = {
   async read(id: number) {
     return (await api.patch(`/notifications/${id}/read`)).data;
   },
+  async readAll() {
+    return (await api.patch('/notifications/read-all')).data;
+  },
 };

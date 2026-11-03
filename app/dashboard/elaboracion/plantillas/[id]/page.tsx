@@ -69,6 +69,9 @@ function TemplateAdminContent() {
   const [busyVersion, setBusyVersion] = useState<number | null>(null);
   const [deactivating, setDeactivating] = useState(false);
   const [activityFilter, setActivityFilter] = useState('ALL');
+  const [activityActor, setActivityActor] = useState('ALL');
+  const [activityFrom, setActivityFrom] = useState('');
+  const [activityTo, setActivityTo] = useState('');
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [duplicateName, setDuplicateName] = useState('');
   const [duplicating, setDuplicating] = useState(false);
@@ -96,12 +99,30 @@ function TemplateAdminContent() {
     });
   };
 
+  const activityActors = useMemo(() => {
+    const values = new Set<string>();
+    for (const activity of activityQuery.data ?? []) {
+      values.add(activity.actorName || activity.actorId);
+    }
+    return [...values].sort((left, right) => left.localeCompare(right));
+  }, [activityQuery.data]);
+
   const activityRows = useMemo(() => {
     const rows = activityQuery.data ?? [];
-    return activityFilter === 'ALL'
-      ? rows
-      : rows.filter((activity) => activity.action === activityFilter);
-  }, [activityFilter, activityQuery.data]);
+    return rows.filter((activity) => {
+      if (activityFilter !== 'ALL' && activity.action !== activityFilter) {
+        return false;
+      }
+      const actor = activity.actorName || activity.actorId;
+      if (activityActor !== 'ALL' && actor !== activityActor) {
+        return false;
+      }
+      const date = activity.createdAt.slice(0, 10);
+      if (activityFrom && date < activityFrom) return false;
+      if (activityTo && date > activityTo) return false;
+      return true;
+    });
+  }, [activityActor, activityFilter, activityFrom, activityQuery.data, activityTo]);
 
   const exportActivity = () => {
     if (!template) return;
@@ -412,7 +433,7 @@ function TemplateAdminContent() {
       <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
           <CardTitle className="text-base">Actividad de la plantilla</CardTitle>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <select
               className="h-8 rounded-md border border-input bg-background px-2 text-xs"
               value={activityFilter}
@@ -424,6 +445,31 @@ function TemplateAdminContent() {
                 <option key={value} value={value}>{label}</option>
               ))}
             </select>
+            <select
+              className="h-8 max-w-40 rounded-md border border-input bg-background px-2 text-xs"
+              value={activityActor}
+              onChange={(event) => setActivityActor(event.target.value)}
+              aria-label="Filtrar por actor"
+            >
+              <option value="ALL">Todos los actores</option>
+              {activityActors.map((actor) => (
+                <option key={actor} value={actor}>{actor}</option>
+              ))}
+            </select>
+            <input
+              type="date"
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              value={activityFrom}
+              onChange={(event) => setActivityFrom(event.target.value)}
+              aria-label="Desde"
+            />
+            <input
+              type="date"
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              value={activityTo}
+              onChange={(event) => setActivityTo(event.target.value)}
+              aria-label="Hasta"
+            />
             <Button
               type="button"
               size="sm"
