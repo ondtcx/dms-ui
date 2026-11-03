@@ -57,6 +57,8 @@ function NewTemplateContent() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [numberPrefix, setNumberPrefix] = useState('DOC');
+  const [pageSize, setPageSize] = useState('A4');
+  const [orientation, setOrientation] = useState('portrait');
   const [bodyHtml, setBodyHtml] = useState(DEFAULT_BODY);
   const [styles, setStyles] = useState(DEFAULT_STYLES);
   const [headerHtml, setHeaderHtml] = useState('');
@@ -127,6 +129,8 @@ function NewTemplateContent() {
         marginBottom,
         marginLeft,
         marginRight,
+        pageSize,
+        orientation,
         numberPrefix: numberPrefix.trim().toUpperCase(),
         fields: { fields },
       });
@@ -190,6 +194,31 @@ function NewTemplateContent() {
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Para qué se usa esta plantilla"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="template-page-size">Tamaño de página</Label>
+            <select
+              id="template-page-size"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={pageSize}
+              onChange={(event) => setPageSize(event.target.value)}
+            >
+              <option value="A4">A4</option>
+              <option value="Letter">Carta</option>
+              <option value="Legal">Legal</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="template-orientation">Orientación</Label>
+            <select
+              id="template-orientation"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={orientation}
+              onChange={(event) => setOrientation(event.target.value)}
+            >
+              <option value="portrait">Vertical</option>
+              <option value="landscape">Horizontal</option>
+            </select>
           </div>
         </CardContent>
       </Card>

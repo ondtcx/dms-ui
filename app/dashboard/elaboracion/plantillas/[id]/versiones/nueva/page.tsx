@@ -38,6 +38,8 @@ function NewVersionContent() {
   const templateId = Number(params.id);
   const initialized = useRef(false);
   const [numberPrefix, setNumberPrefix] = useState('');
+  const [pageSize, setPageSize] = useState('A4');
+  const [orientation, setOrientation] = useState('portrait');
   const [bodyHtml, setBodyHtml] = useState('');
   const [styles, setStyles] = useState('');
   const [headerHtml, setHeaderHtml] = useState('');
@@ -61,6 +63,8 @@ function NewVersionContent() {
     if (!template || !latest || initialized.current) return;
     initialized.current = true;
     setNumberPrefix(latest.numberPrefix);
+    setPageSize(latest.pageSize ?? 'A4');
+    setOrientation(latest.orientation ?? 'portrait');
     setBodyHtml(latest.bodyHtml);
     setStyles(latest.styles ?? '');
     setHeaderHtml(latest.headerHtml ?? '');
@@ -120,6 +124,8 @@ function NewVersionContent() {
         marginBottom,
         marginLeft,
         marginRight,
+        pageSize,
+        orientation,
         numberPrefix: numberPrefix.trim().toUpperCase(),
         fields: { fields },
       });
@@ -182,6 +188,33 @@ function NewVersionContent() {
               maxLength={12}
               onChange={(event) => setNumberPrefix(event.target.value.toUpperCase())}
             />
+          </div>
+          <div className="grid max-w-xl gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="version-page-size">Tamaño de página</Label>
+              <select
+                id="version-page-size"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={pageSize}
+                onChange={(event) => setPageSize(event.target.value)}
+              >
+                <option value="A4">A4</option>
+                <option value="Letter">Carta</option>
+                <option value="Legal">Legal</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="version-orientation">Orientación</Label>
+              <select
+                id="version-orientation"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={orientation}
+                onChange={(event) => setOrientation(event.target.value)}
+              >
+                <option value="portrait">Vertical</option>
+                <option value="landscape">Horizontal</option>
+              </select>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="version-body">Cuerpo HTML controlado</Label>
