@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 interface RichTextEditorProps {
   value: any;
   onChange: (value: any) => void;
+  onHtmlChange?: (html: string) => void;
   placeholder?: string;
   disabled?: boolean;
 }
@@ -68,11 +69,14 @@ function ToolbarButton({
 export function RichTextEditor({
   value,
   onChange,
+  onHtmlChange,
   placeholder = 'Escribe el contenido del documento...',
   disabled = false,
 }: RichTextEditorProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onHtmlChangeRef = useRef(onHtmlChange);
+  onHtmlChangeRef.current = onHtmlChange;
   const lastEmitted = useRef<string>('');
 
   const editor = useEditor({
@@ -96,10 +100,14 @@ export function RichTextEditor({
       Placeholder.configure({ placeholder }),
     ],
     content: value ?? { type: 'doc', content: [] },
+    onCreate: ({ editor: current }) => {
+      onHtmlChangeRef.current?.(current.getHTML());
+    },
     onUpdate: ({ editor: current }) => {
       const json = current.getJSON();
       lastEmitted.current = JSON.stringify(json);
       onChangeRef.current(json);
+      onHtmlChangeRef.current?.(current.getHTML());
     },
   });
 
@@ -109,6 +117,7 @@ export function RichTextEditor({
     if (serialized === lastEmitted.current) return;
     editor.commands.setContent(value, { emitUpdate: false });
     lastEmitted.current = serialized;
+    onHtmlChangeRef.current?.(editor.getHTML());
   }, [editor, value]);
 
   useEffect(() => {

@@ -51,6 +51,7 @@ function EditDocumentContent() {
   const initializedFrame = useRef(false);
   const [pageFrame, setPageFrame] = useState<PageFrame | null>(null);
   const [formSnapshot, setFormSnapshot] = useState<Record<string, any>>({});
+  const [richTextHtml, setRichTextHtml] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [autoSaving, setAutoSaving] = useState(false);
@@ -137,6 +138,10 @@ function EditDocumentContent() {
     setDirty(true);
   };
 
+  const handleRichTextHtmlChange = (key: string, html: string) => {
+    setRichTextHtml((current) => ({ ...current, [key]: html }));
+  };
+
   const previewVariables = useMemo(() => {
     const value = (path: string) => {
       const current = getByPath(formSnapshot, path);
@@ -153,8 +158,9 @@ function EditDocumentContent() {
       '{{entregadoPor.cargo}}': value('entregadoPor.cargo'),
       '{{vistoBueno.nombre}}': value('vistoBueno.nombre'),
       '{{vistoBueno.cargo}}': value('vistoBueno.cargo'),
+      '{{{contenido}}}': richTextHtml.contenido ?? '',
     };
-  }, [formSnapshot]);
+  }, [formSnapshot, richTextHtml]);
 
   const save = async (createVersion: boolean) => {
     if (!document || !latestForm.current) return null;
@@ -307,6 +313,7 @@ function EditDocumentContent() {
             templateVersion={templateVersion}
             initialFormData={document.templateData?.formData}
             onChange={handleFormChange}
+            onRichTextHtmlChange={handleRichTextHtmlChange}
           />
         </CardContent>
       </Card>
@@ -314,8 +321,9 @@ function EditDocumentContent() {
       {pageFrame?.mode === 'fullPage' && (
         <div className="space-y-2">
           <p className="text-sm text-muted-foreground">
-            Edita cualquier texto de la página. Los campos de arriba actualizan
-            las variables del documento.
+            El cuerpo se edita en el editor de arriba. Aquí ajustas el título,
+            el subtítulo y las etiquetas de firmas; los campos actualizan las
+            variables del documento.
           </p>
           <PageFrameEditor
             key={`frame-${document.id}`}

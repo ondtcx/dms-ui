@@ -10,6 +10,7 @@ interface AuthoringFieldInputProps {
   field: AuthoringField;
   value: any;
   onChange: (value: any) => void;
+  onHtmlChange?: (html: string) => void;
   disabled?: boolean;
 }
 
@@ -17,6 +18,7 @@ export function AuthoringFieldInput({
   field,
   value,
   onChange,
+  onHtmlChange,
   disabled = false,
 }: AuthoringFieldInputProps) {
   const label = (
@@ -30,7 +32,12 @@ export function AuthoringFieldInput({
     return (
       <div className="space-y-2">
         {label}
-        <RichTextEditor value={value} onChange={onChange} disabled={disabled} />
+        <RichTextEditor
+          value={value}
+          onChange={onChange}
+          onHtmlChange={onHtmlChange}
+          disabled={disabled}
+        />
       </div>
     );
   }

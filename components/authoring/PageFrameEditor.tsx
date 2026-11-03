@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { LayoutTemplate, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,7 +30,10 @@ const LOGO_PLACEHOLDER =
     '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100"><rect width="80" height="100" rx="8" fill="#e5e7eb"/><text x="40" y="55" text-anchor="middle" font-family="Arial" font-size="12" fill="#6b7280">LOGO</text></svg>',
   );
 
+const DEFAULT_ACTA_BODY_HTML = `<p>A través del presente, se entrega los bienes que reposan en la sala de vicerrectorado, a la Sra. MSc. Soraya Villarreal en calidad de vicerrectora, los mismos que serán utilizados como material de apoyo en el desarrollo de sus funciones como vicerrectora de la Unidad Educativa “Vicente Fierro”.</p><p>El material entregado está sujeto a control y auditoría, quedando bajo su estricta responsabilidad el cuidado de los mismos.</p><p>Como constancia de la presente acta, actúa la MSc. Soraya Villarreal identificado con el número de cédula 0400881454 y el. MSc. Byron Narváez, identificada con el número de cédula 0400881207 como representante del Honorable Consejo Ejecutivo de la Unidad Educativa “Vicente Fierro”, comisión de control interno.</p><p>Se adjunta analítica de existencias.</p><p>Se firman en original y copia con el mismo tenor.</p>`;
+
 const PREVIEW_VARIABLES: Record<string, string> = {
+  '{{{contenido}}}': DEFAULT_ACTA_BODY_HTML,
   '{{institucion.nombre}}': 'UNIDAD EDUCATIVA VICENTE FIERRO',
   '{{institucion.direccion}}':
     'Ciudadela Sociedad Obrera Calle Juan XXIII y Caciques Tulcanaza',
@@ -74,9 +77,11 @@ function previewFrame(
 function PagePreview({
   frame,
   variables,
+  onOverflowChange,
 }: {
   frame: PageFrame;
   variables?: Record<string, string>;
+  onOverflowChange?: (overflow: boolean) => void;
 }) {
   const html = useMemo(() => {
     if (frame.mode === 'fullPage') {
@@ -103,6 +108,14 @@ function PagePreview({
     <iframe
       title="Vista previa del marco de página"
       srcDoc={html}
+      onLoad={(event) => {
+        const node = event.currentTarget.contentDocument?.querySelector(
+          '.richtext',
+        ) as HTMLElement | null;
+        onOverflowChange?.(
+          Boolean(node && node.scrollHeight > node.clientHeight + 1),
+        );
+      }}
       className="h-[620px] w-full rounded-md border border-border bg-muted/30"
     />
   );
@@ -296,24 +309,40 @@ export function PageFrameEditor({
   variables?: Record<string, string>;
   contentOnly?: boolean;
 }) {
+  const [bodyOverflows, setBodyOverflows] = useState(false);
   const update = (patch: Partial<PageFrame>) => onChange({ ...value, ...patch });
 
   if (value.mode === 'fullPage') {
     if (contentOnly) {
       const boxes = (value.body?.boxes ?? []).filter(
-        (box) => isContentBox(box) && !/\{\{/.test(box.content),
+        (box) =>
+          box.type !== 'richText' &&
+          isContentBox(box) &&
+          !/\{\{/.test(box.content),
       );
       return (
         <div className="space-y-4">
-          <PagePreview frame={value} variables={variables} />
+          <PagePreview
+            frame={value}
+            variables={variables}
+            onOverflowChange={setBodyOverflows}
+          />
+          {bodyOverflows && (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              El cuerpo supera el espacio de la primera página. El PDF generará
+              páginas de continuación con el mismo marco y las firmas al final.
+            </div>
+          )}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Contenido del acta</CardTitle>
+              <CardTitle className="text-base">
+                Título y etiquetas de firmas
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-xs text-muted-foreground">
-                El diseño, las posiciones y el marco institucional están fijos.
-                Edita únicamente el texto de estas cajas. Las líneas con
+                El cuerpo se edita arriba con el editor. Aquí puedes ajustar el
+                título, el subtítulo y las etiquetas de firmas. Las líneas con
                 variables se actualizan desde los campos superiores.
               </p>
               {boxes.map((box) => (

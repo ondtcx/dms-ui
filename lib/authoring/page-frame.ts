@@ -316,12 +316,29 @@ function escapeFullPageText(value: string): string {
     .replace(/>/g, '&gt;');
 }
 
+const FULL_PAGE_RICH_TEXT_CSS = `
+.richtext { white-space: normal !important; line-height: 1.35 !important; text-align: justify; overflow: visible; }
+.richtext p { margin: 0 0 8pt; line-height: 1.35; text-align: justify; }
+.richtext p:last-child { margin-bottom: 0; }
+.richtext ul, .richtext ol { margin: 0 0 8pt 18pt; padding: 0; }
+.richtext li { margin: 0 0 3pt; }
+.richtext h1 { font-size: 15pt; margin: 0 0 8pt; }
+.richtext h2 { font-size: 13pt; margin: 0 0 8pt; }
+.richtext h3 { font-size: 11.5pt; margin: 0 0 8pt; }
+.richtext table { width: 100%; border-collapse: collapse; margin: 6pt 0; }
+.richtext th, .richtext td { border: 1px solid #000; padding: 3pt 4pt; vertical-align: top; }
+`;
+
 function fullPageBoxToHtml(box: PageFrameBox): string {
+  const base = `left:${box.x}pt;top:${box.y}pt;font-size:${box.fontSize}pt;font-family:${box.fontFamily ?? 'Arial, sans-serif'};font-weight:${box.fontWeight ?? '400'};font-style:${box.fontStyle ?? 'normal'};color:${box.color ?? '#000000'};text-align:${box.align ?? 'left'};`;
+  if (box.type === 'richText') {
+    return `<div class="txt richtext" data-box-id="${box.id}" style="${base}width:${box.width}pt;height:${box.height ?? 240}pt;white-space:normal;">${box.content}</div>`;
+  }
   const target = box.width > 0 ? ` data-target-width="${box.width}"` : '';
-  return `<span class="txt" style="left:${box.x}pt;top:${box.y}pt;font-size:${box.fontSize}pt;font-family:${box.fontFamily ?? 'Arial, sans-serif'};font-weight:${box.fontWeight ?? '400'};font-style:${box.fontStyle ?? 'normal'};color:${box.color ?? '#000000'};"${target}>${box.type === 'pageNumber' ? box.content : escapeFullPageText(box.content)}</span>`;
+  return `<span class="txt" style="${base}"${target}>${box.type === 'pageNumber' ? box.content : escapeFullPageText(box.content)}</span>`;
 }
 
 export function fullPageFrameToHtml(frame: PageFrame): string {
   const boxes = (frame.body?.boxes ?? []).map(fullPageBoxToHtml).join('');
-  return `<style>${frame.styles ?? ''}</style><main class="sheet">${frame.body?.backgroundSvg ?? ''}<div class="editable-layer">${boxes}</div></main><script>${FULL_PAGE_FIT_SCRIPT}</script>`;
+  return `<style>${frame.styles ?? ''}${FULL_PAGE_RICH_TEXT_CSS}</style><main class="sheet">${frame.body?.backgroundSvg ?? ''}<div class="editable-layer">${boxes}</div></main><script>${FULL_PAGE_FIT_SCRIPT}</script>`;
 }

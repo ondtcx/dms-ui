@@ -32,7 +32,7 @@ export interface AuthoringFieldsSchema {
 }
 
 
-export type PageFrameBoxType = 'text' | 'image' | 'pageNumber';
+export type PageFrameBoxType = 'text' | 'richText' | 'image' | 'pageNumber';
 
 export interface PageFrameBox {
   id: string;
@@ -47,7 +47,7 @@ export interface PageFrameBox {
   fontStyle?: string;
   fontFamily?: string;
   color?: string;
-  align?: 'left' | 'center' | 'right';
+  align?: 'left' | 'center' | 'right' | 'justify';
   content: string;
 }
 

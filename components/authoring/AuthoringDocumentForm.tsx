@@ -22,6 +22,7 @@ interface AuthoringDocumentFormProps {
     formData: Record<string, any>,
     meta?: { user?: boolean },
   ) => void;
+  onRichTextHtmlChange?: (key: string, html: string) => void;
 }
 
 export function AuthoringDocumentForm({
@@ -30,6 +31,7 @@ export function AuthoringDocumentForm({
   disabled = false,
   excludedFields = [],
   onChange,
+  onRichTextHtmlChange,
 }: AuthoringDocumentFormProps) {
   const fields = useMemo(
     () => fieldsOf(templateVersion.fields as AuthoringFieldsSchema),
@@ -44,6 +46,8 @@ export function AuthoringDocumentForm({
   );
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onHtmlChangeRef = useRef(onRichTextHtmlChange);
+  onHtmlChangeRef.current = onRichTextHtmlChange;
   const initializedVersion = useRef<number | null>(null);
 
   useEffect(() => {
@@ -79,6 +83,7 @@ export function AuthoringDocumentForm({
             field={field}
             value={getByPath(formData, field.key)}
             onChange={(value) => updateField(field.key, value)}
+            onHtmlChange={(html) => onHtmlChangeRef.current?.(field.key, html)}
             disabled={disabled}
           />
         </div>
