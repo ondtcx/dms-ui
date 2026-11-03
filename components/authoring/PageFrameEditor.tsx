@@ -272,18 +272,78 @@ function AreaEditor({
   );
 }
 
+function isContentBox(box: PageFrameBox): boolean {
+  if (box.role === 'frame') return false;
+  if (box.role === 'content') return true;
+  return box.y >= 90 && box.y < 700 && !/^_+$/.test(box.content.trim());
+}
+
+function contentSection(box: PageFrameBox): string {
+  if (box.y < 150) return 'Título y fecha';
+  if (box.y < 430) return 'Cuerpo';
+  if (box.y < 700) return 'Firmas';
+  return 'Contenido';
+}
+
 export function PageFrameEditor({
   value,
   onChange,
   variables,
+  contentOnly = false,
 }: {
   value: PageFrame;
   onChange: (value: PageFrame) => void;
   variables?: Record<string, string>;
+  contentOnly?: boolean;
 }) {
   const update = (patch: Partial<PageFrame>) => onChange({ ...value, ...patch });
 
   if (value.mode === 'fullPage') {
+    if (contentOnly) {
+      const boxes = (value.body?.boxes ?? []).filter(
+        (box) => isContentBox(box) && !/\{\{/.test(box.content),
+      );
+      return (
+        <div className="space-y-4">
+          <PagePreview frame={value} variables={variables} />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Contenido del acta</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                El diseño, las posiciones y el marco institucional están fijos.
+                Edita únicamente el texto de estas cajas. Las líneas con
+                variables se actualizan desde los campos superiores.
+              </p>
+              {boxes.map((box) => (
+                <div key={box.id} className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">
+                    {contentSection(box)}
+                  </Label>
+                  <textarea
+                    className="min-h-16 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={box.content}
+                    onChange={(event) =>
+                      update({
+                        body: {
+                          ...(value.body ?? { boxes: [] }),
+                          boxes: (value.body?.boxes ?? []).map((item) =>
+                            item.id === box.id
+                              ? { ...item, content: event.target.value }
+                              : item,
+                          ),
+                        },
+                      })
+                    }
+                  />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
     return (
       <div className="space-y-4">
         <Card>

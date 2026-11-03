@@ -37,6 +37,7 @@ export type PageFrameBoxType = 'text' | 'image' | 'pageNumber';
 export interface PageFrameBox {
   id: string;
   type: PageFrameBoxType;
+  role?: 'content' | 'frame';
   x: number;
   y: number;
   width: number;

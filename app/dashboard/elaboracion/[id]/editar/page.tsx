@@ -322,6 +322,7 @@ function EditDocumentContent() {
             value={pageFrame}
             onChange={handleFrameChange}
             variables={previewVariables}
+            contentOnly
           />
         </div>
       )}
