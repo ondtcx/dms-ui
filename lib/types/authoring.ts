@@ -109,6 +109,8 @@ export interface AuthoringTemplateVersion {
   numberPrefix: string;
   createdAt: string;
   publishedAt?: string | null;
+  publishedById?: string | null;
+  publishedByName?: string | null;
 }
 
 export interface AuthoringTemplate {

@@ -306,7 +306,10 @@ function TemplateAdminContent() {
                     </td>
                     <td className="px-3 py-3 text-muted-foreground">{version.numberPrefix}</td>
                     <td className="px-3 py-3 text-muted-foreground">
-                      {formatDate(version.publishedAt)}
+                      <div>{formatDate(version.publishedAt)}</div>
+                      {version.publishedByName && (
+                        <div className="text-xs">por {version.publishedByName}</div>
+                      )}
                     </td>
                     <td className="px-3 py-3">
                       <div className="flex flex-wrap gap-1">

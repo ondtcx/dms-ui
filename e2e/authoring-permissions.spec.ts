@@ -58,14 +58,115 @@ test.describe('Permisos de elaboración documental', () => {
       page.getByText('Elaboración documental', { exact: true }).first(),
     ).toBeVisible({ timeout: 20_000 });
     await expect(
-      page.getByText('Diseñar plantillas de elaboración documental', {
-        exact: true,
-      }),
+      page
+        .getByText('Diseñar plantillas de elaboración documental', {
+          exact: true,
+        })
+        .first(),
     ).toBeVisible();
     await expect(
-      page.getByText('Publicar versiones de plantillas de elaboración', {
-        exact: true,
-      }),
+      page
+        .getByText('Publicar versiones de plantillas de elaboración', {
+          exact: true,
+        })
+        .first(),
     ).toBeVisible();
+  });
+});
+
+test.describe('Rol diseñador sin publicación', () => {
+  test.setTimeout(120_000);
+
+  test('puede guardar un diseño pero no publicarlo', async ({ page, request }) => {
+    const API = 'http://localhost:3001/api';
+    const login = await request.post(`${API}/auth/login`, {
+      data: {
+        email: SEED_USERS.admin.email,
+        password: SEED_USERS.admin.password,
+      },
+    });
+    const { access_token: adminToken } = await login.json();
+    const adminHeaders = { Authorization: `Bearer ${adminToken}` };
+    const oficioResponse = await request.get(`${API}/authoring/templates/61`, {
+      headers: adminHeaders,
+    });
+    const oficio = await oficioResponse.json();
+    const oficioVersion = oficio.versions.find(
+      (version: any) => version.status === 'PUBLISHED',
+    );
+    const createResponse = await request.post(`${API}/authoring/templates`, {
+      headers: adminHeaders,
+      data: {
+        name: `Prueba diseñador E2E ${Date.now()}`,
+        description: 'Plantilla temporal para permisos de diseñador.',
+        bodyHtml: oficioVersion.bodyHtml,
+        fields: oficioVersion.fields,
+        pageFrame: oficioVersion.pageFrame,
+        pageSize: 'Letter',
+        orientation: 'portrait',
+        numberPrefix: 'TST',
+      },
+    });
+    const template = await createResponse.json();
+    const firstVersion = template.versions[0];
+    await request.post(
+      `${API}/authoring/templates/${template.id}/versions/${firstVersion.id}/publish`,
+      { headers: adminHeaders, data: {} },
+    );
+
+    try {
+      await loginViaApi(
+        page,
+        SEED_USERS.secretario.email,
+        SEED_USERS.secretario.password,
+      );
+      await page.goto(`/dashboard/elaboracion/plantillas/${template.id}/diseno`);
+      await expect(
+        page.getByRole('button', { name: 'Guardar diseño', exact: true }),
+      ).toBeVisible({ timeout: 20_000 });
+      await expect(
+        page.getByRole('button', { name: 'Guardar y publicar', exact: true }),
+      ).toHaveCount(0);
+      await page
+        .getByRole('button', { name: 'Guardar diseño', exact: true })
+        .click();
+      await page.waitForURL(
+        new RegExp(`/dashboard/elaboracion/plantillas/${template.id}$`),
+        { timeout: 45_000 },
+      );
+      await expect(
+        page.getByRole('button', { name: 'Publicar', exact: true }),
+      ).toHaveCount(0);
+
+      const secretaryLogin = await request.post(`${API}/auth/login`, {
+        data: {
+          email: SEED_USERS.secretario.email,
+          password: SEED_USERS.secretario.password,
+        },
+      });
+      const { access_token: secretaryToken } = await secretaryLogin.json();
+      const draftResponse = await request.get(
+        `${API}/authoring/templates/${template.id}`,
+        { headers: { Authorization: `Bearer ${secretaryToken}` } },
+      );
+      const draftTemplate = await draftResponse.json();
+      const draft = draftTemplate.versions.find(
+        (version: any) => version.status === 'DRAFT',
+      );
+      expect(draft).toBeTruthy();
+      const publishResponse = await request.post(
+        `${API}/authoring/templates/${template.id}/versions/${draft.id}/publish`,
+        {
+          headers: { Authorization: `Bearer ${secretaryToken}` },
+          data: {},
+        },
+      );
+      expect(publishResponse.status()).toBe(403);
+    } finally {
+      await request.post(
+        `${API}/authoring/templates/${template.id}/deactivate`,
+        { headers: adminHeaders, data: {} },
+      );
+    }
   });
 });
