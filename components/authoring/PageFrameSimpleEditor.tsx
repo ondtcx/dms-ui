@@ -48,6 +48,7 @@ const SECTIONS = [
 ] as const;
 
 type Section = (typeof SECTIONS)[number];
+type ResizeDirection = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
 
 function sectionOf(box: PageFrameBox): Section {
   if (box.role === 'frame' && box.y < 90) return 'Marco institucional';
@@ -131,6 +132,10 @@ export function PageFrameSimpleEditor({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({
+    x: null,
+    y: null,
+  });
   const history = useRef<PageFrame[]>([]);
   const future = useRef<PageFrame[]>([]);
   const drag = useRef<{
@@ -144,6 +149,9 @@ export function PageFrameSimpleEditor({
   } | null>(null);
   const resize = useRef<{
     id: string;
+    direction: ResizeDirection;
+    startLeft: number;
+    startTop: number;
     startWidth: number;
     startHeight: number;
     pointerX: number;
@@ -233,8 +241,31 @@ export function PageFrameSimpleEditor({
         redo();
       }
     };
+    const onNudge = (event: KeyboardEvent) => {
+      if (!event.key.startsWith('Arrow') || !selected || isLockedBox(selected)) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
+        return;
+      }
+      event.preventDefault();
+      const step = event.shiftKey ? 10 : 1;
+      const dx =
+        event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0;
+      const dy =
+        event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0;
+      updateBox(selected.id, {
+        x: Math.max(0, Math.min(pageWidth - 10, selected.x + dx)),
+        y: Math.max(0, Math.min(pageHeight - 10, selected.y + dy)),
+      });
+    };
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onNudge);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keydown', onNudge);
+    };
   });
 
   const onPointerDown = (
@@ -265,6 +296,52 @@ export function PageFrameSimpleEditor({
       x = Math.round(x / 5) * 5;
       y = Math.round(y / 5) * 5;
     }
+    const currentBox = boxes.find((box) => box.id === current.id);
+    const boxWidth = currentBox?.width ?? 0;
+    const boxHeight = currentBox?.height ?? 0;
+    const threshold = 4;
+    const xCandidates = [0, pageWidth / 2, pageWidth];
+    const yCandidates = [0, pageHeight / 2, pageHeight];
+    for (const other of boxes) {
+      if (other.id === current.id || other.role === 'frame') continue;
+      xCandidates.push(other.x);
+      if (other.width > 0) {
+        xCandidates.push(other.x + other.width / 2, other.x + other.width);
+      }
+      yCandidates.push(other.y);
+      if (other.height) {
+        yCandidates.push(other.y + other.height / 2, other.y + other.height);
+      }
+    }
+    let guideX: number | null = null;
+    let guideY: number | null = null;
+    for (const [index, offset] of [0, boxWidth / 2, boxWidth].entries()) {
+      const edgeX = x + offset;
+      const nearest = xCandidates.reduce((best, candidate) =>
+        Math.abs(candidate - edgeX) < Math.abs(best - edgeX) ? candidate : best,
+      );
+      if (index === 0 || boxWidth > 0) {
+        if (Math.abs(nearest - edgeX) <= threshold) {
+          x += nearest - edgeX;
+          guideX = nearest;
+          break;
+        }
+      }
+    }
+    for (const [index, offset] of [0, boxHeight / 2, boxHeight].entries()) {
+      const edgeY = y + offset;
+      const nearest = yCandidates.reduce((best, candidate) =>
+        Math.abs(candidate - edgeY) < Math.abs(best - edgeY) ? candidate : best,
+      );
+      if (index === 0 || boxHeight > 0) {
+        if (Math.abs(nearest - edgeY) <= threshold) {
+          y += nearest - edgeY;
+          guideY = nearest;
+          break;
+        }
+      }
+    }
+    setGuides({ x: guideX, y: guideY });
     x = Math.max(0, Math.min(pageWidth - 10, x));
     y = Math.max(0, Math.min(pageHeight - 10, y));
     current.changed = true;
@@ -280,6 +357,7 @@ export function PageFrameSimpleEditor({
       recordHistory(current.startFrame);
     }
     drag.current = null;
+    setGuides({ x: null, y: null });
   };
 
   const boxStyle = (box: PageFrameBox) => {
@@ -309,6 +387,7 @@ export function PageFrameSimpleEditor({
   const startResize = (
     event: React.PointerEvent<HTMLDivElement>,
     box: PageFrameBox,
+    direction: ResizeDirection,
   ) => {
     if (isLockedBox(box)) return;
     event.preventDefault();
@@ -316,6 +395,9 @@ export function PageFrameSimpleEditor({
     const element = event.currentTarget.parentElement as HTMLElement | null;
     resize.current = {
       id: box.id,
+      direction,
+      startLeft: box.x,
+      startTop: box.y,
       startWidth: box.width > 0 ? box.width : (element?.offsetWidth ?? 120) / zoom,
       startHeight:
         box.height ??
@@ -333,16 +415,35 @@ export function PageFrameSimpleEditor({
   const moveResize = (event: React.PointerEvent<HTMLDivElement>) => {
     const current = resize.current;
     if (!current) return;
-    const width = Math.max(
-      20,
-      current.startWidth + (event.clientX - current.pointerX) / zoom,
-    );
-    const height = Math.max(
-      20,
-      current.startHeight + (event.clientY - current.pointerY) / zoom,
-    );
+    const dx = (event.clientX - current.pointerX) / zoom;
+    const dy = (event.clientY - current.pointerY) / zoom;
+    const direction = current.direction;
+    let left = current.startLeft;
+    let top = current.startTop;
+    let width = current.startWidth;
+    let height = current.startHeight;
+    if (direction.includes('e')) width += dx;
+    if (direction.includes('w')) {
+      left += dx;
+      width -= dx;
+    }
+    if (direction.includes('s')) height += dy;
+    if (direction.includes('n')) {
+      top += dy;
+      height -= dy;
+    }
+    if (width < 20) {
+      if (direction.includes('w')) left = current.startLeft + current.startWidth - 20;
+      width = 20;
+    }
+    if (height < 20) {
+      if (direction.includes('n')) top = current.startTop + current.startHeight - 20;
+      height = 20;
+    }
     current.changed = true;
     updateBoxRaw(current.id, {
+      x: Math.round(left * 100) / 100,
+      y: Math.round(top * 100) / 100,
       width: Math.round(width * 100) / 100,
       ...(current.isRichText || current.isImage
         ? { height: Math.round(height * 100) / 100 }
@@ -523,6 +624,32 @@ export function PageFrameSimpleEditor({
                   }}
                 />
               )}
+              {guides.x !== null && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    left: `${guides.x}pt`,
+                    borderLeft: '1px dashed #e11d48',
+                    zIndex: 4,
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
+              {guides.y !== null && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: `${guides.y}pt`,
+                    borderTop: '1px dashed #e11d48',
+                    zIndex: 4,
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
               {boxes.map((box) => {
                 const shown = previewById.get(box.id) ?? box;
                 const selectedNow = selectedId === box.id;
@@ -558,14 +685,41 @@ export function PageFrameSimpleEditor({
                     )}
                     {selectedNow && !isLockedBox(box) && editingId !== box.id && (
                       <div
-                        role="presentation"
-                        className="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-sm border border-primary bg-primary"
-                        style={{ zIndex: 6, touchAction: 'none' }}
-                        onPointerDown={(event) => startResize(event, box)}
-                        onPointerMove={moveResize}
-                        onPointerUp={finishResize}
-                        onPointerCancel={finishResize}
-                      />
+                        className="pointer-events-none absolute inset-0"
+                        style={{ zIndex: 6 }}
+                      >
+                        {[
+                          { direction: 'n' as const, className: 'left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 cursor-ns-resize' },
+                          { direction: 's' as const, className: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 cursor-ns-resize' },
+                          { direction: 'e' as const, className: 'right-0 top-1/2 -translate-y-1/2 translate-x-1/2 cursor-ew-resize' },
+                          { direction: 'w' as const, className: 'left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 cursor-ew-resize' },
+                          { direction: 'ne' as const, className: 'right-0 top-0 translate-x-1/2 -translate-y-1/2 cursor-nesw-resize' },
+                          { direction: 'nw' as const, className: 'left-0 top-0 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize' },
+                          { direction: 'se' as const, className: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2 cursor-nwse-resize' },
+                          { direction: 'sw' as const, className: 'bottom-0 left-0 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize' },
+                        ]
+                          .filter(
+                            (handle) =>
+                              box.type === 'richText' ||
+                              box.type === 'image' ||
+                              handle.direction === 'e' ||
+                              handle.direction === 'w',
+                          )
+                          .map((handle) => (
+                            <div
+                              key={handle.direction}
+                              role="presentation"
+                              className={`pointer-events-auto absolute h-2.5 w-2.5 rounded-sm border border-primary bg-primary ${handle.className}`}
+                              style={{ touchAction: 'none' }}
+                              onPointerDown={(event) =>
+                                startResize(event, box, handle.direction)
+                              }
+                              onPointerMove={moveResize}
+                              onPointerUp={finishResize}
+                              onPointerCancel={finishResize}
+                            />
+                          ))}
+                      </div>
                     )}
                     {editingId === box.id ? (
                       <textarea

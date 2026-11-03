@@ -51,12 +51,12 @@ function TemplateDesignContent() {
     if (latest.signatures) setSignatures(clone(latest.signatures));
   }, [latest, initialized]);
 
-  const save = async () => {
+  const save = async (publish = false) => {
     if (!template || !latest) return;
     setSaving(true);
     try {
       const isFullPage = frame.mode === 'fullPage';
-      await authoringService.createVersion(template.id, {
+      const created = await authoringService.createVersion(template.id, {
         bodyHtml: latest.bodyHtml,
         styles: isFullPage ? '' : latest.styles ?? undefined,
         fields: latest.fields,
@@ -72,6 +72,9 @@ function TemplateDesignContent() {
         pageFrame: frame,
         signatures: isFullPage ? undefined : signatures,
       });
+      if (publish) {
+        await authoringService.publishVersion(template.id, created.id);
+      }
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ['authoring-template', template.id],
@@ -80,7 +83,11 @@ function TemplateDesignContent() {
           queryKey: ['authoring-templates'],
         }),
       ]);
-      toast.success('Versión de diseño creada. Publícala para aplicarla.');
+      toast.success(
+        publish
+          ? 'Diseño guardado y publicado.'
+          : 'Versión de diseño creada. Publícala para aplicarla.',
+      );
       router.push(`/dashboard/elaboracion/plantillas/${template.id}`);
     } catch {
       toast.error('No se pudo guardar el diseño');
@@ -125,14 +132,24 @@ function TemplateDesignContent() {
             borrador; publícala desde la pantalla de la plantilla.
           </p>
         </div>
-        <Button onClick={save} disabled={saving}>
-          {saving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
-          )}
-          Guardar diseño
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => save(false)} disabled={saving}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Guardar diseño
+          </Button>
+          <Button onClick={() => save(true)} disabled={saving}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Guardar y publicar
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
