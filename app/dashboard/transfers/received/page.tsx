@@ -20,16 +20,21 @@ import {
 import { transfersService } from "@/lib/services/transfers.service";
 import {
   formatTransferDate,
+  groupTransfers,
   transferDocumentName,
   transferErrorMessage,
   transferStatusConfig,
 } from "@/lib/transfer-utils";
-import type { TransferStatus } from "@/lib/types";
+import type { BulkTransferFailure, TransferStatus } from "@/lib/types";
 
 export default function ReceivedTransfersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | TransferStatus>("all");
+  const [batchFailure, setBatchFailure] = useState<{
+    batchId: string;
+    failed: BulkTransferFailure[];
+  } | null>(null);
 
   const transfers = useQuery({
     queryKey: ["transfers-received"],
@@ -63,15 +68,62 @@ export default function ReceivedTransfersPage() {
       toast.error(transferErrorMessage(error, "No se pudo rechazar la transferencia")),
   });
 
-  const filtered = (transfers.data ?? []).filter((transfer) => {
+  const acceptBatch = useMutation({
+    mutationFn: (batchId: string) => transfersService.acceptBatch(batchId),
+    onSuccess: (result) => {
+      if (result.accepted > 0) {
+        toast.success(`${result.accepted} documento(s) transferidos`);
+      }
+      if (result.failed.length > 0) {
+        setBatchFailure({ batchId: result.batchId, failed: result.failed });
+        toast.error(
+          `${result.failed.length} documento(s) no se pudieron transferir; revisa el detalle`,
+        );
+      } else {
+        setBatchFailure(null);
+      }
+      refresh();
+    },
+    onError: (error) =>
+      toast.error(transferErrorMessage(error, "No se pudo aceptar el lote")),
+  });
+
+  const cancelBatch = useMutation({
+    mutationFn: (batchId: string) => transfersService.cancelBatch(batchId),
+    onSuccess: (result) => {
+      toast.success(`${result.canceled} documento(s) rechazados`);
+      refresh();
+    },
+    onError: (error) =>
+      toast.error(transferErrorMessage(error, "No se pudo rechazar el lote")),
+  });
+
+  const matchesSearch = (transfer: import("@/lib/types").TransferHistory) => {
     const sender = transfer.fromUser.name || transfer.fromUser.email;
     const name = transferDocumentName(transfer);
-    const matchesSearch =
+    return (
       !search.trim() ||
       name.toLowerCase().includes(search.trim().toLowerCase()) ||
-      sender.toLowerCase().includes(search.trim().toLowerCase());
-    return matchesSearch && (status === "all" || transfer.status === status);
-  });
+      sender.toLowerCase().includes(search.trim().toLowerCase())
+    );
+  };
+  const { singles, batches } = groupTransfers(transfers.data ?? []);
+  const visibleBatches = batches.filter(
+    (batch) =>
+      (status === "all" || batch.status === status) &&
+      batch.items.some(matchesSearch),
+  );
+  const visibleSingles = singles.filter(
+    (transfer) =>
+      matchesSearch(transfer) &&
+      (status === "all" || transfer.status === status),
+  );
+  const hasResults = visibleBatches.length + visibleSingles.length > 0;
+  const busy =
+    accept.isPending ||
+    cancel.isPending ||
+    acceptBatch.isPending ||
+    cancelBatch.isPending;
 
   return (
     <div className="space-y-6">
@@ -83,6 +135,40 @@ export default function ReceivedTransfersPage() {
       </div>
 
       <TransferStats />
+
+      {batchFailure && (
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium">
+                  Documentos que no se pudieron transferir
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  El resto del lote sí se procesó.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBatchFailure(null)}
+              >
+                Cerrar
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {batchFailure.failed.map((item) => (
+                <p key={item.transferId} className="text-sm">
+                  <span className="font-medium">
+                    Documento {item.documentId}:
+                  </span>{" "}
+                  <span className="text-muted-foreground">{item.reason}</span>
+                </p>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row">
@@ -113,14 +199,84 @@ export default function ReceivedTransfersPage() {
         <CardContent className="p-0">
           {transfers.isLoading ? (
             <p className="p-6 text-sm text-muted-foreground">Cargando transferencias...</p>
-          ) : filtered.length === 0 ? (
+          ) : !hasResults ? (
             <div className="flex flex-col items-center gap-2 p-10 text-center">
               <Inbox className="h-10 w-10 text-muted-foreground/50" />
               <p className="text-sm text-muted-foreground">No hay transferencias que coincidan.</p>
             </div>
           ) : (
             <div className="divide-y">
-              {filtered.map((transfer) => (
+              {visibleBatches.map((batch) => (
+                <div key={batch.batchId} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">
+                        Transferencia masiva · {batch.totalCount} documento(s)
+                      </span>
+                      <Badge variant="outline" className={transferStatusConfig[batch.status].className}>
+                        {transferStatusConfig[batch.status].label}
+                        {batch.pendingCount > 0 && batch.pendingCount < batch.totalCount
+                          ? ` · ${batch.pendingCount} pendientes`
+                          : ""}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      De: {batch.representative.fromUser.name || batch.representative.fromUser.email} · {formatTransferDate(batch.representative.createdAt)}
+                    </p>
+                    {batch.representative.initiatedBy &&
+                      batch.representative.initiatedById !== batch.representative.fromUserId && (
+                        <p className="text-xs text-muted-foreground">
+                          Iniciada por administración:{" "}
+                          {batch.representative.initiatedBy.name ||
+                            batch.representative.initiatedBy.email}
+                        </p>
+                      )}
+                    {batch.representative.comment && (
+                      <p className="mt-1 text-sm">{batch.representative.comment}</p>
+                    )}
+                    <details className="mt-2 text-sm">
+                      <summary className="cursor-pointer text-muted-foreground">
+                        Ver documentos
+                      </summary>
+                      <ul className="mt-2 list-inside list-disc space-y-1">
+                        {batch.items.map((item) => (
+                          <li key={item.id}>
+                            <Link
+                              href={`/dashboard/documents/${item.document.id}`}
+                              className="hover:underline"
+                            >
+                              {transferDocumentName(item)}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  </div>
+                  {batch.pendingCount > 0 && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => acceptBatch.mutate(batch.batchId)}
+                      >
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Aceptar lote
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => cancelBatch.mutate(batch.batchId)}
+                      >
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Rechazar lote
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {visibleSingles.map((transfer) => (
                 <div key={transfer.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -145,7 +301,7 @@ export default function ReceivedTransfersPage() {
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        disabled={accept.isPending || cancel.isPending}
+                        disabled={busy}
                         onClick={() => accept.mutate(transfer.id)}
                       >
                         <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -154,7 +310,7 @@ export default function ReceivedTransfersPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        disabled={accept.isPending || cancel.isPending}
+                        disabled={busy}
                         onClick={() => cancel.mutate(transfer.id)}
                       >
                         <XCircle className="mr-2 h-4 w-4" />

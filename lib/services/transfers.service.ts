@@ -1,5 +1,10 @@
 import api from "@/lib/axios";
 import type {
+  BulkAcceptResult,
+  BulkCancelResult,
+  BulkTransferResult,
+  CreateBulkAdminTransferDto,
+  CreateBulkTransferDto,
   CreateTransferDto,
   TransferHistory,
   TransferStats,
@@ -12,6 +17,34 @@ export const transfersService = {
 
   async createForOwner(data: CreateTransferDto): Promise<TransferHistory> {
     return (await api.post<TransferHistory>("/transfers/admin", data)).data;
+  },
+
+  async createBulk(data: CreateBulkTransferDto): Promise<BulkTransferResult> {
+    return (await api.post<BulkTransferResult>("/transfers/bulk", data)).data;
+  },
+
+  async createBulkForOwner(
+    data: CreateBulkAdminTransferDto,
+  ): Promise<BulkTransferResult> {
+    return (
+      await api.post<BulkTransferResult>("/transfers/bulk/admin", data)
+    ).data;
+  },
+
+  async acceptBatch(batchId: string): Promise<BulkAcceptResult> {
+    return (
+      await api.patch<BulkAcceptResult>(
+        `/transfers/batch/${batchId}/accept`,
+      )
+    ).data;
+  },
+
+  async cancelBatch(batchId: string): Promise<BulkCancelResult> {
+    return (
+      await api.patch<BulkCancelResult>(
+        `/transfers/batch/${batchId}/cancel`,
+      )
+    ).data;
   },
 
   async getSent(): Promise<TransferHistory[]> {
