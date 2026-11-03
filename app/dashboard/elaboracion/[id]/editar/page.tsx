@@ -68,6 +68,12 @@ function EditDocumentContent() {
   }, [document, router]);
 
   useEffect(() => {
+    if (document && !latestForm.current) {
+      latestForm.current = document.templateData?.formData ?? {};
+    }
+  }, [document]);
+
+  useEffect(() => {
     if (!dirty || !document || !editable) return;
     const timer = window.setTimeout(async () => {
       if (!latestForm.current) return;
@@ -135,10 +141,11 @@ function EditDocumentContent() {
       const saved = await save(false);
       if (!saved) return;
       const reviewer = usersQuery.data?.find((user) => user.id === reviewerId);
-      await authoringService.submit(document.id, {
+      const submitted = await authoringService.submit(document.id, {
         reviewerId: reviewerId || undefined,
         reviewerName: reviewer?.name ?? undefined,
       });
+      queryClient.setQueryData(['authoring-document', document.id], submitted);
       await queryClient.invalidateQueries({ queryKey: ['authoring-documents'] });
       toast.success('Documento enviado a revisión');
       setShowSubmit(false);
