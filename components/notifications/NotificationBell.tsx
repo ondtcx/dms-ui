@@ -63,7 +63,7 @@ function ActorNotifications() {
       {error && <p role="alert">No se pudieron cargar las notificaciones.</p>}
       {data?.data.length === 0 && <p>No hay notificaciones.</p>}
       <ul>{data?.data.map(item => {
-        const safeUrl = item.actionUrl && /^\/dashboard\/(documents\/\d+|directories\?directoryId=\d+|elaboracion\/plantillas\/\d+)$/.test(item.actionUrl) ? item.actionUrl : null;
+        const safeUrl = item.actionUrl && /^\/dashboard\/(documents\/\d+|directories\?directoryId=\d+|elaboracion\/\d+|elaboracion\/plantillas\/\d+|transfers\/(received|sent))$/.test(item.actionUrl) ? item.actionUrl : null;
         return <li key={item.id} className="space-y-1 border-b py-3">
           <p className="font-medium">{item.title}</p><p className="whitespace-pre-wrap break-words text-sm">{item.message}</p>
           {safeUrl && <Link href={safeUrl} onClick={() => setOpen(false)}>Abrir recurso</Link>}
