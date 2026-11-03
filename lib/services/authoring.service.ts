@@ -1,6 +1,7 @@
 import api from '@/lib/axios';
 import type {
   AuthoringDocument,
+  AuthoringTemplateActivity,
   AuthoringTemplate,
   AuthoringUser,
   AuthoringFieldsSchema,
@@ -45,6 +46,7 @@ export const authoringService = {
     pageSize?: string;
     orientation?: string;
     numberPrefix: string;
+    duplicatedFromId?: number;
   }): Promise<AuthoringTemplate> {
     const response = await api.post<AuthoringTemplate>('/authoring/templates', payload);
     return response.data;
@@ -72,6 +74,15 @@ export const authoringService = {
     const response = await api.post(
       `/authoring/templates/${templateId}/versions`,
       payload,
+    );
+    return response.data;
+  },
+
+  async listTemplateActivity(
+    templateId: number,
+  ): Promise<AuthoringTemplateActivity[]> {
+    const response = await api.get<AuthoringTemplateActivity[]>(
+      `/authoring/templates/${templateId}/activity`,
     );
     return response.data;
   },

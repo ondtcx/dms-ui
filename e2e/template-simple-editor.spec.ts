@@ -183,6 +183,10 @@ test.describe('Editor simple de plantillas', () => {
       expect(previewResponse.ok()).toBeTruthy();
 
       await page.goto(`/dashboard/elaboracion/plantillas/${template.id}`);
+      await expect(
+        page.getByText('Versión publicada', { exact: true }).first(),
+      ).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(/por Anderson/).first()).toBeVisible();
       await page.getByRole('button', { name: 'Duplicar', exact: true }).click();
       const duplicateDialog = page.getByRole('dialog');
       await duplicateDialog
@@ -209,6 +213,13 @@ test.describe('Editor simple de plantillas', () => {
       const copy = await copyResponse.json();
       expect(copy.name).toContain('copia');
       expect(copy.versions?.[0]?.pageFrame?.mode).toBe('fullPage');
+      await expect(
+        page.getByText('Plantilla creada', { exact: true }).first(),
+      ).toBeVisible({ timeout: 20_000 });
+      await page.goto(`/dashboard/elaboracion/plantillas/${template.id}`);
+      await expect(
+        page.getByText('Plantilla duplicada', { exact: true }).first(),
+      ).toBeVisible({ timeout: 20_000 });
 
       await request.post(`${API}/authoring/templates/${copyId}/deactivate`, {
         headers,

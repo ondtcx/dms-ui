@@ -86,6 +86,9 @@ function TemplateDesignContent() {
         queryClient.invalidateQueries({
           queryKey: ['authoring-templates'],
         }),
+        queryClient.invalidateQueries({
+          queryKey: ['authoring-template-activity', template.id],
+        }),
       ]);
       toast.success(
         publish

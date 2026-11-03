@@ -113,6 +113,27 @@ export interface AuthoringTemplateVersion {
   publishedByName?: string | null;
 }
 
+export type AuthoringTemplateActivityAction =
+  | 'CREATED'
+  | 'UPDATED'
+  | 'VERSION_CREATED'
+  | 'VERSION_PUBLISHED'
+  | 'VERSION_RETIRED'
+  | 'DEACTIVATED'
+  | 'DUPLICATED';
+
+export interface AuthoringTemplateActivity {
+  id: number;
+  templateId: number;
+  versionId?: number | null;
+  version?: { version: number } | null;
+  action: AuthoringTemplateActivityAction;
+  actorId: string;
+  actorName?: string | null;
+  metadata?: Record<string, any> | null;
+  createdAt: string;
+}
+
 export interface AuthoringTemplate {
   id: number;
   name: string;

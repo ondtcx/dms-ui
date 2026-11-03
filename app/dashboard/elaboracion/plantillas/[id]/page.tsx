@@ -38,6 +38,16 @@ const VERSION_LABELS: Record<string, string> = {
   RETIRED: 'Retirada',
 };
 
+const ACTIVITY_LABELS: Record<string, string> = {
+  CREATED: 'Plantilla creada',
+  UPDATED: 'Metadatos actualizados',
+  VERSION_CREATED: 'Versión creada',
+  VERSION_PUBLISHED: 'Versión publicada',
+  VERSION_RETIRED: 'Versión retirada',
+  DEACTIVATED: 'Plantilla desactivada',
+  DUPLICATED: 'Plantilla duplicada',
+};
+
 function formatDate(value?: string | null) {
   if (!value) return '—';
   return new Date(value).toLocaleString('es-ES', {
@@ -66,6 +76,11 @@ function TemplateAdminContent() {
     queryFn: () => authoringService.getTemplate(templateId),
     enabled: Number.isSafeInteger(templateId) && templateId > 0,
   });
+  const activityQuery = useQuery({
+    queryKey: ['authoring-template-activity', templateId],
+    queryFn: () => authoringService.listTemplateActivity(templateId),
+    enabled: Number.isSafeInteger(templateId) && templateId > 0,
+  });
   const template = query.data;
   const versions = template?.versions ?? [];
   const latest = versions[0];
@@ -74,6 +89,9 @@ function TemplateAdminContent() {
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ['authoring-template', templateId] });
     await queryClient.invalidateQueries({ queryKey: ['authoring-templates'] });
+    await queryClient.invalidateQueries({
+      queryKey: ['authoring-template-activity', templateId],
+    });
   };
 
   const publish = async (version: AuthoringTemplateVersion) => {
@@ -144,6 +162,7 @@ function TemplateAdminContent() {
         pageSize: latest.pageSize ?? undefined,
         orientation: latest.orientation ?? undefined,
         numberPrefix: latest.numberPrefix,
+        duplicatedFromId: template.id,
       });
       setDuplicateOpen(false);
       toast.success('Plantilla duplicada. Revisa y publica la versión.');
@@ -344,6 +363,59 @@ function TemplateAdminContent() {
               </tbody>
             </table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Actividad de la plantilla</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {activityQuery.isLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Cargando actividad...
+            </div>
+          ) : activityQuery.data?.length ? (
+            <div className="space-y-2">
+              {activityQuery.data.map((activity) => (
+                <div
+                  key={activity.id}
+                  className="flex flex-col gap-1 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      {ACTIVITY_LABELS[activity.action] ?? activity.action}
+                    </Badge>
+                    {activity.version?.version && (
+                      <span className="text-muted-foreground">
+                        v{activity.version.version}
+                      </span>
+                    )}
+                    {activity.action === 'DUPLICATED' &&
+                      activity.metadata?.newTemplateName && (
+                        <span className="text-muted-foreground">
+                          → {activity.metadata.newTemplateName}
+                        </span>
+                      )}
+                    {activity.action === 'CREATED' &&
+                      activity.metadata?.duplicatedFromId && (
+                        <span className="text-muted-foreground">
+                          desde plantilla {activity.metadata.duplicatedFromId}
+                        </span>
+                      )}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {activity.actorName || activity.actorId} ·{' '}
+                    {formatDate(activity.createdAt)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Todavía no hay actividad registrada.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

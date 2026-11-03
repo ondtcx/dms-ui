@@ -137,6 +137,9 @@ test.describe('Rol diseñador sin publicación', () => {
       await expect(
         page.getByRole('button', { name: 'Publicar', exact: true }),
       ).toHaveCount(0);
+      await expect(
+        page.getByText('Versión creada', { exact: true }).first(),
+      ).toBeVisible({ timeout: 20_000 });
 
       const secretaryLogin = await request.post(`${API}/auth/login`, {
         data: {
