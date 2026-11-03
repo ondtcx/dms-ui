@@ -685,6 +685,7 @@ export interface TransferHistory {
   toUser: (TransferUser & { isActive: boolean }) | null;
   initiatedById: string | null;
   initiatedBy: TransferUser | null;
+  batchId: string | null;
   status: TransferStatus;
   comment: string | null;
   completedAt: string | null;
@@ -697,6 +698,49 @@ export interface CreateTransferDto {
   documentId: number;
   toUserId: string;
   comment?: string;
+}
+
+export interface CreateBulkTransferDto {
+  documentIds: number[];
+  toUserId: string;
+  comment?: string;
+}
+
+export interface CreateBulkAdminTransferDto {
+  fromOwnerId: string;
+  documentIds?: number[];
+  toUserId: string;
+  comment?: string;
+}
+
+export interface BulkTransferSkipped {
+  documentId: number;
+  reason: string;
+}
+
+export interface BulkTransferResult {
+  batchId: string;
+  created: TransferHistory[];
+  skipped: BulkTransferSkipped[];
+  summary: { total: number; created: number; skipped: number };
+}
+
+export interface BulkTransferFailure {
+  transferId: number;
+  documentId: number;
+  reason: string;
+}
+
+export interface BulkAcceptResult {
+  batchId: string;
+  accepted: number;
+  failed: BulkTransferFailure[];
+}
+
+export interface BulkCancelResult {
+  batchId: string;
+  canceled: number;
+  failed: BulkTransferFailure[];
 }
 
 export interface TransferStats {

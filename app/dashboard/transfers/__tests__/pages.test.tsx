@@ -12,6 +12,8 @@ jest.mock("@/lib/services/transfers.service", () => ({
     getStats: jest.fn(),
     accept: jest.fn(),
     cancel: jest.fn(),
+    acceptBatch: jest.fn(),
+    cancelBatch: jest.fn(),
   },
 }));
 jest.mock("react-hot-toast", () => ({
@@ -42,6 +44,7 @@ const transfer = {
   },
   initiatedById: "owner",
   initiatedBy: { id: "owner", name: "Owner", email: "owner@example.com" },
+  batchId: null,
   status: "PENDING",
   comment: null,
   completedAt: null,
@@ -73,6 +76,16 @@ describe("transfer list pages", () => {
     (transfersService.getReceived as jest.Mock).mockResolvedValue([transfer]);
     (transfersService.cancel as jest.Mock).mockResolvedValue(transfer);
     (transfersService.accept as jest.Mock).mockResolvedValue(transfer);
+    (transfersService.acceptBatch as jest.Mock).mockResolvedValue({
+      batchId: "batch-1",
+      accepted: 2,
+      failed: [],
+    });
+    (transfersService.cancelBatch as jest.Mock).mockResolvedValue({
+      batchId: "batch-1",
+      canceled: 2,
+      failed: [],
+    });
   });
 
   it("cancels a pending sent transfer", async () => {
@@ -94,6 +107,87 @@ describe("transfer list pages", () => {
 
     await waitFor(() =>
       expect(transfersService.accept).toHaveBeenCalledWith(transfer.id),
+    );
+  });
+});
+
+describe("transfer batch pages", () => {
+  const batchItems = [
+    { ...transfer, id: 21, batchId: "batch-1" },
+    { ...transfer, id: 22, batchId: "batch-1", documentId: 6 },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (transfersService.getStats as jest.Mock).mockResolvedValue({
+      sent: 2,
+      received: 2,
+      total: 2,
+      pending: 2,
+    });
+    (transfersService.acceptBatch as jest.Mock).mockResolvedValue({
+      batchId: "batch-1",
+      accepted: 2,
+      failed: [],
+    });
+    (transfersService.cancelBatch as jest.Mock).mockResolvedValue({
+      batchId: "batch-1",
+      canceled: 2,
+      failed: [],
+    });
+  });
+
+  it("accepts a received batch once", async () => {
+    (transfersService.getReceived as jest.Mock).mockResolvedValue(batchItems);
+    mount(<ReceivedTransfersPage />);
+    await screen.findByText(/Transferencia masiva · 2 documento/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Aceptar lote" }));
+
+    await waitFor(() =>
+      expect(transfersService.acceptBatch).toHaveBeenCalledWith("batch-1"),
+    );
+  });
+
+  it("keeps the whole batch visible when the search matches one document", async () => {
+    const distinct = [
+      {
+        ...transfer,
+        id: 31,
+        batchId: "batch-2",
+        document: { ...transfer.document, name: "Acta A" },
+      },
+      {
+        ...transfer,
+        id: 32,
+        batchId: "batch-2",
+        document: { ...transfer.document, id: 6, name: "Acta B" },
+      },
+    ];
+    (transfersService.getReceived as jest.Mock).mockResolvedValue(distinct);
+    mount(<ReceivedTransfersPage />);
+    await screen.findByText(/Transferencia masiva · 2 documento/);
+
+    fireEvent.change(screen.getByPlaceholderText("Buscar por documento o remitente..."), {
+      target: { value: "Acta A" },
+    });
+
+    expect(screen.getByText(/Transferencia masiva · 2 documento/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Aceptar lote" }));
+    await waitFor(() =>
+      expect(transfersService.acceptBatch).toHaveBeenCalledWith("batch-2"),
+    );
+  });
+
+  it("cancels a sent batch once", async () => {
+    (transfersService.getSent as jest.Mock).mockResolvedValue(batchItems);
+    mount(<SentTransfersPage />);
+    await screen.findByText(/Transferencia masiva · 2 documento/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar lote" }));
+
+    await waitFor(() =>
+      expect(transfersService.cancelBatch).toHaveBeenCalledWith("batch-1"),
     );
   });
 });

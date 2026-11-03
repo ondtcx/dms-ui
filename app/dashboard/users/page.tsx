@@ -3,6 +3,7 @@
 import ProtectedRoute from "@/guards/ProtectedRoute";
 import { UserRole, User } from "@/lib/types";
 import { EditUserDialog } from "@/components/users/EditUserDialog";
+import { BulkTransferDialog } from "@/components/transfers/BulkTransferDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { usersService } from "@/lib/services/users.service";
@@ -38,7 +39,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, UserPlus, Pencil, Trash2, KeyRound, Copy, Check, Loader2, UserCheck, UserX } from "lucide-react";
+import { Users, UserPlus, Pencil, Trash2, KeyRound, Copy, Check, Loader2, UserCheck, UserX, Files } from "lucide-react";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.RECTOR]: "Rector",
@@ -77,6 +78,7 @@ function UsersManagementContent() {
   const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [anonymizeUser, setAnonymizeUser] = useState<User | null>(null);
+  const [bulkTransferUser, setBulkTransferUser] = useState<User | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
     name: "",
@@ -328,6 +330,16 @@ function UsersManagementContent() {
                             </Button>
                           </>
                         )}
+                        {isAdmin && !user.anonymizedAt && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setBulkTransferUser(user)}
+                            title="Transferir todos los documentos"
+                          >
+                            <Files className="h-4 w-4" />
+                          </Button>
+                        )}
                         {user.anonymizedAt ? null : user.isActive === false ? (
                           <>
                             <Button
@@ -488,6 +500,16 @@ function UsersManagementContent() {
           if (anonymizeUser) anonymizeMutation.mutate(anonymizeUser.id);
         }}
       />
+
+      {bulkTransferUser && (
+        <BulkTransferDialog
+          owner={bulkTransferUser}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) setBulkTransferUser(null);
+          }}
+        />
+      )}
 
       {/* Dialog editar usuario */}
       {editingUser && (

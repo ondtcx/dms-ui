@@ -1,4 +1,4 @@
-import type { TransferStatus } from "@/lib/types";
+import { TransferStatus, type TransferHistory } from "@/lib/types";
 
 export const transferStatusConfig: Record<
   TransferStatus,
@@ -50,4 +50,51 @@ export function transferErrorMessage(
     error as { response?: { data?: { message?: string } } }
   )?.response?.data?.message;
   return Array.isArray(message) ? message.join(". ") : message || fallback;
+}
+
+export interface TransferBatchGroup {
+  batchId: string;
+  items: TransferHistory[];
+  representative: TransferHistory;
+  status: TransferStatus;
+  pendingCount: number;
+  totalCount: number;
+}
+
+export function groupTransfers(transfers: TransferHistory[]): {
+  singles: TransferHistory[];
+  batches: TransferBatchGroup[];
+} {
+  const singles: TransferHistory[] = [];
+  const groups = new Map<string, TransferHistory[]>();
+
+  for (const transfer of transfers) {
+    if (!transfer.batchId) {
+      singles.push(transfer);
+      continue;
+    }
+    const current = groups.get(transfer.batchId) ?? [];
+    current.push(transfer);
+    groups.set(transfer.batchId, current);
+  }
+
+  const batches = [...groups.entries()].map(([batchId, items]) => {
+    const pendingCount = items.filter((item) => item.status === "PENDING").length;
+    const status: TransferStatus =
+      pendingCount > 0
+        ? TransferStatus.PENDING
+        : items.some((item) => item.status === TransferStatus.COMPLETED)
+          ? TransferStatus.COMPLETED
+          : TransferStatus.CANCELED;
+    return {
+      batchId,
+      items,
+      representative: items[0],
+      status,
+      pendingCount,
+      totalCount: items.length,
+    };
+  });
+
+  return { singles, batches };
 }
