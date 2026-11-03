@@ -38,6 +38,7 @@ import {
   PlusCircle,
   Send,
   Inbox,
+  BookOpen,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -97,6 +98,23 @@ export const mainMenuItems: MenuItem[] = [
         title: "Nuevo Documento",
         icon: Plus,
         url: "/dashboard/documents?action=new",
+      },
+    ],
+  },
+  {
+    title: "Elaboración documental",
+    icon: BookOpen,
+    url: "/dashboard/elaboracion",
+    items: [
+      {
+        title: "Biblioteca de plantillas",
+        icon: BookOpen,
+        url: "/dashboard/elaboracion",
+      },
+      {
+        title: "Pendientes de revisión",
+        icon: Inbox,
+        url: "/dashboard/elaboracion/pendientes",
       },
     ],
   },
