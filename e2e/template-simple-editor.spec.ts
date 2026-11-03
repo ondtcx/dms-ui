@@ -89,6 +89,12 @@ test.describe('Editor simple de plantillas', () => {
         .first()
         .click({ modifiers: ['Control'] });
       await expect(page.getByText(/2 elementos seleccionados/)).toBeVisible();
+      await expect(page).toHaveScreenshot('simple-editor-multi.png', {
+        fullPage: true,
+        maxDiffPixelRatio: 0.03,
+        mask: [page.getByText(/Prueba editor simple E2E/)],
+      });
+      await page.getByRole('button', { name: 'Izq.' }).click();
       const box = page.locator('[data-box-id="acta-5"]');
       const bounds = await box.boundingBox();
       expect(bounds).not.toBeNull();

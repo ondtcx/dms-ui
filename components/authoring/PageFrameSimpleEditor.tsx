@@ -319,6 +319,95 @@ export function PageFrameSimpleEditor({
     });
   };
 
+  const selectedMovable = boxes.filter(
+    (box) => selectedIds.includes(box.id) && !isLockedBox(box),
+  );
+
+  const selectionBounds = () => {
+    if (!selectedMovable.length) return null;
+    const left = Math.min(...selectedMovable.map((box) => box.x));
+    const top = Math.min(...selectedMovable.map((box) => box.y));
+    const right = Math.max(
+      ...selectedMovable.map((box) => box.x + (box.width ?? 0)),
+    );
+    const bottom = Math.max(
+      ...selectedMovable.map((box) => box.y + (box.height ?? 0)),
+    );
+    return { left, top, right, bottom, width: right - left, height: bottom - top };
+  };
+
+  const alignSelection = (
+    mode: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom',
+  ) => {
+    const bounds = selectionBounds();
+    if (!bounds || selectedMovable.length < 2) return;
+    commit({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: boxes.map((box) => {
+          if (!selectedIds.includes(box.id) || isLockedBox(box)) return box;
+          if (mode === 'left') return { ...box, x: bounds.left };
+          if (mode === 'right')
+            return { ...box, x: bounds.right - (box.width ?? 0) };
+          if (mode === 'center')
+            return {
+              ...box,
+              x: bounds.left + bounds.width / 2 - (box.width ?? 0) / 2,
+            };
+          if (mode === 'top') return { ...box, y: bounds.top };
+          if (mode === 'bottom')
+            return { ...box, y: bounds.bottom - (box.height ?? 0) };
+          return {
+            ...box,
+            y: bounds.top + bounds.height / 2 - (box.height ?? 0) / 2,
+          };
+        }),
+      },
+    });
+  };
+
+  const distributeSelection = (axis: 'horizontal' | 'vertical') => {
+    if (selectedMovable.length < 3) return;
+    const sorted = [...selectedMovable].sort((a, b) =>
+      axis === 'horizontal' ? a.x - b.x : a.y - b.y,
+    );
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const start = axis === 'horizontal' ? first.x : first.y;
+    const end =
+      axis === 'horizontal'
+        ? last.x + (last.width ?? 0)
+        : last.y + (last.height ?? 0);
+    const total =
+      sorted.reduce(
+        (sum, box) =>
+          sum + (axis === 'horizontal' ? box.width ?? 0 : box.height ?? 0),
+        0,
+      ) || 0;
+    const gap = (end - start - total) / (sorted.length - 1);
+    let cursor = start;
+    const positions = new Map<string, number>();
+    for (const box of sorted) {
+      positions.set(box.id, cursor);
+      cursor +=
+        (axis === 'horizontal' ? box.width ?? 0 : box.height ?? 0) + gap;
+    }
+    commit({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: boxes.map((box) => {
+          const position = positions.get(box.id);
+          if (position === undefined) return box;
+          return axis === 'horizontal'
+            ? { ...box, x: position }
+            : { ...box, y: position };
+        }),
+      },
+    });
+  };
+
   const undo = () => {
     const previous = history.current.pop();
     if (!previous) return;
@@ -1093,6 +1182,18 @@ export function PageFrameSimpleEditor({
                   {selectedIds.length} elementos seleccionados. Arrastra uno
                   para mover el grupo.
                 </p>
+                <div className="grid grid-cols-3 gap-1">
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('left')}>Izq.</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('center')}>Centro</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('right')}>Der.</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('top')}>Arriba</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('middle')}>Medio</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => alignSelection('bottom')}>Abajo</Button>
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  <Button type="button" size="sm" variant="outline" onClick={() => distributeSelection('horizontal')} disabled={selectedIds.length < 3}>Distribuir H</Button>
+                  <Button type="button" size="sm" variant="outline" onClick={() => distributeSelection('vertical')} disabled={selectedIds.length < 3}>Distribuir V</Button>
+                </div>
                 <Button
                   type="button"
                   size="sm"
