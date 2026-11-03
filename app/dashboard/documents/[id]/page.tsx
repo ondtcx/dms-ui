@@ -27,6 +27,7 @@ import {
   ShieldAlert,
   ScrollText,
   MessageSquare,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +55,7 @@ import { DocumentSharingAction } from '@/components/documents/DocumentSharingAct
 import { SharingIndicator } from '@/components/documents/SharingIndicator';
 import { ChangeRequestPanel } from '@/components/documents/ChangeRequestPanel';
 import { RequestChangesDialog } from '@/components/documents/RequestChangesDialog';
+import { TransferDocumentDialog } from '@/components/transfers/TransferDocumentDialog';
 
 const AUDIT_HISTORY_ROLES: ReadonlySet<string> = new Set([UserRole.ADMIN, UserRole.RECTOR]);
 
@@ -83,10 +85,11 @@ export default function DocumentDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showExplainDialog, setShowExplainDialog] = useState(false);
   const [showRequestDialog, setShowRequestDialog] = useState(false);
+  const [showTransferDialog, setShowTransferDialog] = useState(false);
   useEffect(() => {
     setShowEditDialog(false); setShowReplaceDialog(false); setShowDeleteConfirm(false);
     setShowVersionHistory(false); setShowExplainDialog(false);
-    setShowRequestDialog(false);
+    setShowRequestDialog(false); setShowTransferDialog(false);
     setPreviewUrl(''); setLoadingPreview(false);
   }, [identity]);
 
@@ -100,6 +103,9 @@ export default function DocumentDetailPage() {
   });
   const { isLoading, isFetching } = query;
   const doc = query.isSuccess && query.data?.id === documentId ? query.data : undefined;
+  const canTransfer = !!doc && !!user?.id &&
+    readDocumentActionCapabilities(doc, user.id)?.scope === 'ordinary' &&
+    (doc.uploadedById === user.id || user.role === UserRole.ADMIN || user.roles?.includes('admin') === true);
   const canAct = (action: 'editMetadata' | 'editContent' | 'trash', boundEpoch: object = epoch) => {
     const state = queryClient.getQueryState(queryKey);
     const snapshot = queryClient.getQueryData<Document>(queryKey);
@@ -303,6 +309,12 @@ export default function DocumentDetailPage() {
                 <DropdownMenuItem onClick={() => setShowRequestDialog(true)}>
                   <MessageSquare className="mr-2 h-4 w-4" />
                   Solicitar cambios
+                </DropdownMenuItem>
+              )}
+              {canTransfer && (
+                <DropdownMenuItem onClick={() => setShowTransferDialog(true)}>
+                  <ArrowRightLeft className="mr-2 h-4 w-4" />
+                  Transferir propiedad
                 </DropdownMenuItem>
               )}
               {canExplainPermissions && (
@@ -536,6 +548,14 @@ export default function DocumentDetailPage() {
 
       {/* Modales */}
       {showRequestDialog && <RequestChangesDialog key={identity} documentId={doc.id} open onOpenChange={setShowRequestDialog} />}
+      {showTransferDialog && canTransfer && doc && (
+        <TransferDocumentDialog
+          key={`transfer-${identity}`}
+          document={doc}
+          open={showTransferDialog}
+          onOpenChange={setShowTransferDialog}
+        />
+      )}
       {showEditDialog && (
         <EditDocumentDialog
           key={identity}
