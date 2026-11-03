@@ -6,18 +6,26 @@ import { rolesService } from "@/lib/services/roles.service";
 
 jest.mock("@/guards/ProtectedRoute", () => ({ __esModule: true, default: ({ children }: any) => children }));
 jest.mock("@/components/users/EditUserDialog", () => ({ EditUserDialog: () => null }));
+jest.mock("@/lib/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "admin", role: "admin", roles: ["admin"] } }),
+}));
 jest.mock("@/lib/services/users.service", () => ({ usersService: {
-  getAll: jest.fn(), create: jest.fn(), delete: jest.fn(), generateResetToken: jest.fn(),
+  getAll: jest.fn(), create: jest.fn(), deactivate: jest.fn(), reactivate: jest.fn(), anonymize: jest.fn(), generateResetToken: jest.fn(),
 } }));
+jest.mock("react-hot-toast", () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
 jest.mock("@/lib/services/roles.service", () => ({ rolesService: { getAll: jest.fn() } }));
 
 const mockedUsers = usersService as jest.Mocked<typeof usersService>;
 const mockedRoles = rolesService as jest.Mocked<typeof rolesService>;
 const activeRole = { id: 12, key: "inspector-general", label: "Inspector General", isActive: true, permissions: [] };
 
-function renderPage() {
+function renderUsersPage() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={client}><UsersManagementPage /></QueryClientProvider>);
+}
+
+function renderPage() {
+  renderUsersPage();
   fireEvent.click(screen.getByRole("button", { name: "Crear usuario" }));
   return within(screen.getByRole("dialog"));
 }
@@ -27,6 +35,7 @@ describe("create user catalog roles", () => {
     jest.clearAllMocks();
     mockedUsers.getAll.mockResolvedValue([]);
     mockedUsers.create.mockResolvedValue({ id: "new-user" } as any);
+    mockedUsers.anonymize.mockResolvedValue(undefined);
     mockedRoles.getAll.mockResolvedValue([activeRole, {
       id: 13, key: "profesor", label: "Profesor inactivo", isActive: false, permissions: [],
     }]);
@@ -73,5 +82,54 @@ describe("create user catalog roles", () => {
       ? "No hay roles activos disponibles" : "No se pudieron cargar los roles");
     expect(dialog.getByRole("button", { name: "Crear usuario" })).toBeDisabled();
     expect(mockedUsers.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("legal anonymization", () => {
+  const inactiveUser = {
+    id: "u1",
+    name: "Inactive User",
+    email: "inactive@example.com",
+    role: "user",
+    isActive: false,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockedUsers.getAll.mockResolvedValue([inactiveUser as any]);
+    mockedUsers.anonymize.mockImplementation(async () => undefined);
+  });
+
+  it("requires typed confirmation before anonymizing an inactive user", async () => {
+    renderUsersPage();
+    await screen.findByText("Inactive User");
+    fireEvent.click(screen.getByTitle("Anonimizar usuario"));
+
+    const dialog = within(await screen.findByRole("dialog"));
+    expect(dialog.getByRole("button", { name: "Anonimizar" })).toBeDisabled();
+    fireEvent.change(dialog.getByPlaceholderText("ANONIMIZAR"), {
+      target: { value: "ANONIMIZAR" },
+    });
+    await waitFor(() =>
+      expect(dialog.getByRole("button", { name: "Anonimizar" })).not.toBeDisabled(),
+    );
+    fireEvent.click(dialog.getByRole("button", { name: "Anonimizar" }));
+
+    await waitFor(() => expect(mockedUsers.anonymize).toHaveBeenCalled());
+    expect(mockedUsers.anonymize.mock.calls[0]?.[0]).toBe("u1");
+  });
+
+  it("shows the anonymized badge and hides account actions", async () => {
+    mockedUsers.getAll.mockResolvedValue([
+      { ...inactiveUser, anonymizedAt: "2026-11-03T00:00:00.000Z" } as any,
+    ]);
+    renderUsersPage();
+
+    expect(await screen.findByText("Anonimizado")).toBeInTheDocument();
+    expect(screen.queryByTitle("Reactivar usuario")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Anonimizar usuario")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Desactivar usuario")).not.toBeInTheDocument();
   });
 });

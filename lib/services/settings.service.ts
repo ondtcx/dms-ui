@@ -41,7 +41,7 @@ export interface NotificationSettings {
 export interface SecuritySettings {
   sessionTimeoutMinutes: number;
   maxLoginAttempts: number;
-  // Legacy JSON may still contain require2FA; it is intentionally ignored.
+  require2FA: boolean;
   [key: string]: unknown;
 }
 

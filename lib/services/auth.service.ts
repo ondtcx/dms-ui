@@ -61,9 +61,20 @@ export const authService = {
     await api.post("/auth/change-password", { currentPassword, newPassword } satisfies ChangePasswordDto);
   },
 
-  logout() {
+  async logout(): Promise<void> {
+    const token = Cookies.get("token");
     Cookies.remove("token", { path: "/" });
     Cookies.remove("user", { path: "/" });
+    if (!token) return;
+
+    try {
+      await api.post("/auth/logout", undefined, {
+        headers: { Authorization: `Bearer ${token}` },
+        silentErrors: [401],
+      });
+    } catch {
+      // The local session is already cleared; server invalidation is best-effort.
+    }
   },
 
   getToken(): string | undefined {

@@ -34,6 +34,10 @@ import {
   ChevronRight,
   Building2,
   Folder,
+  FolderKanban,
+  PlusCircle,
+  Send,
+  Inbox,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -96,8 +100,7 @@ export const mainMenuItems: MenuItem[] = [
       },
     ],
   },
-  // TODO: Transfers feature is not yet defined — keep disabled until requirements are confirmed
-  /* {
+  {
     title: "Transferencias",
     icon: FolderKanban,
     url: "/dashboard/transfers",
@@ -108,17 +111,17 @@ export const mainMenuItems: MenuItem[] = [
         url: "/dashboard/transfers/new-transfer",
       },
       {
-        title: "Enviados",
+        title: "Enviadas",
         icon: Send,
         url: "/dashboard/transfers/sent",
       },
       {
-        title: "Recibidos",
+        title: "Recibidas",
         icon: Inbox,
         url: "/dashboard/transfers/received",
       },
     ],
-  }, */
+  },
   // Archivo oculto del sidebar por decisión de producto — la ruta /dashboard/archive sigue disponible.
 ];
 

@@ -35,6 +35,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (authService.isAuthenticated()) {
           const profile = await authService.getProfile();
           setUser({ ...profile.user, permissions: profile.permissions, roles: profile.roles, authRevision: profile.authRevision });
+          if (profile.twoFactorSetupRequired) {
+            router.push("/dashboard/mi-cuenta");
+          }
         }
       } catch (error) {
         console.error("Error loading user:", error);
@@ -45,13 +48,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     loadUser();
-  }, []);
+  }, [router]);
 
   const login = async (email: string, password: string, code?: string) => {
     const response = await authService.login({ email, password, code });
     if (response.access_token) {
       setUser({ ...response.user, permissions: response.permissions, roles: response.roles, authRevision: response.authRevision });
-      router.push("/dashboard/home");
+      router.push(
+        response.twoFactorSetupRequired
+          ? "/dashboard/mi-cuenta"
+          : "/dashboard/home",
+      );
     }
     return response;
   };
@@ -63,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    authService.logout();
+    void authService.logout();
     setUser(null);
     router.push("/auth/login");
   };

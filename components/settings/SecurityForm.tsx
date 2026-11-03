@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Save, ShieldCheck } from "lucide-react";
 import { settingsService, SecuritySettings } from "@/lib/services/settings.service";
 import { useSettings } from "@/lib/contexts/SettingsContext";
@@ -17,12 +18,18 @@ export function SecurityForm() {
   const defaultSecurity: SecuritySettings = {
     sessionTimeoutMinutes: 480,
     maxLoginAttempts: 5,
+    require2FA: false,
   };
 
   const [form, setForm] = useState<SecuritySettings>(defaultSecurity);
 
   useEffect(() => {
-    if (settings?.security) setForm(settings.security);
+    if (!settings?.security) return;
+    setForm({
+      sessionTimeoutMinutes: settings.security.sessionTimeoutMinutes ?? 480,
+      maxLoginAttempts: settings.security.maxLoginAttempts ?? 5,
+      require2FA: settings.security.require2FA === true,
+    });
   }, [settings]);
 
   const mutation = useMutation({
@@ -93,6 +100,25 @@ export function SecurityForm() {
               />
               <p className="text-xs text-gray-500">
                 Intentos fallidos antes de bloquear la cuenta
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-md border p-4">
+            <Checkbox
+              id="require-2fa"
+              checked={form.require2FA}
+              onCheckedChange={(checked) =>
+                setForm({ ...form, require2FA: checked === true })
+              }
+            />
+            <div className="space-y-1">
+              <Label htmlFor="require-2fa">
+                Exigir autenticación de dos factores
+              </Label>
+              <p className="text-xs text-gray-500">
+                Los usuarios sin 2FA configurado solo podrán acceder a la
+                configuración de su cuenta hasta habilitarla.
               </p>
             </div>
           </div>

@@ -4,6 +4,7 @@ import ProtectedRoute from "@/guards/ProtectedRoute";
 import { UserRole, User } from "@/lib/types";
 import { EditUserDialog } from "@/components/users/EditUserDialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/lib/contexts/AuthContext";
 import { usersService } from "@/lib/services/users.service";
 import { rolesService } from "@/lib/services/roles.service";
 import { useState } from "react";
@@ -37,7 +38,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Users, UserPlus, Pencil, Trash2, KeyRound, Copy, Check, Loader2 } from "lucide-react";
+import { Users, UserPlus, Pencil, Trash2, KeyRound, Copy, Check, Loader2, UserCheck, UserX } from "lucide-react";
 
 const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.RECTOR]: "Rector",
@@ -70,8 +71,12 @@ const ROLE_BADGE_VARIANT: Record<
 
 function UsersManagementContent() {
   const queryClient = useQueryClient();
+  const { user: actor } = useAuth();
+  const isAdmin = actor?.role === UserRole.ADMIN || actor?.roles?.includes("admin") === true;
   const [isCreating, setIsCreating] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"active" | "inactive" | "all">("active");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [anonymizeUser, setAnonymizeUser] = useState<User | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newUser, setNewUser] = useState({
     name: "",
@@ -81,8 +86,8 @@ function UsersManagementContent() {
   });
 
   const { data: users, isLoading } = useQuery({
-    queryKey: ["users"],
-    queryFn: () => usersService.getAll(),
+    queryKey: ["users", statusFilter],
+    queryFn: () => usersService.getAll(statusFilter),
   });
 
   const { data: roles, isLoading: rolesLoading, isError: rolesError } = useQuery({
@@ -112,13 +117,42 @@ function UsersManagementContent() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: usersService.delete,
+    mutationFn: (id: string) => usersService.deactivate(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-      toast.success("Usuario eliminado");
+      toast.success("Usuario desactivado");
+    },
+    onError: (error) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "Error al desactivar usuario";
+      toast.error(message);
+    },
+  });
+
+  const anonymizeMutation = useMutation({
+    mutationFn: usersService.anonymize,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Usuario anonimizado");
+      setAnonymizeUser(null);
+    },
+    onError: (error) => {
+      const message =
+        (error as { response?: { data?: { message?: string } } }).response?.data
+          ?.message || "Error al anonimizar usuario";
+      toast.error(Array.isArray(message) ? message.join(". ") : message);
+    },
+  });
+
+  const reactivateMutation = useMutation({
+    mutationFn: usersService.reactivate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast.success("Usuario reactivado");
     },
     onError: () => {
-      toast.error("Error al eliminar usuario");
+      toast.error("Error al reactivar usuario");
     },
   });
 
@@ -189,10 +223,24 @@ function UsersManagementContent() {
             </p>
           </div>
         </div>
-        <Button onClick={() => setIsCreating(true)}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Crear usuario
-        </Button>
+        <div className="flex items-center gap-2">
+          <select
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            value={statusFilter}
+            onChange={(e) =>
+              setStatusFilter(e.target.value as "active" | "inactive" | "all")
+            }
+            aria-label="Filtrar usuarios por estado"
+          >
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+            <option value="all">Todos</option>
+          </select>
+          <Button onClick={() => setIsCreating(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Crear usuario
+          </Button>
+        </div>
       </div>
 
       {/* Tabla de usuarios */}
@@ -229,7 +277,16 @@ function UsersManagementContent() {
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {user.name}
+                        {user.anonymizedAt ? (
+                          <Badge variant="secondary">Anonimizado</Badge>
+                        ) : user.isActive === false ? (
+                          <Badge variant="outline">Inactivo</Badge>
+                        ) : null}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">
                       {user.email}
                     </TableCell>
@@ -252,30 +309,60 @@ function UsersManagementContent() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleGenerateToken(user)}
-                          title="Generar token de restablecimiento"
-                        >
-                          <KeyRound className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setEditingUser(user)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirmId(user.id)}
-                          disabled={deleteMutation.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {!user.anonymizedAt && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleGenerateToken(user)}
+                              title="Generar token de restablecimiento"
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setEditingUser(user)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {user.anonymizedAt ? null : user.isActive === false ? (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => reactivateMutation.mutate(user.id)}
+                              disabled={reactivateMutation.isPending}
+                              title="Reactivar usuario"
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </Button>
+                            {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setAnonymizeUser(user)}
+                                title="Anonimizar usuario"
+                              >
+                                <UserX className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeleteConfirmId(user.id)}
+                            disabled={deleteMutation.isPending}
+                            title="Desactivar usuario"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -373,18 +460,32 @@ function UsersManagementContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm eliminar */}
+      {/* Confirm desactivar */}
       <ConfirmDialog
         open={deleteConfirmId !== null}
         onOpenChange={(open) => !open && setDeleteConfirmId(null)}
-        title="Eliminar usuario"
-        description="¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer."
-        confirmLabel="Eliminar"
+        title="Desactivar usuario"
+        description="El usuario conservará su historial, pero no podrá iniciar sesión. Podrás reactivarlo después."
+        confirmLabel="Desactivar"
         variant="destructive"
         loading={deleteMutation.isPending}
         onConfirm={() => {
           if (deleteConfirmId !== null) deleteMutation.mutate(deleteConfirmId);
           setDeleteConfirmId(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={anonymizeUser !== null}
+        onOpenChange={(open) => !open && setAnonymizeUser(null)}
+        title="Anonimizar usuario"
+        description={`Esta acción es irreversible. Se borrarán el nombre, email, teléfono, cargo, credenciales y actividad personal de ${anonymizeUser?.name ?? "el usuario"}. Los documentos, versiones, comentarios, workflows y transferencias se conservarán bajo una identidad genérica. El usuario debe estar desactivado, no puede tener documentos propios ni transferencias pendientes.`}
+        confirmLabel="Anonimizar"
+        variant="destructive"
+        requireTyped="ANONIMIZAR"
+        loading={anonymizeMutation.isPending}
+        onConfirm={() => {
+          if (anonymizeUser) anonymizeMutation.mutate(anonymizeUser.id);
         }}
       />
 

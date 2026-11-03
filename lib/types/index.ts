@@ -22,6 +22,11 @@ export interface User {
   roles?: string[];
   catalogRoles?: Pick<CatalogRole, "id" | "key" | "label" | "isActive">[];
   authRevision?: number;
+  isActive?: boolean;
+  deactivatedAt?: string | null;
+  deactivationReason?: string | null;
+  anonymizedAt?: string | null;
+  anonymizedById?: string | null;
 }
 
 export interface Permission {
@@ -63,6 +68,7 @@ export interface AuthorizationProfile {
   roles: string[];
   permissions: string[];
   authRevision: number;
+  twoFactorSetupRequired?: boolean;
 }
 
 export interface AuthResponse {
@@ -71,6 +77,7 @@ export interface AuthResponse {
   permissions?: string[];
   roles?: string[];
   authRevision?: number;
+  twoFactorSetupRequired?: boolean;
 }
 
 export interface LoginDto {
@@ -654,28 +661,30 @@ export enum TransferStatus {
   CANCELED = "CANCELED",
 }
 
+export interface TransferUser {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
 export interface TransferHistory {
   id: number;
   documentId: number;
   document: {
     id: number;
-    versions?: { filename: string; mimetype: string; size: number }[];
+    name: string | null;
     description: string | null;
+    uploadedById: string;
     category: { id: number; name: string; color: string } | null;
-    section: { id: number; name: string; color: string } | null;
+    documentType: { id: number; name: string } | null;
+    versions?: { filename: string; mimetype: string; size: number }[];
   };
   fromUserId: string;
-  fromUser: {
-    id: string;
-    name: string;
-    email: string;
-  };
-  toUserId: string;
-  toUser: {
-    id: string;
-    name: string;
-    email: string;
-  };
+  fromUser: TransferUser;
+  toUserId: string | null;
+  toUser: (TransferUser & { isActive: boolean }) | null;
+  initiatedById: string | null;
+  initiatedBy: TransferUser | null;
   status: TransferStatus;
   comment: string | null;
   completedAt: string | null;
@@ -686,7 +695,7 @@ export interface TransferHistory {
 
 export interface CreateTransferDto {
   documentId: number;
-  toUserId?: string;
+  toUserId: string;
   comment?: string;
 }
 

@@ -44,4 +44,21 @@ describe("LoginForm", () => {
     expect(mockLogin).toHaveBeenLastCalledWith("user@example.com", "password", "123456");
     expect(mockPush).toHaveBeenCalledWith("/dashboard");
   });
+
+  it("does not navigate to the dashboard when 2FA enrollment is required", async () => {
+    const user = userEvent.setup();
+    mockLogin.mockResolvedValueOnce({
+      access_token: "token",
+      user: {},
+      twoFactorSetupRequired: true,
+    });
+
+    render(<LoginForm />);
+    await user.type(screen.getByLabelText("Correo electrónico"), "user@example.com");
+    await user.type(screen.getByLabelText("Contraseña"), "password");
+    await user.click(screen.getByRole("button", { name: "Ingresar" }));
+
+    expect(mockLogin).toHaveBeenCalledWith("user@example.com", "password", undefined);
+    expect(mockPush).not.toHaveBeenCalled();
+  });
 });

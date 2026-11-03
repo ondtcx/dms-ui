@@ -30,6 +30,13 @@ async function expectGone(api: APIRequestContext, path: string, resource: string
   if (response.status() !== 404) throw new Error(`${resource} remains after cleanup: ${response.status()}`);
 }
 
+async function expectInactive(api: APIRequestContext, path: string, resource: string): Promise<void> {
+  const response = await api.get(path);
+  if (!response.ok()) throw new Error(`${resource} unavailable after cleanup: ${response.status()}`);
+  const body = await response.json();
+  if (body.isActive !== false) throw new Error(`${resource} remains active after cleanup`);
+}
+
 async function createFixture(api: APIRequestContext): Promise<Fixture> {
   const admin = await getAccessToken(api, SEED_USERS.admin.email, SEED_USERS.admin.password);
   const adminApi = await createAuthenticatedApiContext(admin.token);
@@ -82,7 +89,7 @@ async function cleanupFixture(fixture: Fixture): Promise<void> {
     try { await expectGone(fixture.adminApi, `${API_BASE_URL}/documents/${fixture.documentId}`, 'Document'); } catch (error) { failures.push(String(error)); }
   }
   if (fixture.userId) {
-    try { await expectGone(fixture.adminApi, `${API_BASE_URL}/users/${fixture.userId}`, 'USER'); } catch (error) { failures.push(String(error)); }
+    try { await expectInactive(fixture.adminApi, `${API_BASE_URL}/users/${fixture.userId}`, 'USER'); } catch (error) { failures.push(String(error)); }
   }
   await fixture.userApi.dispose();
   if (fixture.adminApi !== fixture.userApi) await fixture.adminApi.dispose();
