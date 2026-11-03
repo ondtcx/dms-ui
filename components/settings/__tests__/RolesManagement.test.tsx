@@ -6,7 +6,7 @@ import { permissionsService } from '@/lib/services/permissions.service';
 
 jest.mock('@/lib/services/roles.service', () => ({
   rolesService: {
-    getAll: jest.fn(), create: jest.fn(), update: jest.fn(), deactivate: jest.fn(),
+    getAll: jest.fn(), create: jest.fn(), update: jest.fn(), deactivate: jest.fn(), remove: jest.fn(),
   },
 }));
 jest.mock('@/lib/services/permissions.service', () => ({ permissionsService: { getCatalog: jest.fn() } }));
@@ -43,7 +43,7 @@ describe('RolesManagement', () => {
     expect(await screen.findByText('Editor')).toBeInTheDocument();
     expect(screen.getByText('Activo')).toBeInTheDocument();
     expect(screen.getByText('Inactivo')).toBeInTheDocument();
-    expect(screen.getByText('Leer documentos')).toBeInTheDocument();
+    expect(screen.getAllByText('Leer documentos').length).toBeGreaterThan(0);
     expect(screen.queryByLabelText('Eliminar documentos')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Clave del rol'), { target: { value: 'reviewer' } });
@@ -70,6 +70,17 @@ describe('RolesManagement', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Desactivar Editor' }));
     await waitFor(() => expect(mockedRoles.deactivate).toHaveBeenCalledWith(1));
+  });
+
+  it('deletes an unused role after confirmation', async () => {
+    mockedRoles.remove.mockResolvedValue({ success: true });
+    renderRoles();
+    await screen.findByText('Legacy');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar Legacy' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Eliminar' }));
+
+    await waitFor(() => expect(mockedRoles.remove).toHaveBeenCalledWith(2));
   });
 
   it('shows mutation errors and hides management controls without roles.manage', async () => {

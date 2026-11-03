@@ -16,4 +16,7 @@ export const rolesService = {
   async deactivate(id: number): Promise<Role> {
     return (await api.post<Role>(`/roles/${id}/deactivate`)).data;
   },
+  async remove(id: number): Promise<{ success: boolean }> {
+    return (await api.delete<{ success: boolean }>(`/roles/${id}`)).data;
+  },
 };

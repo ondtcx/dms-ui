@@ -37,7 +37,5 @@ export const CATEGORY_ROLES = [
   { value: "coordinador", label: "Coordinador" },
   { value: "profesor",    label: "Profesor" },
   { value: "secretario",  label: "Secretario" },
-  { value: "padre",       label: "Padre/Madre" },
-  { value: "estudiante",  label: "Estudiante" },
   { value: "moderador",   label: "Moderador" },
 ];

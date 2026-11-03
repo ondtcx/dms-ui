@@ -1,5 +1,14 @@
 import '@testing-library/jest-dom'
 
+// Radix UI components (e.g. Checkbox) measure elements with ResizeObserver,
+// which jsdom does not implement.
+class ResizeObserverMock {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver
+
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
