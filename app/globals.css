@@ -207,3 +207,66 @@
 .dashboard-header-search button:hover {
   color: var(--institution-content);
 }
+
+/* Authoring rich-text editor */
+.tiptap-editor .ProseMirror {
+  min-height: 320px;
+  padding: 1rem;
+  outline: none;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.tiptap-editor .ProseMirror > * + * {
+  margin-top: 0.75rem;
+}
+
+.tiptap-editor .ProseMirror h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.tiptap-editor .ProseMirror h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.tiptap-editor .ProseMirror h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.tiptap-editor .ProseMirror ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.tiptap-editor .ProseMirror ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+
+.tiptap-editor .ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tiptap-editor .ProseMirror th,
+.tiptap-editor .ProseMirror td {
+  border: 1px solid var(--border);
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+}
+
+.tiptap-editor .ProseMirror th {
+  background: var(--muted);
+  font-weight: 600;
+}
+
+.tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
