@@ -241,6 +241,7 @@ function EditDocumentContent() {
       <Card>
         <CardContent className="pt-6">
           <AuthoringDocumentForm
+            key={document.id}
             templateVersion={templateVersion}
             initialFormData={document.templateData?.formData}
             onChange={handleFormChange}
