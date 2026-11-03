@@ -34,6 +34,7 @@ const DEFAULT_ACTA_BODY_HTML = `<p>A través del presente, se entrega los bienes
 
 const PREVIEW_VARIABLES: Record<string, string> = {
   '{{{contenido}}}': DEFAULT_ACTA_BODY_HTML,
+  '{{{prebody}}}': '',
   '{{institucion.nombre}}': 'UNIDAD EDUCATIVA VICENTE FIERRO',
   '{{institucion.direccion}}':
     'Ciudadela Sociedad Obrera Calle Juan XXIII y Caciques Tulcanaza',

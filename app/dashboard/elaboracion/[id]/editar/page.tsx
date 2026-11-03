@@ -28,7 +28,7 @@ import type { AuthoringDocument, PageFrame } from '@/lib/types/authoring';
 import { AuthoringDocumentForm } from '@/components/authoring/AuthoringDocumentForm';
 import { AuthoringStatusBadge } from '@/components/authoring/AuthoringStatusBadge';
 import { PageFrameEditor } from '@/components/authoring/PageFrameEditor';
-import { getByPath } from '@/lib/authoring/fields';
+import { buildPrebody, fieldsOf, getByPath } from '@/lib/authoring/fields';
 
 function formatDateEs(value: string): string {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
@@ -151,6 +151,13 @@ function EditDocumentContent() {
     const formattedDate = date ? formatDateEs(date) : '';
     return {
       '{{acta.lugar}}': value('acta.lugar'),
+      '{{acta.hora}}': value('acta.hora'),
+      '{{documento.fecha}}': new Date().toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      }),
+      '{{documento.numero}}': document?.documentNumber ?? 'BORRADOR',
       '{{formatDate acta.fecha}}': formattedDate,
       '{{recibidoPor.nombre}}': value('recibidoPor.nombre'),
       '{{recibidoPor.cargo}}': value('recibidoPor.cargo'),
@@ -158,9 +165,22 @@ function EditDocumentContent() {
       '{{entregadoPor.cargo}}': value('entregadoPor.cargo'),
       '{{vistoBueno.nombre}}': value('vistoBueno.nombre'),
       '{{vistoBueno.cargo}}': value('vistoBueno.cargo'),
+      '{{firmante.nombre}}': value('firmante.nombre'),
+      '{{firmante.cargo}}': value('firmante.cargo'),
+      '{{#each acta.firmantes}}<div>{{this}}</div>{{/each}}': (
+        Array.isArray(formSnapshot?.acta?.firmantes)
+          ? formSnapshot.acta.firmantes
+          : []
+      )
+        .map((name: unknown) => `<div>${String(name)}</div>`)
+        .join(''),
       '{{{contenido}}}': richTextHtml.contenido ?? '',
+      '{{{prebody}}}': buildPrebody(
+        fieldsOf(document?.templateData?.templateVersion?.fields),
+        formSnapshot,
+      ),
     };
-  }, [formSnapshot, richTextHtml]);
+  }, [document, formSnapshot, richTextHtml]);
 
   const save = async (createVersion: boolean) => {
     if (!document || !latestForm.current) return null;

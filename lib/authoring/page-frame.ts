@@ -298,7 +298,7 @@ export const ACTA_SIGNATURES = {
 
 const FULL_PAGE_FIT_SCRIPT = [
   "function fitLines() {",
-  "  for (const el of document.querySelectorAll('.editable-layer .txt')) {",
+  "  for (const el of document.querySelectorAll('.editable-layer .txt[data-target-width]')) {",
   "    el.style.transform = '';",
   "    const actual = el.getBoundingClientRect().width;",
   '    const expected = parseFloat(el.dataset.targetWidth) * 96 / 72;',
@@ -330,12 +330,17 @@ const FULL_PAGE_RICH_TEXT_CSS = `
 `;
 
 function fullPageBoxToHtml(box: PageFrameBox): string {
-  const base = `left:${box.x}pt;top:${box.y}pt;font-size:${box.fontSize}pt;font-family:${box.fontFamily ?? 'Arial, sans-serif'};font-weight:${box.fontWeight ?? '400'};font-style:${box.fontStyle ?? 'normal'};color:${box.color ?? '#000000'};text-align:${box.align ?? 'left'};`;
+  const position = box.center ? 'left:50%;transform:translateX(-50%)' : `left:${box.x}pt`;
+  const base = `${position};top:${box.y}pt;font-size:${box.fontSize}pt;font-family:${box.fontFamily ?? 'Arial, sans-serif'};font-weight:${box.fontWeight ?? '400'};font-style:${box.fontStyle ?? 'normal'};color:${box.color ?? '#000000'};text-align:${box.center ? 'center' : box.align ?? 'left'};`;
   if (box.type === 'richText') {
     return `<div class="txt richtext" data-box-id="${box.id}" style="${base}width:${box.width}pt;height:${box.height ?? 240}pt;white-space:normal;">${box.content}</div>`;
   }
-  const target = box.width > 0 ? ` data-target-width="${box.width}"` : '';
-  return `<span class="txt" style="${base}"${target}>${box.type === 'pageNumber' ? box.content : escapeFullPageText(box.content)}</span>`;
+  const target = box.width > 0 && !box.center ? ` data-target-width="${box.width}"` : '';
+  const content =
+    box.type === 'pageNumber' || box.raw
+      ? box.content
+      : escapeFullPageText(box.content);
+  return `<span class="txt" style="${base}"${target}>${content}</span>`;
 }
 
 export function fullPageFrameToHtml(frame: PageFrame): string {

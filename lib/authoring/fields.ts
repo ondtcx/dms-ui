@@ -67,3 +67,49 @@ export function buildInitialForm(
   }
   return result;
 }
+
+
+const PREBODY_EXCLUDED = new Set([
+  'contenido',
+  'firmante.nombre',
+  'firmante.cargo',
+  'acta.firmantes',
+  'acta.fecha',
+  'acta.hora',
+  'acta.lugar',
+]);
+
+function escapePrebody(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+export function buildPrebody(
+  fields: AuthoringField[],
+  formData: Record<string, any> | null | undefined,
+): string {
+  const rows = fields
+    .filter((field) => !PREBODY_EXCLUDED.has(field.key))
+    .map((field) => {
+      const value = getByPath(formData, field.key);
+      if (value === undefined || value === null || value === '') return '';
+      if (Array.isArray(value)) {
+        const items = value
+          .map((item) => String(item).trim())
+          .filter(Boolean)
+          .map((item) => `<li>${escapePrebody(item)}</li>`)
+          .join('');
+        return items
+          ? `<div class="prebody-row"><strong>${escapePrebody(field.label)}:</strong><ul>${items}</ul></div>`
+          : '';
+      }
+      return `<div class="prebody-row"><strong>${escapePrebody(field.label)}:</strong> ${escapePrebody(String(value)).replace(/\n/g, '<br/>')}</div>`;
+    })
+    .filter(Boolean)
+    .join('');
+  return rows ? `<div class="prebody">${rows}</div>` : '';
+}

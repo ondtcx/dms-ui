@@ -48,6 +48,8 @@ export interface PageFrameBox {
   fontFamily?: string;
   color?: string;
   align?: 'left' | 'center' | 'right' | 'justify';
+  center?: boolean;
+  raw?: boolean;
   content: string;
 }
 
