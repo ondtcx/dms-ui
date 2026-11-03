@@ -77,10 +77,18 @@ test.describe('Editor simple de plantillas', () => {
       await expect(newTextLayers).toHaveCount(2);
       await newTextLayers.first().click();
       await page.getByRole('button', { name: 'Al fondo' }).click();
-      await page.getByRole('button', { name: 'Título', exact: true }).first().click();
+      await page
+        .getByRole('button', { name: 'Título', exact: true })
+        .first()
+        .click();
       const before = Number(
         await page.locator('input[type="number"]').first().inputValue(),
       );
+      await page
+        .getByRole('button', { name: 'Subtítulo', exact: true })
+        .first()
+        .click({ modifiers: ['Control'] });
+      await expect(page.getByText(/2 elementos seleccionados/)).toBeVisible();
       const box = page.locator('[data-box-id="acta-5"]');
       const bounds = await box.boundingBox();
       expect(bounds).not.toBeNull();
@@ -95,10 +103,21 @@ test.describe('Editor simple de plantillas', () => {
         { steps: 8 },
       );
       await page.mouse.up();
+      await page.waitForTimeout(400);
+      await page
+        .getByRole('button', { name: 'Título', exact: true })
+        .first()
+        .click();
       const after = Number(
         await page.locator('input[type="number"]').first().inputValue(),
       );
       expect(after).not.toBe(before);
+      await page.getByRole('button', { name: 'B', exact: true }).click();
+      await expect(page).toHaveScreenshot('simple-editor.png', {
+        fullPage: true,
+        maxDiffPixelRatio: 0.03,
+        mask: [page.getByText(/Prueba editor simple E2E/)],
+      });
 
       await page.getByRole('button', { name: 'Guardar y publicar' }).click();
       await page.waitForURL(

@@ -123,9 +123,10 @@ export function PageFrameSimpleEditor({
   value: PageFrame;
   onChange: (value: PageFrame) => void;
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(
-    () => value.body?.boxes.find((box) => box.type === 'richText')?.id ?? null,
-  );
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => {
+    const bodyId = value.body?.boxes.find((box) => box.type === 'richText')?.id;
+    return bodyId ? [bodyId] : [];
+  });
   const [zoom, setZoom] = useState(() => initialZoom(value));
   const [showGrid, setShowGrid] = useState(true);
   const [snap, setSnap] = useState(true);
@@ -142,8 +143,7 @@ export function PageFrameSimpleEditor({
   const clipboard = useRef<PageFrameBox | null>(null);
   const drag = useRef<{
     id: string;
-    startX: number;
-    startY: number;
+    items: Array<{ id: string; startX: number; startY: number }>;
     pointerX: number;
     pointerY: number;
     startFrame: PageFrame;
@@ -175,7 +175,13 @@ export function PageFrameSimpleEditor({
     [preview],
   );
   const boxes = value.body?.boxes ?? [];
+  const selectedId = selectedIds.length
+    ? selectedIds[selectedIds.length - 1]
+    : null;
   const selected = boxes.find((box) => box.id === selectedId) ?? null;
+  const setSelectedId = (id: string | null) =>
+    setSelectedIds(id ? [id] : []);
+  const isSelected = (id: string) => selectedIds.includes(id);
 
   const frameWithPatch = (id: string, patch: Partial<PageFrameBox>) => ({
     ...value,
@@ -280,19 +286,23 @@ export function PageFrameSimpleEditor({
   };
 
   const deleteSelected = () => {
-    if (!selected || isLockedBox(selected) || selected.type === 'richText') {
-      return;
-    }
+    const removable = boxes.filter(
+      (box) =>
+        selectedIds.includes(box.id) &&
+        !isLockedBox(box) &&
+        box.type !== 'richText',
+    );
+    if (!removable.length) return;
     commit({
       ...value,
       body: {
         ...(value.body ?? { boxes: [] }),
-        boxes: (value.body?.boxes ?? []).filter(
-          (box) => box.id !== selected.id,
+        boxes: boxes.filter(
+          (box) => !removable.some((item) => item.id === box.id),
         ),
       },
     });
-    setSelectedId(null);
+    setSelectedIds([]);
   };
 
   const moveLayer = (toFront: boolean) => {
@@ -373,7 +383,11 @@ export function PageFrameSimpleEditor({
         deleteSelected();
         return;
       }
-      if (!event.key.startsWith('Arrow') || !selected || isLockedBox(selected)) {
+      const nudgeIds = selectedIds.filter((id) => {
+        const box = boxes.find((item) => item.id === id);
+        return box && !isLockedBox(box);
+      });
+      if (!event.key.startsWith('Arrow') || !nudgeIds.length) {
         return;
       }
       event.preventDefault();
@@ -382,9 +396,20 @@ export function PageFrameSimpleEditor({
         event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0;
       const dy =
         event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0;
-      updateBox(selected.id, {
-        x: Math.max(0, Math.min(pageWidth - 10, selected.x + dx)),
-        y: Math.max(0, Math.min(pageHeight - 10, selected.y + dy)),
+      commit({
+        ...value,
+        body: {
+          ...(value.body ?? { boxes: [] }),
+          boxes: boxes.map((box) =>
+            nudgeIds.includes(box.id)
+              ? {
+                  ...box,
+                  x: Math.max(0, Math.min(pageWidth - 10, box.x + dx)),
+                  y: Math.max(0, Math.min(pageHeight - 10, box.y + dy)),
+                }
+              : box,
+          ),
+        },
       });
     };
     window.addEventListener('keydown', onKeyDown);
@@ -399,13 +424,30 @@ export function PageFrameSimpleEditor({
     event: React.PointerEvent<HTMLDivElement>,
     box: PageFrameBox,
   ) => {
-    setSelectedId(box.id);
+    if (event.metaKey || event.ctrlKey) {
+      event.preventDefault();
+      setSelectedIds((current) =>
+        current.includes(box.id)
+          ? current.filter((id) => id !== box.id)
+          : [...current, box.id],
+      );
+      return;
+    }
+    const nextIds = selectedIds.includes(box.id)
+      ? [...selectedIds.filter((id) => id !== box.id), box.id]
+      : [box.id];
+    setSelectedIds(nextIds);
     if (isLockedBox(box)) return;
     event.preventDefault();
     drag.current = {
       id: box.id,
-      startX: box.x,
-      startY: box.y,
+      items: boxes
+        .filter((item) => nextIds.includes(item.id) && !isLockedBox(item))
+        .map((item) => ({
+          id: item.id,
+          startX: item.x,
+          startY: item.y,
+        })),
       pointerX: event.clientX,
       pointerY: event.clientY,
       startFrame: cloneFrame(value),
@@ -417,13 +459,17 @@ export function PageFrameSimpleEditor({
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const current = drag.current;
     if (!current) return;
-    let x = current.startX + (event.clientX - current.pointerX) / zoom;
-    let y = current.startY + (event.clientY - current.pointerY) / zoom;
+    const primaryItem =
+      current.items.find((item) => item.id === current.id) ?? current.items[0];
+    const currentBox = boxes.find((box) => box.id === current.id);
+    let x = (primaryItem?.startX ?? currentBox?.x ?? 0) +
+      (event.clientX - current.pointerX) / zoom;
+    let y = (primaryItem?.startY ?? currentBox?.y ?? 0) +
+      (event.clientY - current.pointerY) / zoom;
     if (snap) {
       x = Math.round(x / 5) * 5;
       y = Math.round(y / 5) * 5;
     }
-    const currentBox = boxes.find((box) => box.id === current.id);
     const boxWidth = currentBox?.width ?? 0;
     const boxHeight = currentBox?.height ?? 0;
     const threshold = 4;
@@ -472,9 +518,37 @@ export function PageFrameSimpleEditor({
     x = Math.max(0, Math.min(pageWidth - 10, x));
     y = Math.max(0, Math.min(pageHeight - 10, y));
     current.changed = true;
-    updateBoxRaw(current.id, {
-      x: Math.round(x * 100) / 100,
-      y: Math.round(y * 100) / 100,
+    const deltaX = x - (primaryItem?.startX ?? currentBox?.x ?? 0);
+    const deltaY = y - (primaryItem?.startY ?? currentBox?.y ?? 0);
+    const moved = new Map(
+      current.items.map((item) => [
+        item.id,
+        {
+          x:
+            Math.round(
+              Math.max(
+                0,
+                Math.min(pageWidth - 10, item.startX + deltaX),
+              ) * 100,
+            ) / 100,
+          y:
+            Math.round(
+              Math.max(
+                0,
+                Math.min(pageHeight - 10, item.startY + deltaY),
+              ) * 100,
+            ) / 100,
+        },
+      ]),
+    );
+    onChange({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: boxes.map((box) =>
+          moved.has(box.id) ? { ...box, ...moved.get(box.id) } : box,
+        ),
+      },
     });
   };
 
@@ -508,7 +582,7 @@ export function PageFrameSimpleEditor({
       cursor: isLockedBox(box) ? 'default' : 'move',
       userSelect: 'none' as const,
       touchAction: 'none' as const,
-      zIndex: selectedId === box.id ? 3 : 1,
+      zIndex: isSelected(box.id) ? 3 : 1,
     };
   };
 
@@ -690,11 +764,21 @@ export function PageFrameSimpleEditor({
                       key={box.id}
                       type="button"
                       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition ${
-                        selectedId === box.id
+                        isSelected(box.id)
                           ? 'bg-primary text-primary-foreground'
                           : 'hover:bg-muted'
                       }`}
-                      onClick={() => setSelectedId(box.id)}
+                      onClick={(event) => {
+                        if (event.metaKey || event.ctrlKey) {
+                          setSelectedIds((current) =>
+                            current.includes(box.id)
+                              ? current.filter((id) => id !== box.id)
+                              : [...current, box.id],
+                          );
+                        } else {
+                          setSelectedId(box.id);
+                        }
+                      }}
                     >
                       {isLockedBox(box) ? (
                         <Lock className="h-3 w-3 shrink-0 opacity-70" />
@@ -783,7 +867,7 @@ export function PageFrameSimpleEditor({
               )}
               {boxes.map((box) => {
                 const shown = previewById.get(box.id) ?? box;
-                const selectedNow = selectedId === box.id;
+                const selectedNow = isSelected(box.id);
                 return (
                   <div
                     key={box.id}
@@ -814,7 +898,101 @@ export function PageFrameSimpleEditor({
                         style={{ zIndex: 5 }}
                       />
                     )}
-                    {selectedNow && !isLockedBox(box) && editingId !== box.id && (
+                    {selectedNow &&
+                      selectedIds.length === 1 &&
+                      !isLockedBox(box) &&
+                      editingId !== box.id && (
+                        <div
+                          className="absolute -top-8 left-0 flex items-center gap-0.5 rounded-md border border-border bg-background px-1 py-0.5 shadow-sm"
+                          style={{ zIndex: 7, pointerEvents: 'auto' }}
+                          onPointerDown={(event) => event.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            className={`h-6 w-6 rounded text-xs font-bold ${
+                              box.fontWeight === '700' ? 'bg-muted' : ''
+                            }`}
+                            title="Negrita"
+                            onClick={() =>
+                              updateBox(box.id, {
+                                fontWeight:
+                                  box.fontWeight === '700' ? '400' : '700',
+                              })
+                            }
+                          >
+                            B
+                          </button>
+                          <button
+                            type="button"
+                            className={`h-6 w-6 rounded text-xs italic ${
+                              box.fontStyle === 'italic' ? 'bg-muted' : ''
+                            }`}
+                            title="Cursiva"
+                            onClick={() =>
+                              updateBox(box.id, {
+                                fontStyle:
+                                  box.fontStyle === 'italic'
+                                    ? 'normal'
+                                    : 'italic',
+                              })
+                            }
+                          >
+                            I
+                          </button>
+                          <span className="mx-0.5 h-4 w-px bg-border" />
+                          <button
+                            type="button"
+                            className="h-6 w-6 rounded text-xs"
+                            title="Reducir tamaño"
+                            onClick={() =>
+                              updateBox(box.id, {
+                                fontSize: Math.max(6, box.fontSize - 0.5),
+                              })
+                            }
+                          >
+                            A-
+                          </button>
+                          <span className="text-[10px] text-muted-foreground">
+                            {box.fontSize}
+                          </span>
+                          <button
+                            type="button"
+                            className="h-6 w-6 rounded text-xs"
+                            title="Aumentar tamaño"
+                            onClick={() =>
+                              updateBox(box.id, {
+                                fontSize: Math.min(48, box.fontSize + 0.5),
+                              })
+                            }
+                          >
+                            A+
+                          </button>
+                          <span className="mx-0.5 h-4 w-px bg-border" />
+                          {(['left', 'center', 'right'] as const).map(
+                            (align) => (
+                              <button
+                                key={align}
+                                type="button"
+                                className={`h-6 w-6 rounded text-[10px] ${
+                                  box.align === align ? 'bg-muted' : ''
+                                }`}
+                                title={`Alinear ${align}`}
+                                onClick={() =>
+                                  updateBox(box.id, { align, center: false })
+                                }
+                              >
+                                {align === 'left'
+                                  ? 'L'
+                                  : align === 'center'
+                                    ? 'C'
+                                    : 'R'}
+                              </button>
+                            ),
+                          )}
+                        </div>
+                      )}
+
+                    {selectedNow && selectedIds.length === 1 && !isLockedBox(box) && editingId !== box.id && (
                       <div
                         className="pointer-events-none absolute inset-0"
                         style={{ zIndex: 6 }}
@@ -909,7 +1087,23 @@ export function PageFrameSimpleEditor({
             <CardTitle className="text-sm">Propiedades</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {!selected ? (
+            {selectedIds.length > 1 ? (
+              <div className="space-y-3 text-xs">
+                <p className="text-muted-foreground">
+                  {selectedIds.length} elementos seleccionados. Arrastra uno
+                  para mover el grupo.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={deleteSelected}
+                  disabled={selectedIds.length === 0}
+                >
+                  Eliminar seleccionados
+                </Button>
+              </div>
+            ) : !selected ? (
               <p className="text-xs text-muted-foreground">
                 Selecciona un elemento del lienzo o de la lista.
               </p>
