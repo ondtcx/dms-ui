@@ -138,7 +138,25 @@ test.describe('Rol diseñador sin publicación', () => {
         page.getByRole('button', { name: 'Publicar', exact: true }),
       ).toHaveCount(0);
       await expect(
-        page.getByText('Versión creada', { exact: true }).first(),
+        page.locator('[data-slot="badge"]').filter({ hasText: 'Versión creada' }).first(),
+      ).toBeVisible({ timeout: 20_000 });
+
+      await loginViaApi(
+        page,
+        SEED_USERS.admin.email,
+        SEED_USERS.admin.password,
+      );
+      await page.goto('/dashboard');
+      await page
+        .getByRole('button', { name: /Notificaciones/ })
+        .first()
+        .click();
+      await expect(
+        page
+          .getByText('Versión de plantilla lista para publicar', {
+            exact: true,
+          })
+          .first(),
       ).toBeVisible({ timeout: 20_000 });
 
       const secretaryLogin = await request.post(`${API}/auth/login`, {

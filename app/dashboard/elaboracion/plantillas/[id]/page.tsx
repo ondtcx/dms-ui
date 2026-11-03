@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Copy,
+  Download,
   Eye,
   EyeOff,
   FilePlus2,
@@ -67,6 +68,7 @@ function TemplateAdminContent() {
   const templateId = Number(params.id);
   const [busyVersion, setBusyVersion] = useState<number | null>(null);
   const [deactivating, setDeactivating] = useState(false);
+  const [activityFilter, setActivityFilter] = useState('ALL');
   const [duplicateOpen, setDuplicateOpen] = useState(false);
   const [duplicateName, setDuplicateName] = useState('');
   const [duplicating, setDuplicating] = useState(false);
@@ -92,6 +94,47 @@ function TemplateAdminContent() {
     await queryClient.invalidateQueries({
       queryKey: ['authoring-template-activity', templateId],
     });
+  };
+
+  const activityRows = useMemo(() => {
+    const rows = activityQuery.data ?? [];
+    return activityFilter === 'ALL'
+      ? rows
+      : rows.filter((activity) => activity.action === activityFilter);
+  }, [activityFilter, activityQuery.data]);
+
+  const exportActivity = () => {
+    if (!template) return;
+    const rows = [
+      ['Fecha', 'Acción', 'Versión', 'Actor', 'Detalle'],
+      ...activityRows.map((activity) => [
+        new Date(activity.createdAt).toLocaleString('es-ES'),
+        ACTIVITY_LABELS[activity.action] ?? activity.action,
+        activity.version?.version ? `v${activity.version.version}` : '',
+        activity.actorName || activity.actorId,
+        activity.action === 'DUPLICATED'
+          ? `→ ${activity.metadata?.newTemplateName ?? ''}`
+          : activity.metadata?.duplicatedFromId
+            ? `desde plantilla ${activity.metadata.duplicatedFromId}`
+            : '',
+      ]),
+    ];
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`)
+          .join(','),
+      )
+      .join('\n');
+    const blob = new Blob([`\ufeff${csv}`], {
+      type: 'text/csv;charset=utf-8;',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `actividad-${template.name.replace(/\s+/g, '-')}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
 
   const publish = async (version: AuthoringTemplateVersion) => {
@@ -367,17 +410,39 @@ function TemplateAdminContent() {
       </Card>
 
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
           <CardTitle className="text-base">Actividad de la plantilla</CardTitle>
+          <div className="flex items-center gap-2">
+            <select
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              value={activityFilter}
+              onChange={(event) => setActivityFilter(event.target.value)}
+              aria-label="Filtrar actividad"
+            >
+              <option value="ALL">Toda la actividad</option>
+              {Object.entries(ACTIVITY_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={exportActivity}
+              disabled={!activityRows.length}
+            >
+              <Download className="mr-1 h-3.5 w-3.5" /> CSV
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {activityQuery.isLoading ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Cargando actividad...
             </div>
-          ) : activityQuery.data?.length ? (
+          ) : activityRows.length ? (
             <div className="space-y-2">
-              {activityQuery.data.map((activity) => (
+              {activityRows.map((activity) => (
                 <div
                   key={activity.id}
                   className="flex flex-col gap-1 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
