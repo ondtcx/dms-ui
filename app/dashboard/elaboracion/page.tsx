@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { BookOpen, Eye, FileText, Loader2, Plus, Search } from 'lucide-react';
+import { BookOpen, Eye, FileText, Loader2, Plus, Search, Settings2 } from 'lucide-react';
 import ProtectedRoute from '@/guards/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -56,6 +56,12 @@ function TemplateCard({
         <Button size="sm" variant="outline" onClick={() => onPreview(template)}>
           <Eye className="mr-1.5 h-4 w-4" />
           Previsualizar
+        </Button>
+        <Button size="sm" variant="ghost" asChild>
+          <Link href={`/dashboard/elaboracion/plantillas/${template.id}`}>
+            <Settings2 className="mr-1.5 h-4 w-4" />
+            Administrar
+          </Link>
         </Button>
       </CardContent>
     </Card>
