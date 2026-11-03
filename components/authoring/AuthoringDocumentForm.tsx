@@ -17,6 +17,7 @@ interface AuthoringDocumentFormProps {
   templateVersion: AuthoringTemplateVersion;
   initialFormData?: Record<string, any> | null;
   disabled?: boolean;
+  excludedFields?: string[];
   onChange?: (
     formData: Record<string, any>,
     meta?: { user?: boolean },
@@ -27,11 +28,16 @@ export function AuthoringDocumentForm({
   templateVersion,
   initialFormData,
   disabled = false,
+  excludedFields = [],
   onChange,
 }: AuthoringDocumentFormProps) {
   const fields = useMemo(
     () => fieldsOf(templateVersion.fields as AuthoringFieldsSchema),
     [templateVersion],
+  );
+  const visibleFields = useMemo(
+    () => fields.filter((field) => !excludedFields.includes(field.key)),
+    [fields, excludedFields],
   );
   const [formData, setFormData] = useState<Record<string, any>>(() =>
     buildInitialForm(fields, initialFormData),
@@ -54,7 +60,7 @@ export function AuthoringDocumentForm({
     onChangeRef.current?.(next, { user: true });
   };
 
-  if (fields.length === 0) {
+  if (visibleFields.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
         Esta plantilla no tiene campos configurables.
@@ -64,7 +70,7 @@ export function AuthoringDocumentForm({
 
   return (
     <div className="grid gap-5 md:grid-cols-2">
-      {fields.map((field) => (
+      {visibleFields.map((field) => (
         <div
           key={field.key}
           className={field.type === 'richtext' ? 'md:col-span-2' : undefined}

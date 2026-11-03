@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Eye, FilePlus2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Eye, FilePlus2, Loader2, Users } from 'lucide-react';
 import ProtectedRoute from '@/guards/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,6 +115,14 @@ function NewDocumentContent() {
                 <Button variant="outline" onClick={preview}>
                   <Eye className="mr-2 h-4 w-4" /> Previsualizar plantilla
                 </Button>
+                {fields.some((field) => field.key === 'destinatario.nombre') && (
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push(`/dashboard/elaboracion/${template.id}/lote`)}
+                  >
+                    <Users className="mr-2 h-4 w-4" /> Varios destinatarios
+                  </Button>
+                )}
               </div>
             </>
           )}
