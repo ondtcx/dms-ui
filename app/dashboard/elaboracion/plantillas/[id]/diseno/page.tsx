@@ -52,21 +52,22 @@ function TemplateDesignContent() {
     if (!template || !latest) return;
     setSaving(true);
     try {
+      const isFullPage = frame.mode === 'fullPage';
       await authoringService.createVersion(template.id, {
         bodyHtml: latest.bodyHtml,
-        styles: latest.styles ?? undefined,
+        styles: isFullPage ? '' : latest.styles ?? undefined,
         fields: latest.fields,
         numberPrefix: latest.numberPrefix,
-        headerHtml: pageFrameToHeaderHtml(frame),
-        footerHtml: pageFrameToFooterHtml(frame),
-        marginTop: frame.margins.top,
-        marginBottom: frame.margins.bottom,
-        marginLeft: frame.margins.left,
-        marginRight: frame.margins.right,
+        headerHtml: isFullPage ? undefined : pageFrameToHeaderHtml(frame),
+        footerHtml: isFullPage ? undefined : pageFrameToFooterHtml(frame),
+        marginTop: isFullPage ? '0' : frame.margins.top,
+        marginBottom: isFullPage ? '0' : frame.margins.bottom,
+        marginLeft: isFullPage ? '0' : frame.margins.left,
+        marginRight: isFullPage ? '0' : frame.margins.right,
         pageSize: frame.pageSize,
         orientation: frame.orientation,
         pageFrame: frame,
-        signatures,
+        signatures: isFullPage ? undefined : signatures,
       });
       toast.success('Versión de diseño creada. Publícala para aplicarla.');
       router.push(`/dashboard/elaboracion/plantillas/${template.id}`);
@@ -91,34 +92,6 @@ function TemplateDesignContent() {
         <p className="text-sm text-destructive">Plantilla no encontrada o sin versiones.</p>
         <Button className="mt-4" variant="outline" onClick={() => router.push('/dashboard/elaboracion')}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Volver
-        </Button>
-      </div>
-    );
-  }
-
-  if (latest.pageFrame?.mode === 'fullPage') {
-    return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-5 p-4 sm:p-6">
-        <Button
-          variant="ghost"
-          className="w-fit"
-          onClick={() => router.push(`/dashboard/elaboracion/plantillas/${template.id}`)}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Plantilla
-        </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">Diseño de página completa</h1>
-        <p className="text-sm text-muted-foreground">
-          {template.name} usa el HTML fiel del documento original como página
-          completa. Para mantener la fidelidad, su encabezado, cuerpo y firmas se
-          editan en el HTML de una nueva versión.
-        </p>
-        <Button
-          className="w-fit"
-          onClick={() =>
-            router.push(`/dashboard/elaboracion/plantillas/${template.id}/versiones/nueva`)
-          }
-        >
-          Editar HTML del cuerpo
         </Button>
       </div>
     );
@@ -152,7 +125,9 @@ function TemplateDesignContent() {
       </div>
 
       <PageFrameEditor value={frame} onChange={setFrame} />
-      <SignatureEditor value={signatures} onChange={setSignatures} />
+      {frame.mode !== 'fullPage' && (
+        <SignatureEditor value={signatures} onChange={setSignatures} />
+      )}
 
       <p className="text-xs text-muted-foreground">
         El cuerpo y los campos no cambian en esta pantalla. Para editar el

@@ -68,6 +68,8 @@ export interface PageFrame {
   };
   header: PageFrameArea;
   footer: PageFrameArea;
+  body?: PageFrameArea;
+  styles?: string;
   bodyPrefixHtml?: string;
 }
 

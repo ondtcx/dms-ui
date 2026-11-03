@@ -13,6 +13,7 @@ import type {
 } from '@/lib/types/authoring';
 import {
   ACTA_PAGE_FRAME,
+  fullPageFrameToHtml,
   pageFrameToFooterHtml,
   pageFrameToHeaderHtml,
 } from '@/lib/authoring/page-frame';
@@ -35,11 +36,19 @@ const PREVIEW_VARIABLES: Record<string, string> = {
     'Ciudadela Sociedad Obrera Calle Juan XXIII y Caciques Tulcanaza',
   '{{institucion.telefono}}': '2980-466',
   '{{institucion.email}}': 'uevicentefierro@gmail.com',
+  '{{acta.lugar}}': 'Tulcán',
+  '{{formatDate acta.fecha}}': '14 de febrero de 2025',
+  '{{recibidoPor.nombre}}': 'MSc. Soraya Villarreal',
+  '{{recibidoPor.cargo}}': 'DOCENTE',
+  '{{entregadoPor.nombre}}': 'MSc. Byron Narváez',
+  '{{entregadoPor.cargo}}': 'DELEGADO CONSEJO EJECUTIVO',
+  '{{vistoBueno.nombre}}': 'MSc. Hugo Tulcanaza',
+  '{{vistoBueno.cargo}}': 'RECTOR U.E. “VICENTE FIERRO”',
 };
 
 function previewFrame(frame: PageFrame): PageFrame {
   const clone = JSON.parse(JSON.stringify(frame)) as PageFrame;
-  for (const area of [clone.header, clone.footer]) {
+  for (const area of [clone.header, clone.footer, clone.body].filter(Boolean) as PageFrameArea[]) {
     for (const box of area.boxes) {
       if (box.type === 'image' && box.content.includes('institucion.logo')) {
         box.content = LOGO_PLACEHOLDER;
@@ -58,6 +67,9 @@ function previewFrame(frame: PageFrame): PageFrame {
 
 function PagePreview({ frame }: { frame: PageFrame }) {
   const html = useMemo(() => {
+    if (frame.mode === 'fullPage') {
+      return fullPageFrameToHtml(previewFrame(frame));
+    }
     const base = PAGE_SIZES[frame.pageSize] ?? PAGE_SIZES.Letter;
     const dimensions =
       frame.orientation === 'landscape'
@@ -256,6 +268,33 @@ export function PageFrameEditor({
   onChange: (value: PageFrame) => void;
 }) {
   const update = (patch: Partial<PageFrame>) => onChange({ ...value, ...patch });
+
+  if (value.mode === 'fullPage') {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Diseño de página completa</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            El tamaño y los márgenes están fijados por el diseño original. Cada
+            caja de texto es una línea del documento y se puede editar sin tocar
+            HTML.
+          </CardContent>
+        </Card>
+        <PagePreview frame={value} />
+        <AreaEditor
+          title="Contenido de la página"
+          area={value.body ?? { boxes: [] }}
+          onChange={(body) => update({ body })}
+        />
+        <p className="text-xs text-muted-foreground">
+          El fondo, las franjas y el logo forman parte del diseño base. Los
+          textos, posiciones, tamaños y estilos de cada línea son editables.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
