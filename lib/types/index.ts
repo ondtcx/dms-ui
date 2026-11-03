@@ -230,6 +230,56 @@ export interface DocumentTemplateData {
   updatedAt: string;
 }
 
+export type DocumentReviewStatus =
+  | 'DRAFT'
+  | 'IN_REVIEW'
+  | 'CHANGES_REQUESTED'
+  | 'APPROVED'
+  | 'ARCHIVED';
+
+export type DocumentReviewAction =
+  | 'CREATED'
+  | 'SUBMITTED'
+  | 'APPROVED'
+  | 'RETURNED'
+  | 'ARCHIVED';
+
+export interface DocumentReviewEvent {
+  id: number;
+  action: DocumentReviewAction;
+  fromStatus: DocumentReviewStatus | null;
+  toStatus: DocumentReviewStatus;
+  actorId: string;
+  actorName?: string | null;
+  observation?: string | null;
+  createdAt: string;
+}
+
+export interface DocumentReview {
+  id: number;
+  documentId: number;
+  status: DocumentReviewStatus;
+  documentVersionId?: number | null;
+  submittedAt?: string | null;
+  reviewerId?: string | null;
+  reviewerName?: string | null;
+  reviewedAt?: string | null;
+  reviewedById?: string | null;
+  reviewedByName?: string | null;
+  observation?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  events?: DocumentReviewEvent[];
+  document?: {
+    id: number;
+    name?: string | null;
+    uploadedById?: string;
+    uploadedBy?: { id: string; name: string } | null;
+    currentVersion?: number;
+    createdAt?: string;
+  };
+}
+
 export interface Document {
   sharingSummary?: SharingSummary;
   sharingProvenance?: SharingProvenance[];
@@ -282,6 +332,7 @@ export interface Document {
   academic?: DocumentAcademic | null;
   search?: DocumentSearch | null;
   templateData?: DocumentTemplateData | null;
+  review?: DocumentReview | null;
   createdAt: string;
   updatedAt: string;
   directoryId?: number | null;

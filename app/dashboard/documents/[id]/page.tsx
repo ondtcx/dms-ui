@@ -54,6 +54,7 @@ import OfficeDocumentPreview, { isOfficePreviewType } from '@/components/documen
 import { DocumentSharingAction } from '@/components/documents/DocumentSharingAction';
 import { SharingIndicator } from '@/components/documents/SharingIndicator';
 import { ChangeRequestPanel } from '@/components/documents/ChangeRequestPanel';
+import { DocumentReviewPanel } from '@/components/documents/DocumentReviewPanel';
 import { RequestChangesDialog } from '@/components/documents/RequestChangesDialog';
 import { TransferDocumentDialog } from '@/components/transfers/TransferDocumentDialog';
 
@@ -351,6 +352,14 @@ export default function DocumentDetailPage() {
           </DropdownMenu>
         </div>
       </div>
+
+      {doc.review && (
+        <DocumentReviewPanel
+          documentId={doc.id}
+          review={doc.review}
+          onChanged={() => query.refetch()}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Vista previa principal */}

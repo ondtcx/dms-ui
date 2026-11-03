@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WORKFLOW_CONFIGURABLE_ENABLED } from "@/lib/config/features";
 import { WORKFLOW_STATUS_CONFIG } from "@/lib/workflow-status-config";
 import { workflowsService } from "@/lib/services/workflows.service";
 import {
@@ -162,7 +163,7 @@ export function DocumentWorkflowPanel({ documentId, documentVersionId }: Documen
   const decisionReady = historyReady && reviewedVersionValid;
 
   // Sin flujo activo, el permiso global solo puede estrechar; la autoridad real son las definiciones del servidor.
-  const canStart = !execution?.active && !!user && hasPermission("workflow.start");
+  const canStart = WORKFLOW_CONFIGURABLE_ENABLED && !execution?.active && !!user && hasPermission("workflow.start");
   const definitionsQuery = useQuery({
     queryKey: definitionsQueryKey(actorId, documentId),
     queryFn: () => workflowsService.getStartableDefinitions(documentId),

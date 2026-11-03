@@ -32,6 +32,7 @@ import { DocumentSettingsForm } from "@/components/settings/DocumentSettingsForm
 import { NotificationsForm } from "@/components/settings/NotificationsForm";
 import { SecurityForm } from "@/components/settings/SecurityForm";
 import WorkflowAdministration from "@/components/workflows/WorkflowAdministration";
+import { WORKFLOW_CONFIGURABLE_ENABLED } from "@/lib/config/features";
 import { usePermissions } from "@/hooks/use-permissions";
 import { UserRole } from "@/lib/types";
 import Link from "next/link";
@@ -59,7 +60,7 @@ const SETTINGS_CATEGORIES: readonly SettingsCategory[] = [
   { value: "document-types", label: "Tipos de documento", description: "Administra los tipos de documento", icon: Tags, permissions: ["document-types.manage"] },
   { value: "templates", label: "Plantillas", description: "Crea y gestiona plantillas", icon: FileType, permissions: ["templates.manage"] },
   { value: "roles", label: "Roles", description: "Administra roles y permisos", icon: UserRound, permissions: ["roles.manage"] },
-  { value: "workflows", label: "Flujos de trabajo", description: "Administra definiciones y versiones de flujos", icon: GitBranch, permissions: ["workflow.templates.manage"] },
+  ...(WORKFLOW_CONFIGURABLE_ENABLED ? [{ value: "workflows", label: "Flujos de trabajo", description: "Administra definiciones y versiones de flujos", icon: GitBranch, permissions: ["workflow.templates.manage"] }] : []),
   { value: "academic-years", label: "Años lectivos", description: "Administra los años lectivos", icon: GraduationCap, href: "/dashboard/academic-years", roles: [UserRole.ADMIN, UserRole.RECTOR] },
 ];
 
