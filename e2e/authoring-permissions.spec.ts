@@ -122,18 +122,18 @@ test.describe('Rol diseñador sin publicación', () => {
       );
       await page.goto(`/dashboard/elaboracion/plantillas/${template.id}/diseno`);
       await expect(
-        page.getByRole('button', { name: 'Guardar diseño', exact: true }),
+        page.getByRole('button', { name: 'Guardar borrador', exact: true }),
       ).toBeVisible({ timeout: 20_000 });
       await expect(
         page.getByRole('button', { name: 'Guardar y publicar', exact: true }),
       ).toHaveCount(0);
       await page
-        .getByRole('button', { name: 'Guardar diseño', exact: true })
+        .getByRole('button', { name: 'Guardar borrador', exact: true })
         .click();
-      await page.waitForURL(
-        new RegExp(`/dashboard/elaboracion/plantillas/${template.id}$`),
-        { timeout: 45_000 },
-      );
+      await expect(
+        page.getByText('Versión borrador creada. Publícala para aplicarla.'),
+      ).toBeVisible({ timeout: 20_000 });
+      await page.goto(`/dashboard/elaboracion/plantillas/${template.id}`);
       await expect(
         page.getByRole('button', { name: 'Publicar', exact: true }),
       ).toHaveCount(0);

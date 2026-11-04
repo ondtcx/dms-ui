@@ -143,10 +143,10 @@ test.describe('Editor simple de plantillas', () => {
       });
 
       await page.getByRole('button', { name: 'Guardar y publicar' }).click();
-      await page.waitForURL(
-        new RegExp(`/dashboard/elaboracion/plantillas/${template.id}$`),
-        { timeout: 45_000 },
-      );
+      await expect(
+        page.getByText('Contenido guardado y publicado.'),
+      ).toBeVisible({ timeout: 45_000 });
+      await page.goto(`/dashboard/elaboracion/plantillas/${template.id}`);
       await expect(
         page.getByRole('link', { name: /Usar plantilla/ }).first(),
       ).toBeVisible({ timeout: 20_000 });
