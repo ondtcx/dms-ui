@@ -28,6 +28,8 @@ import {
   Undo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AssetUploadButton } from './AssetUploadButton';
+import { TemplateImage } from './TemplateImage.node';
 
 export interface RichTextInsertButton {
   label: string;
@@ -45,6 +47,7 @@ interface RichTextEditorProps {
   disabled?: boolean;
   format?: 'json' | 'html';
   insertButtons?: RichTextInsertButton[];
+  allowImages?: boolean;
 }
 
 function ToolbarButton({
@@ -85,6 +88,7 @@ export function RichTextEditor({
   disabled = false,
   format = 'json',
   insertButtons = [],
+  allowImages = false,
 }: RichTextEditorProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -113,6 +117,7 @@ export function RichTextEditor({
       TableHeader,
       TableCell,
       Placeholder.configure({ placeholder }),
+      ...(allowImages ? [TemplateImage] : []),
     ],
     content: value ?? (format === 'html' ? '' : { type: 'doc', content: [] }),
     onCreate: ({ editor: current }) => {
@@ -247,6 +252,25 @@ export function RichTextEditor({
         >
           <Table2 className="h-4 w-4" />
         </ToolbarButton>
+        {allowImages && (
+          <AssetUploadButton
+            label="Imagen"
+            testId="rich-text-add-image"
+            onUploaded={(asset) =>
+              editor
+                .chain()
+                .focus()
+                .insertContent({
+                  type: 'templateImage',
+                  attrs: { src: asset.url, alt: '' },
+                })
+                .run()
+            }
+            disabled={disabled}
+            size="sm"
+            variant="outline"
+          />
+        )}
         <ToolbarButton
           label="Deshacer"
           onClick={() => editor.chain().focus().undo().run()}

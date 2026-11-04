@@ -74,6 +74,7 @@ export function TemplateContentEditor({
       <RichTextEditor
         format="html"
         value={inner}
+        allowImages
         onChange={(html) => onChange(buildCanonicalBody(String(html)))}
         placeholder="Escribe el cuerpo del documento..."
         disabled={disabled}
@@ -103,7 +104,7 @@ export function TemplateContentEditor({
       <p className="text-xs text-muted-foreground">
         El encabezado institucional, el título, la fecha y el número se agregan
         automáticamente. Los campos de texto enriquecido se insertan como bloque
-        de contenido.
+        de contenido. Usa el botón Imagen para subir una imagen al cuerpo.
       </p>
     </div>
   );
