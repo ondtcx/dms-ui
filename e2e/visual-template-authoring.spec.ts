@@ -44,7 +44,13 @@ test.describe('Creador visual de plantillas', () => {
       await expect(
         page.getByRole('dialog').getByText('Limpiar imágenes no usadas'),
       ).toBeVisible();
-      await page.getByRole('button', { name: 'Cancelar' }).click();
+      await page
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Limpiar' })
+        .click();
+      await expect(page.getByText(/Limpieza completada:/)).toBeVisible({
+        timeout: 30_000,
+      });
       await page.getByRole('link', { name: /Nueva plantilla/ }).click();
 
       await page.getByLabel('Nombre', { exact: true }).fill(name);

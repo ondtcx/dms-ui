@@ -167,6 +167,17 @@ test.describe('Editor gráfico de plantillas', () => {
       );
       await page.mouse.up();
 
+      await page.getByRole('button', { name: 'Recortar' }).last().click();
+      const cropDialog = page.getByRole('dialog');
+      await expect(
+        cropDialog.getByText('Recortar imagen'),
+      ).toBeVisible({ timeout: 20_000 });
+      await expect(
+        cropDialog.getByRole('button', { name: 'Recortar' }),
+      ).toBeEnabled({ timeout: 20_000 });
+      await cropDialog.getByRole('button', { name: 'Recortar' }).click();
+      await expect(cropDialog).toHaveCount(0, { timeout: 20_000 });
+
       const cropResponse = await request.post(
         `${API}/authoring/assets/crop`,
         {
@@ -206,11 +217,6 @@ test.describe('Editor gráfico de plantillas', () => {
       expect(currentResponse.ok()).toBeTruthy();
       const current = await currentResponse.json();
       const latest = current.versions[0];
-      expect(latest.pageFrame?.header?.boxes).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ type: 'image', content: imageAsset.url }),
-        ]),
-      );
       expect(latest.pageFrame?.header?.backgroundSvg).toContain(
         backgroundAsset.url,
       );
@@ -218,11 +224,15 @@ test.describe('Editor gráfico de plantillas', () => {
         (box: any) => box.id === 'institution',
       );
       expect(institution?.x).toBeGreaterThan(235.5);
-      const rotatedImage = latest.pageFrame?.header?.boxes?.find(
-        (box: any) => box.content === imageAsset.url,
+      const uploadedImage = latest.pageFrame?.header?.boxes?.find(
+        (box: any) => box.id.startsWith('image-'),
       );
-      expect(Math.abs(rotatedImage?.rotation ?? 0)).toBeGreaterThan(1);
-      expect(latest.headerHtml).toContain(imageAsset.url);
+      expect(uploadedImage).toBeTruthy();
+      expect(uploadedImage.content).toMatch(
+        /^\/files\/active\/authoring\/assets\//,
+      );
+      expect(Math.abs(uploadedImage.rotation ?? 0)).toBeGreaterThan(1);
+      expect(latest.headerHtml).toContain(uploadedImage.content);
       expect(latest.headerHtml).toContain(backgroundAsset.url);
 
       await page.getByRole('button', { name: 'Guardar y publicar' }).click();
