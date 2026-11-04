@@ -78,6 +78,28 @@ export const authoringService = {
     return response.data;
   },
 
+  async uploadAsset(
+    file: File,
+  ): Promise<{
+    url: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+  }> {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await api.post<{
+      url: string;
+      filename: string;
+      mimeType: string;
+      size: number;
+    }>('/authoring/assets', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    });
+    return response.data;
+  },
+
   async listTemplateActivity(
     templateId: number,
   ): Promise<AuthoringTemplateActivity[]> {
