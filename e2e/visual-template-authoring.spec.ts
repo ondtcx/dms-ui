@@ -3,6 +3,11 @@ import { loginViaApi, SEED_USERS } from './auth.setup';
 
 const API = 'http://localhost:3001/api';
 
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
+  'base64',
+);
+
 test.describe('Creador visual de plantillas', () => {
   test.setTimeout(180_000);
 
@@ -62,6 +67,21 @@ test.describe('Creador visual de plantillas', () => {
       await page.keyboard.type(`Contenido visual E2E ${marker}.`);
       await page.waitForTimeout(800);
 
+      const bodyImageResponse = page.waitForResponse(
+        (response) =>
+          response.url().includes('/authoring/assets') &&
+          response.request().method() === 'POST',
+      );
+      await page.locator('[data-testid="rich-text-add-image"]').setInputFiles({
+        name: 'cuerpo.png',
+        mimeType: 'image/png',
+        buffer: PNG,
+      });
+      const bodyImage = (await (await bodyImageResponse).json()) as {
+        url: string;
+      };
+      await page.waitForTimeout(500);
+
       await page.getByRole('button', { name: 'Guardar borrador' }).click();
       await expect(
         page.getByText('Versión borrador creada. Publícala para aplicarla.'),
@@ -82,6 +102,7 @@ test.describe('Creador visual de plantillas', () => {
       expect(draft.bodyHtml).toContain('{{documento.asunto}}');
       expect(draft.bodyHtml).toContain('{{{contenido}}}');
       expect(draft.bodyHtml).toContain(`Contenido visual E2E ${marker}.`);
+      expect(draft.bodyHtml).toContain(bodyImage.url);
 
       await page.getByRole('button', { name: 'Guardar y publicar' }).click();
       await expect(

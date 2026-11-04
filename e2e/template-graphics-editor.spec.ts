@@ -111,7 +111,28 @@ test.describe('Editor gráfico de plantillas', () => {
         .getByRole('dialog')
         .getByRole('button', { name: 'Diseñar', exact: true })
         .click();
+      await expect(page.getByRole('dialog')).toHaveCount(0, {
+        timeout: 10_000,
+      });
 
+      const institutionBox = page.locator(
+        '[data-frame-canvas] [data-box-id="institution"]',
+      );
+      await expect(institutionBox).toBeVisible();
+      await institutionBox.scrollIntoViewIfNeeded();
+      const institutionBounds = await institutionBox.boundingBox();
+      expect(institutionBounds).not.toBeNull();
+      await page.mouse.move(
+        institutionBounds!.x + institutionBounds!.width / 2,
+        institutionBounds!.y + institutionBounds!.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        institutionBounds!.x + institutionBounds!.width / 2 + 24,
+        institutionBounds!.y + institutionBounds!.height / 2 + 4,
+        { steps: 5 },
+      );
+      await page.mouse.up();
       const imageAsset = await uploadFromInput(
         page,
         'add-image-encabezado',
@@ -120,6 +141,22 @@ test.describe('Editor gráfico de plantillas', () => {
       await expect(page.getByText(/image · image-/).first()).toBeVisible({
         timeout: 20_000,
       });
+
+      const cropResponse = await request.post(
+        `${API}/authoring/assets/crop`,
+        {
+          headers,
+          data: {
+            url: imageAsset.url,
+            x: 0,
+            y: 0,
+            width: 1,
+            height: 1,
+          },
+        },
+      );
+      expect(cropResponse.ok()).toBeTruthy();
+      expect((await cropResponse.json()).url).toMatch(/\.png$/);
 
       const backgroundAsset = await uploadFromInput(
         page,
@@ -152,6 +189,10 @@ test.describe('Editor gráfico de plantillas', () => {
       expect(latest.pageFrame?.header?.backgroundSvg).toContain(
         backgroundAsset.url,
       );
+      const institution = latest.pageFrame?.header?.boxes?.find(
+        (box: any) => box.id === 'institution',
+      );
+      expect(institution?.x).toBeGreaterThan(235.5);
       expect(latest.headerHtml).toContain(imageAsset.url);
       expect(latest.headerHtml).toContain(backgroundAsset.url);
 
