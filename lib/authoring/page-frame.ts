@@ -1,3 +1,26 @@
+export function cssLengthToPt(
+  value: string | undefined | null,
+  fallback = 0,
+): number {
+  if (!value) return fallback;
+  const match = /^(-?\d+(?:\.\d+)?)\s*(cm|mm|in|pt|px)?$/i.exec(value.trim());
+  if (!match) return fallback;
+  const amount = Number(match[1]);
+  const unit = (match[2] ?? 'pt').toLowerCase();
+  switch (unit) {
+    case 'cm':
+      return amount * 28.3464567;
+    case 'mm':
+      return amount * 2.83464567;
+    case 'in':
+      return amount * 72;
+    case 'px':
+      return amount * 0.75;
+    default:
+      return amount;
+  }
+}
+
 export const SAMPLE_HEADER_HTML = `<div style="position:relative;width:100%;font-family:Arial,Helvetica,sans-serif;padding:0 1.8cm;box-sizing:border-box;">
   <svg width="100%" height="34" viewBox="0 0 800 34" preserveAspectRatio="none" style="position:absolute;top:0;left:0;">
     <path d="M0,0 H800 V8 C640,30 500,2 340,18 C180,34 90,6 0,20 Z" fill="#7cb342"/>
@@ -247,11 +270,21 @@ export const ACTA_PAGE_FRAME: PageFrame = {
   },
 };
 
+function imageVisualStyle(box: PageFrameBox): string {
+  const opacity = Number.isFinite(Number(box.opacity))
+    ? Math.min(1, Math.max(0, Number(box.opacity)))
+    : 1;
+  const rotation = Number.isFinite(Number(box.rotation))
+    ? Math.min(180, Math.max(-180, Number(box.rotation)))
+    : 0;
+  return `${rotation ? `transform:rotate(${rotation}deg);` : ''}opacity:${opacity};`;
+}
+
 function frameBoxToHtml(box: PageFrameBox): string {
   if (box.type === 'image') {
     const fit = box.fit === 'cover' ? 'cover' : 'contain';
     const objectPosition = box.objectPosition ?? 'center';
-    const image = `<img src="${box.content}" style="position:absolute;left:${box.x}pt;top:${box.y}pt;width:${box.width}pt;height:${box.height ?? 50}pt;object-fit:${fit};object-position:${objectPosition};" />`;
+    const image = `<img src="${box.content}" style="position:absolute;left:${box.x}pt;top:${box.y}pt;width:${box.width}pt;height:${box.height ?? 50}pt;object-fit:${fit};object-position:${objectPosition};${imageVisualStyle(box)}" />`;
     return box.content === '{{institucion.logo}}'
       ? `{{#if institucion.logo}}${image}{{/if}}`
       : image;
@@ -337,7 +370,20 @@ function fullPageBoxToHtml(box: PageFrameBox): string {
   if (box.type === 'image') {
     const fit = box.fit === 'cover' ? 'cover' : 'contain';
     const objectPosition = box.objectPosition ?? 'center';
-    return `<img src="${box.content}" style="position:absolute;${position};top:${box.y}pt;width:${box.width}pt;height:${box.height ?? 50}pt;object-fit:${fit};object-position:${objectPosition};" />`;
+    const opacity = Number.isFinite(Number(box.opacity))
+      ? Math.min(1, Math.max(0, Number(box.opacity)))
+      : 1;
+    const rotation = Number.isFinite(Number(box.rotation))
+      ? Math.min(180, Math.max(-180, Number(box.rotation)))
+      : 0;
+    const transform = [
+      box.center ? 'translateX(-50%)' : '',
+      rotation ? `rotate(${rotation}deg)` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const imagePosition = box.center ? 'left:50%' : `left:${box.x}pt`;
+    return `<img src="${box.content}" style="position:absolute;${imagePosition};top:${box.y}pt;width:${box.width}pt;height:${box.height ?? 50}pt;object-fit:${fit};object-position:${objectPosition};${transform ? `transform:${transform};` : ''}opacity:${opacity};" />`;
   }
   if (box.type === 'richText') {
     return `<div class="txt richtext" data-box-id="${box.id}" style="${base}width:${box.width}pt;height:${box.height ?? 240}pt;white-space:normal;">${box.content}</div>`;

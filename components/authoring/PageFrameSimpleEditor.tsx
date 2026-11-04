@@ -22,6 +22,7 @@ import {
 } from './PageFrameEditor';
 import { assetUrl, resolveAssetHtml } from '@/lib/authoring/assets';
 import { AssetUploadButton } from './AssetUploadButton';
+import { ImageCropDialog } from './ImageCropDialog';
 
 const PAGE_SIZES: Record<string, { width: number; height: number }> = {
   A4: { width: 595, height: 842 },
@@ -132,6 +133,7 @@ export function PageFrameSimpleEditor({
     return bodyId ? [bodyId] : [];
   });
   const [zoom, setZoom] = useState(() => initialZoom(value));
+  const [cropTarget, setCropTarget] = useState<PageFrameBox | null>(null);
   const [showGrid, setShowGrid] = useState(true);
   const [snap, setSnap] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -821,12 +823,16 @@ export function PageFrameSimpleEditor({
   };
 
   const boxStyle = (box: PageFrameBox) => {
-    const center = box.center
-      ? { left: '50%', transform: 'translateX(-50%)' }
-      : { left: `${box.x}pt` };
+    const transform =
+      [
+        box.center ? 'translateX(-50%)' : '',
+        box.rotation ? `rotate(${box.rotation}deg)` : '',
+      ]
+        .filter(Boolean)
+        .join(' ') || undefined;
     return {
       position: 'absolute' as const,
-      ...center,
+      left: box.center ? '50%' : `${box.x}pt`,
       top: `${box.y}pt`,
       width: box.width > 0 ? `${box.width}pt` : undefined,
       height: box.type === 'richText' ? `${box.height ?? 240}pt` : undefined,
@@ -838,6 +844,9 @@ export function PageFrameSimpleEditor({
       textAlign: (box.center ? 'center' : box.align ?? 'left') as any,
       whiteSpace: box.type === 'richText' ? 'normal' : 'pre',
       lineHeight: box.type === 'richText' ? 1.35 : 1.15,
+      opacity: box.opacity ?? 1,
+      transform,
+      transformOrigin: 'center',
       cursor: readOnly || isLockedBox(box) ? 'default' : 'move',
       userSelect: 'none' as const,
       touchAction: 'none' as const,
@@ -1592,20 +1601,72 @@ export function PageFrameSimpleEditor({
                         </select>
                       </div>
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Alto (pt)</Label>
+                        <Input
+                          type="number"
+                          value={selected.height ?? 50}
+                          onChange={(event) =>
+                            updateBox(selected.id, {
+                              height: Number(event.target.value),
+                            })
+                          }
+                          disabled={readOnly || isLockedBox(selected)}
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Rotación</Label>
+                        <Input
+                          type="number"
+                          value={selected.rotation ?? 0}
+                          min={-180}
+                          max={180}
+                          onChange={(event) =>
+                            updateBox(selected.id, {
+                              rotation: Number(event.target.value),
+                            })
+                          }
+                          disabled={readOnly || isLockedBox(selected)}
+                          className="h-8"
+                          aria-label="Rotación"
+                        />
+                      </div>
+                    </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Alto (pt)</Label>
+                      <Label className="text-xs">Opacidad</Label>
                       <Input
                         type="number"
-                        value={selected.height ?? 50}
+                        step="0.05"
+                        min={0}
+                        max={1}
+                        value={selected.opacity ?? 1}
                         onChange={(event) =>
                           updateBox(selected.id, {
-                            height: Number(event.target.value),
+                            opacity: Number(event.target.value),
                           })
                         }
                         disabled={readOnly || isLockedBox(selected)}
                         className="h-8"
+                        aria-label="Opacidad"
                       />
                     </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCropTarget(selected)}
+                      disabled={
+                        readOnly ||
+                        isLockedBox(selected) ||
+                        !selected.content.startsWith(
+                          '/files/active/authoring/assets/',
+                        )
+                      }
+                    >
+                      Recortar
+                    </Button>
                   </div>
                 ) : (
                   <div className="space-y-1">
@@ -1730,6 +1791,19 @@ export function PageFrameSimpleEditor({
           </CardContent>
         </Card>
       </div>
+      <ImageCropDialog
+        open={!!cropTarget}
+        onOpenChange={(open) => {
+          if (!open) setCropTarget(null);
+        }}
+        imageUrl={cropTarget?.content ?? ''}
+        onCropped={(asset) => {
+          if (cropTarget) {
+            updateBox(cropTarget.id, { content: asset.url });
+          }
+          setCropTarget(null);
+        }}
+      />
     </div>
   );
 }

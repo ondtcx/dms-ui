@@ -100,6 +100,27 @@ export const authoringService = {
     return response.data;
   },
 
+  async cropAsset(payload: {
+    url: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }): Promise<{
+    url: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+  }> {
+    const response = await api.post<{
+      url: string;
+      filename: string;
+      mimeType: string;
+      size: number;
+    }>('/authoring/assets/crop', payload);
+    return response.data;
+  },
+
   async listTemplateActivity(
     templateId: number,
   ): Promise<AuthoringTemplateActivity[]> {
