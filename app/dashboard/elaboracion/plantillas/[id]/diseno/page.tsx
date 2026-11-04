@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Eye, Loader2, Save, Send } from 'lucide-react';
+import { ArrowLeft, Eye, Loader2, Save, Send, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ProtectedRoute from '@/guards/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { PageFrameEditor } from '@/components/authoring/PageFrameEditor';
 import { PageFrameSimpleEditor } from '@/components/authoring/PageFrameSimpleEditor';
 import { SignatureEditor } from '@/components/authoring/SignatureEditor';
@@ -66,6 +67,7 @@ function TemplateEditorContent() {
   const [tab, setTab] = useState<TabKey>('content');
   const [saving, setSaving] = useState<'draft' | 'publish' | null>(null);
   const [previewing, setPreviewing] = useState(false);
+  const [visualFrameOpen, setVisualFrameOpen] = useState(false);
   const initializedTemplate = useRef<number | null>(null);
 
   const query = useQuery({
@@ -463,6 +465,26 @@ function TemplateEditorContent() {
           ) : (
             <>
               <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Diseño visual</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Crea el encabezado y el pie con textos e imágenes, sin editar
+                    HTML. Se usará el diseño institucional como base y podrás
+                    ajustar posiciones, tamaños, recortes y fondos.
+                  </p>
+                  {canDesign && (
+                    <Button
+                      type="button"
+                      onClick={() => setVisualFrameOpen(true)}
+                    >
+                      <Wand2 className="mr-2 h-4 w-4" /> Diseñar visualmente
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+              <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="text-base">
                     Encabezado y pie de página
@@ -618,6 +640,24 @@ function TemplateEditorContent() {
           Volver
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={visualFrameOpen}
+        onOpenChange={setVisualFrameOpen}
+        title="Diseñar encabezado y pie visual"
+        description="Se usará el diseño institucional como base. El encabezado y el pie HTML actuales se reemplazarán al guardar la versión. Podrás mover textos, subir imágenes y cambiar el fondo."
+        confirmLabel="Diseñar"
+        onConfirm={() => {
+          setVisualFrameOpen(false);
+          setFrame({
+            ...clone(ACTA_PAGE_FRAME),
+            mode: 'frame',
+            pageSize: pageSize as PageFrame['pageSize'],
+            orientation: orientation as PageFrame['orientation'],
+          });
+          setUsesPageFrame(true);
+        }}
+      />
     </div>
   );
 }
