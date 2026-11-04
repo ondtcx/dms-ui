@@ -10,7 +10,6 @@ import {
   Download,
   Eye,
   EyeOff,
-  FilePlus2,
   LayoutTemplate,
   Loader2,
   Send,
@@ -286,16 +285,9 @@ function TemplateAdminContent() {
         </div>
         <div className="flex flex-wrap gap-2">
           {canDesign && (
-            <Button asChild variant="outline">
-              <Link href={`/dashboard/elaboracion/plantillas/${template.id}/diseno`}>
-                <LayoutTemplate className="mr-2 h-4 w-4" /> Editar diseño
-              </Link>
-            </Button>
-          )}
-          {canDesign && (
             <Button asChild>
-              <Link href={`/dashboard/elaboracion/plantillas/${template.id}/versiones/nueva`}>
-                <FilePlus2 className="mr-2 h-4 w-4" /> Nueva versión
+              <Link href={`/dashboard/elaboracion/plantillas/${template.id}/diseno`}>
+                <LayoutTemplate className="mr-2 h-4 w-4" /> Abrir editor
               </Link>
             </Button>
           )}
