@@ -1391,7 +1391,9 @@ export function PageFrameSimpleEditor({
                         style={{
                           width: '100%',
                           height: '100%',
-                          objectFit: 'contain',
+                          objectFit:
+                            shown.fit === 'cover' ? 'cover' : 'contain',
+                          objectPosition: shown.objectPosition ?? 'center',
                         }}
                       />
                     ) : (

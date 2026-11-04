@@ -68,6 +68,9 @@ function TemplateEditorContent() {
   const [saving, setSaving] = useState<'draft' | 'publish' | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [visualFrameOpen, setVisualFrameOpen] = useState(false);
+  const [visualFrameMode, setVisualFrameMode] = useState<
+    'institutional' | 'empty'
+  >('institutional');
   const initializedTemplate = useRef<number | null>(null);
 
   const query = useQuery({
@@ -471,16 +474,31 @@ function TemplateEditorContent() {
                 <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm text-muted-foreground">
                     Crea el encabezado y el pie con textos e imágenes, sin editar
-                    HTML. Se usará el diseño institucional como base y podrás
-                    ajustar posiciones, tamaños, recortes y fondos.
+                    HTML. Puedes partir del diseño institucional o empezar en
+                    blanco, y ajustar posiciones, tamaños, recortes y fondos.
                   </p>
                   {canDesign && (
-                    <Button
-                      type="button"
-                      onClick={() => setVisualFrameOpen(true)}
-                    >
-                      <Wand2 className="mr-2 h-4 w-4" /> Diseñar visualmente
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setVisualFrameMode('institutional');
+                          setVisualFrameOpen(true);
+                        }}
+                      >
+                        <Wand2 className="mr-2 h-4 w-4" /> Diseñar visualmente
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setVisualFrameMode('empty');
+                          setVisualFrameOpen(true);
+                        }}
+                      >
+                        Empezar en blanco
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -644,17 +662,43 @@ function TemplateEditorContent() {
       <ConfirmDialog
         open={visualFrameOpen}
         onOpenChange={setVisualFrameOpen}
-        title="Diseñar encabezado y pie visual"
-        description="Se usará el diseño institucional como base. El encabezado y el pie HTML actuales se reemplazarán al guardar la versión. Podrás mover textos, subir imágenes y cambiar el fondo."
-        confirmLabel="Diseñar"
+        title={
+          visualFrameMode === 'empty'
+            ? 'Empezar en blanco'
+            : 'Diseñar encabezado y pie visual'
+        }
+        description={
+          visualFrameMode === 'empty'
+            ? 'Se creará un marco vacío para que agregues textos, imágenes y fondos. El encabezado y el pie HTML actuales se reemplazarán al guardar la versión.'
+            : 'Se usará el diseño institucional como base. El encabezado y el pie HTML actuales se reemplazarán al guardar la versión. Podrás mover textos, subir imágenes y cambiar el fondo.'
+        }
+        confirmLabel={visualFrameMode === 'empty' ? 'Crear' : 'Diseñar'}
         onConfirm={() => {
+          const mode = visualFrameMode;
           setVisualFrameOpen(false);
-          setFrame({
-            ...clone(ACTA_PAGE_FRAME),
-            mode: 'frame',
-            pageSize: pageSize as PageFrame['pageSize'],
-            orientation: orientation as PageFrame['orientation'],
-          });
+          if (mode === 'empty') {
+            setFrame({
+              version: 1,
+              mode: 'frame',
+              pageSize: pageSize as PageFrame['pageSize'],
+              orientation: orientation as PageFrame['orientation'],
+              margins: {
+                top: marginTop,
+                bottom: marginBottom,
+                left: marginLeft,
+                right: marginRight,
+              },
+              header: { boxes: [] },
+              footer: { boxes: [] },
+            });
+          } else {
+            setFrame({
+              ...clone(ACTA_PAGE_FRAME),
+              mode: 'frame',
+              pageSize: pageSize as PageFrame['pageSize'],
+              orientation: orientation as PageFrame['orientation'],
+            });
+          }
           setUsesPageFrame(true);
         }}
       />

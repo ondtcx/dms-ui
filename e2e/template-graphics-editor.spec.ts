@@ -26,7 +26,11 @@ async function uploadFromInput(
   await page.locator(`[data-testid="${testId}"]`).setInputFiles(file);
   const response = await responsePromise;
   expect(response.ok()).toBeTruthy();
-  return response.json() as Promise<{ url: string }>;
+  return response.json() as Promise<{
+    url: string;
+    filename: string;
+    mimeType: string;
+  }>;
 }
 
 async function createStandardTemplate(
@@ -97,6 +101,9 @@ test.describe('Editor gráfico de plantillas', () => {
       );
 
       await page.getByRole('button', { name: 'Marco', exact: true }).click();
+      await expect(
+        page.getByRole('button', { name: 'Empezar en blanco' }),
+      ).toBeVisible();
       await page
         .getByRole('button', { name: 'Diseñar visualmente' })
         .click();
@@ -119,6 +126,8 @@ test.describe('Editor gráfico de plantillas', () => {
         'add-background-encabezado',
         { name: 'fondo.svg', mimeType: 'image/svg+xml', buffer: SVG },
       );
+      expect(backgroundAsset.mimeType).toBe('image/png');
+      expect(backgroundAsset.url).toMatch(/\.png$/);
       await expect(
         page.getByRole('button', { name: 'Quitar fondo' }).first(),
       ).toBeVisible();
@@ -243,6 +252,8 @@ test.describe('Editor gráfico de plantillas', () => {
         'simple-add-background',
         { name: 'fondo- acta.svg', mimeType: 'image/svg+xml', buffer: SVG },
       );
+      expect(backgroundAsset.mimeType).toBe('image/png');
+      expect(backgroundAsset.url).toMatch(/\.png$/);
       await expect(
         page.getByRole('button', { name: 'Quitar fondo' }).first(),
       ).toBeVisible();
