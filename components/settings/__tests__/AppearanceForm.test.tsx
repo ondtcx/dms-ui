@@ -59,7 +59,7 @@ describe("AppearanceForm", () => {
 
     expect(screen.getAllByDisplayValue("#1e3a5f")).toHaveLength(2);
     expect(screen.getAllByDisplayValue("#047857")).toHaveLength(2);
-    expect(screen.getByRole("combobox")).toHaveTextContent("Sistema (automático)");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
   });
 
   it("prevents invalid colors and sends only the validated appearance payload", async () => {

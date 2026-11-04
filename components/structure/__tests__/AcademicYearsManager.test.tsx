@@ -35,7 +35,7 @@ describe('catalog mutation settings refresh', () => {
     await screen.findByText(year.name);
 
     if (mutation === 'create') {
-      fireEvent.click(screen.getByRole('button', { name: 'New Year' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Nuevo año lectivo' }));
       fireEvent.change(screen.getByLabelText('Nombre *'), { target: { value: '2027-2028' } });
       fireEvent.change(screen.getByLabelText('Fecha de Inicio *'), { target: { value: '2027-09-01' } });
       fireEvent.change(screen.getByLabelText('Fecha de Fin *'), { target: { value: '2028-06-30' } });

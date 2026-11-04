@@ -165,7 +165,7 @@ export default function BatchCreationPage() {
   const canGenerate = activeRows.length > 0 && !isGenerating;
 
   return (
-    <div className="space-y-6 p-8 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">

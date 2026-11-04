@@ -141,6 +141,41 @@ describe("per-file upload queue", () => {
       within(group).getByRole("combobox", { name: "Tipo de documento *" }),
     ).toHaveTextContent("Documento general");
   });
+  it("auto-applies shared type changes to untouched files", async () => {
+    jest.mocked(documentsService.uploadMultiple).mockResolvedValue([]);
+    renderDialog(<UploadDocumentsDialog {...props} />);
+    await uploadReady();
+    fireEvent.drop(screen.getByTestId("upload-drop-zone"), {
+      dataTransfer: { files: [new File(["data"], "one.txt")] },
+    });
+    HTMLElement.prototype.scrollIntoView = jest.fn();
+    fireEvent.keyDown(
+      screen.getByRole("combobox", { name: "Tipo de documento para todos" }),
+      { key: "Enter" },
+    );
+    fireEvent.click(screen.getByRole("option", { name: "Oficio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Subir 1 archivo" }));
+    await waitFor(() =>
+      expect(documentsService.uploadMultiple).toHaveBeenCalledWith(
+        [expect.any(File)],
+        [expect.objectContaining({ documentTypeId: 12 })],
+        7,
+        expect.any(Function),
+      ),
+    );
+  });
+
+  it("hides the shared metadata block in single mode", async () => {
+    renderDialog(<UploadDocumentsDialog {...props} multiple={false} />);
+    await uploadReady("Archivo *");
+    fireEvent.drop(screen.getByTestId("upload-drop-zone"), {
+      dataTransfer: { files: [new File(["data"], "one.txt")] },
+    });
+
+    expect(screen.queryByText("Metadatos para todos")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Tipo de documento *")).toBeInTheDocument();
+  });
+
   it('selects and sends both files through the actual multi-file input', async () => {
     jest.mocked(documentsService.uploadMultiple).mockResolvedValue([]);
     renderDialog(<UploadDocumentsDialog {...props} />);
@@ -150,7 +185,7 @@ describe("per-file upload queue", () => {
     const files = [new File(['one'], 'one.txt'), new File(['two'], 'two.txt')];
     await userEvent.upload(input, files);
     expect(screen.getAllByRole('group')).toHaveLength(2);
-    fireEvent.click(screen.getByRole('button', { name: 'Subir 2 archivo(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Subir 2 archivos' }));
     await waitFor(() => expect(documentsService.uploadMultiple).toHaveBeenCalledWith(
       files, [expect.objectContaining({ documentTypeId: 22 }), expect.objectContaining({ documentTypeId: 22 })],
       7, expect.any(Function),
@@ -167,7 +202,7 @@ describe("per-file upload queue", () => {
     expect(
       within(group).getByRole("combobox", { name: "Tipo de documento *" }),
     ).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Subir 1 archivo(s)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Subir 1 archivo" }));
     await waitFor(() =>
       expect(documentsService.uploadMultiple).toHaveBeenCalledWith(
         [expect.any(File)],
@@ -205,7 +240,7 @@ describe("per-file upload queue", () => {
       within(groups[1]).getByRole("button", { name: "Quitar two.txt" }),
     );
     expect(screen.getAllByRole("group")).toHaveLength(2);
-    fireEvent.click(screen.getByRole("button", { name: "Subir 2 archivo(s)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Subir 2 archivos" }));
     await waitFor(() =>
       expect(documentsService.uploadMultiple).toHaveBeenCalledWith(
         [files[0], files[2]],
@@ -281,8 +316,11 @@ describe("per-file upload queue", () => {
         name: "Documento general",
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Subir 1 archivo(s)" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("tipo de documento");
+    fireEvent.click(screen.getByRole("button", { name: "Subir 1 archivo" }));
+    const alerts = await screen.findAllByRole("alert");
+    expect(
+      alerts.some((alert) => alert.textContent?.includes("tipo de documento")),
+    ).toBe(true);
     expect(documentsService.uploadMultiple).not.toHaveBeenCalled();
   });
   it.each([false, true])(
@@ -308,7 +346,7 @@ describe("per-file upload queue", () => {
       expect(toast).not.toHaveBeenCalled();
       fireEvent.click(
         screen.getByRole("button", {
-          name: multiple ? "Subir 1 archivo(s)" : "Subir Documento",
+          name: multiple ? "Subir 1 archivo" : "Subir Documento",
         }),
       );
       await waitFor(() =>
@@ -484,7 +522,7 @@ describe("reception submission gating", () => {
       target: { value: "Agenda" },
     });
     selectType(group);
-    fireEvent.click(screen.getByRole("button", { name: "Subir 1 archivo(s)" }));
+    fireEvent.click(screen.getByRole("button", { name: "Subir 1 archivo" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Ya entregaste tu documento",
     );

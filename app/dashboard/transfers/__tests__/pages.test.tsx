@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SentTransfersPage from "../sent/page";
 import ReceivedTransfersPage from "../received/page";
@@ -93,17 +93,34 @@ describe("transfer list pages", () => {
     await screen.findByText("Documento transferible");
 
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Cancelar transferencia" }),
+    );
 
     await waitFor(() =>
       expect(transfersService.cancel).toHaveBeenCalledWith(transfer.id),
     );
   });
 
-  it("accepts a pending received transfer", async () => {
+  it("requires confirmation before accepting a received transfer", async () => {
     mount(<ReceivedTransfersPage />);
     await screen.findByText("Documento transferible");
 
     fireEvent.click(screen.getByRole("button", { name: "Aceptar" }));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/Documento transferible/)).toBeInTheDocument();
+    expect(transfersService.accept).not.toHaveBeenCalled();
+  });
+
+  it("accepts a pending received transfer after confirmation", async () => {
+    mount(<ReceivedTransfersPage />);
+    await screen.findByText("Documento transferible");
+
+    fireEvent.click(screen.getByRole("button", { name: "Aceptar" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Aceptar" }));
 
     await waitFor(() =>
       expect(transfersService.accept).toHaveBeenCalledWith(transfer.id),
@@ -143,6 +160,8 @@ describe("transfer batch pages", () => {
     await screen.findByText(/Transferencia masiva · 2 documento/);
 
     fireEvent.click(screen.getByRole("button", { name: "Aceptar lote" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Aceptar lote" }));
 
     await waitFor(() =>
       expect(transfersService.acceptBatch).toHaveBeenCalledWith("batch-1"),
@@ -174,6 +193,8 @@ describe("transfer batch pages", () => {
 
     expect(screen.getByText(/Transferencia masiva · 2 documento/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Aceptar lote" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Aceptar lote" }));
     await waitFor(() =>
       expect(transfersService.acceptBatch).toHaveBeenCalledWith("batch-2"),
     );
@@ -185,6 +206,8 @@ describe("transfer batch pages", () => {
     await screen.findByText(/Transferencia masiva · 2 documento/);
 
     fireEvent.click(screen.getByRole("button", { name: "Cancelar lote" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar lote" }));
 
     await waitFor(() =>
       expect(transfersService.cancelBatch).toHaveBeenCalledWith("batch-1"),

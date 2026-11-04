@@ -39,10 +39,10 @@ describe("AcademicYearSelector persisted browsing choice", () => {
     const view = render(<AcademicYearSelector />);
     expect(screen.getByRole("combobox", { name: "Filtrar por año lectivo" })).toBeInTheDocument();
     expect(useAcademicYearStore.getState()).toMatchObject({ currentYearId: 1, persistedUserId: "user-a", hasInitializedYear: true });
-    chooseYear(choice === null ? "Todos los años" : "Previous year");
+    chooseYear(choice === null ? "Todos" : "Previous year");
     catalog = { data: [previous, { ...current, id: 9 }, inactive] };
     view.rerender(<AcademicYearSelector />);
-    expect(screen.getByRole("combobox")).toHaveTextContent(choice === null ? "Todos los años" : "Previous year");
+    expect(screen.getByRole("combobox")).toHaveTextContent(choice === null ? "Todos" : "Previous year");
     const persisted = localStorage.getItem("academic-year-storage")!;
     expect(JSON.parse(persisted)).toMatchObject({ version: 1, state: { currentYearId: choice, hasInitializedYear: true } });
     view.unmount();
@@ -50,7 +50,7 @@ describe("AcademicYearSelector persisted browsing choice", () => {
     localStorage.setItem("academic-year-storage", persisted);
     await act(async () => { await useAcademicYearStore.persist.rehydrate(); });
     render(<AcademicYearSelector />);
-    expect(screen.getByRole("combobox")).toHaveTextContent(choice === null ? "Todos los años" : "Previous year");
+    expect(screen.getByRole("combobox")).toHaveTextContent(choice === null ? "Todos" : "Previous year");
     expect(useAcademicYearStore.getState().currentYearId).toBe(choice);
   });
 
@@ -80,7 +80,7 @@ describe("AcademicYearSelector persisted browsing choice", () => {
     catalog = { data: [{ ...current, id: 9 }, previous] };
     view.rerender(<AcademicYearSelector />);
     expect(useAcademicYearStore.getState().currentYearId).toBe(9);
-    chooseYear("Todos los años");
+    chooseYear("Todos");
     view.rerender(<AcademicYearSelector />);
     expect(useAcademicYearStore.getState().currentYearId).toBeNull();
   });
@@ -94,7 +94,7 @@ describe("AcademicYearSelector persisted browsing choice", () => {
     try {
       fireEvent.keyDown(screen.getByRole("combobox"), { key: "Enter" });
       expect(screen.queryByRole("option", { name: "Inactive year" })).not.toBeInTheDocument();
-      fireEvent.click(screen.getByRole("option", { name: "Todos los años" }));
+      fireEvent.click(screen.getByRole("option", { name: "Todos" }));
     } finally {
       HTMLElement.prototype.scrollIntoView = original;
     }

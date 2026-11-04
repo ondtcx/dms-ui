@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ProtectedRoute from '@/guards/ProtectedRoute';
@@ -12,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TemplateFieldsEditor } from '@/components/authoring/TemplateFieldsEditor';
 import { usePermissions } from '@/hooks/use-permissions';
 import { authoringService } from '@/lib/services/authoring.service';
+import { documentTypesService } from '@/lib/services/document-types.service';
 import type { AuthoringField } from '@/lib/types/authoring';
 import {
   DEFAULT_TEMPLATE_STYLES,
@@ -51,14 +53,23 @@ function NewTemplateContent() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [numberPrefix, setNumberPrefix] = useState('DOC');
+  const [documentTypeId, setDocumentTypeId] = useState<number | undefined>();
   const [pageSize, setPageSize] = useState('A4');
   const [orientation, setOrientation] = useState('portrait');
   const [fields, setFields] = useState<AuthoringField[]>(DEFAULT_FIELDS);
   const [saving, setSaving] = useState(false);
+  const documentTypesQuery = useQuery({
+    queryKey: ['document-types', 'active'],
+    queryFn: () => documentTypesService.getActive(),
+  });
 
   const save = async () => {
     if (!name.trim() || !numberPrefix.trim()) {
       toast.error('El nombre y el prefijo son obligatorios');
+      return;
+    }
+    if (!documentTypeId) {
+      toast.error('Selecciona el tipo de documento de la plantilla');
       return;
     }
     const fieldsError = validateTemplateFields(fields);
@@ -78,6 +89,7 @@ function NewTemplateContent() {
         pageSize,
         orientation,
         numberPrefix: numberPrefix.trim().toUpperCase(),
+        documentTypeId,
       });
       toast.success('Plantilla creada. Ahora diseña el contenido y publícala.');
       router.push(
@@ -158,6 +170,26 @@ function NewTemplateContent() {
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Para qué se usa esta plantilla"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="template-document-type">Tipo de documento *</Label>
+            <select
+              id="template-document-type"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={documentTypeId?.toString() ?? ''}
+              onChange={(event) =>
+                setDocumentTypeId(
+                  event.target.value ? Number(event.target.value) : undefined,
+                )
+              }
+            >
+              <option value="">Selecciona un tipo</option>
+              {(documentTypesQuery.data ?? []).map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="template-page-size">Tamaño de página</Label>

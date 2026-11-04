@@ -9,6 +9,8 @@ import { TransferStats } from "@/components/transfer-stats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -31,6 +33,12 @@ export default function SentTransfersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | TransferStatus>("all");
+  const [pendingCancel, setPendingCancel] = useState<{
+    kind: "single" | "batch";
+    id: number | string;
+    label: string;
+    count: number;
+  } | null>(null);
 
   const transfers = useQuery({
     queryKey: ["transfers-sent"],
@@ -56,12 +64,28 @@ export default function SentTransfersPage() {
   const cancelBatch = useMutation({
     mutationFn: (batchId: string) => transfersService.cancelBatch(batchId),
     onSuccess: (result) => {
-      toast.success(`${result.canceled} documento(s) cancelados`);
+      toast.success(`${result.canceled} ${result.canceled === 1 ? "documento cancelado" : "documentos cancelados"}`);
       refresh();
     },
     onError: (error) =>
       toast.error(transferErrorMessage(error, "No se pudo cancelar el lote")),
   });
+
+  const confirmCancel = async () => {
+    const action = pendingCancel;
+    if (!action) return;
+    try {
+      if (action.kind === "single") {
+        await cancel.mutateAsync(action.id as number);
+      } else {
+        await cancelBatch.mutateAsync(action.id as string);
+      }
+    } catch {
+      // Las mutaciones ya reportan el error con un toast.
+    } finally {
+      setPendingCancel(null);
+    }
+  };
 
   const matchesSearch = (transfer: import("@/lib/types").TransferHistory) => {
     const target = transfer.toUser?.name || transfer.toUser?.email || "";
@@ -88,7 +112,7 @@ export default function SentTransfersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Transferencias enviadas</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Transferencias enviadas</h1>
         <p className="text-sm text-muted-foreground">
           Solicitudes iniciadas por ti o sobre documentos de tu propiedad.
         </p>
@@ -104,11 +128,12 @@ export default function SentTransfersPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por documento o destinatario..."
+              aria-label="Buscar transferencias enviadas"
               className="pl-9"
             />
           </div>
           <Select value={status} onValueChange={(value) => setStatus(value as "all" | TransferStatus)}>
-            <SelectTrigger className="w-full sm:w-48">
+            <SelectTrigger className="w-full sm:w-48" aria-label="Filtrar por estado">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -123,7 +148,25 @@ export default function SentTransfersPage() {
 
       <Card>
         <CardContent className="p-0">
-          {transfers.isLoading ? (
+          {transfers.isError ? (
+            <div className="p-6">
+              <Alert variant="destructive">
+                <AlertTitle>No se pudieron cargar las transferencias enviadas</AlertTitle>
+                <AlertDescription className="flex flex-col gap-3">
+                  <p>Revisa la conexión e inténtalo de nuevo.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => transfers.refetch()}
+                  >
+                    Reintentar
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : transfers.isLoading ? (
             <p className="p-6 text-sm text-muted-foreground">Cargando transferencias...</p>
           ) : !hasResults ? (
             <div className="flex flex-col items-center gap-2 p-10 text-center">
@@ -137,7 +180,7 @@ export default function SentTransfersPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">
-                        Transferencia masiva · {batch.totalCount} documento(s)
+                        Transferencia masiva · {batch.totalCount} {batch.totalCount === 1 ? "documento" : "documentos"}
                       </span>
                       <Badge variant="outline" className={transferStatusConfig[batch.status].className}>
                         {transferStatusConfig[batch.status].label}
@@ -187,7 +230,14 @@ export default function SentTransfersPage() {
                       variant="outline"
                       size="sm"
                       disabled={cancel.isPending || cancelBatch.isPending}
-                      onClick={() => cancelBatch.mutate(batch.batchId)}
+                      onClick={() =>
+                        setPendingCancel({
+                          kind: "batch",
+                          id: batch.batchId,
+                          label: transferDocumentName(batch.representative),
+                          count: batch.pendingCount,
+                        })
+                      }
                     >
                       <XCircle className="mr-2 h-4 w-4" />
                       Cancelar lote
@@ -222,7 +272,14 @@ export default function SentTransfersPage() {
                       variant="outline"
                       size="sm"
                       disabled={cancel.isPending || cancelBatch.isPending}
-                      onClick={() => cancel.mutate(transfer.id)}
+                      onClick={() =>
+                        setPendingCancel({
+                          kind: "single",
+                          id: transfer.id,
+                          label: transferDocumentName(transfer),
+                          count: 1,
+                        })
+                      }
                     >
                       <XCircle className="mr-2 h-4 w-4" />
                       Cancelar
@@ -234,6 +291,33 @@ export default function SentTransfersPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={pendingCancel !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingCancel(null);
+        }}
+        title={
+          pendingCancel?.kind === "batch"
+            ? "Cancelar lote"
+            : "Cancelar transferencia"
+        }
+        description={
+          pendingCancel
+            ? pendingCancel.kind === "batch"
+              ? `Se ${pendingCancel.count === 1 ? "cancelará" : "cancelarán"} ${pendingCancel.count} ${pendingCancel.count === 1 ? "documento" : "documentos"} del lote "${pendingCancel.label}". Volverán a su propietario actual.`
+              : `"${pendingCancel.label}" volverá a su propietario actual y la solicitud dejará de estar pendiente.`
+            : ""
+        }
+        confirmLabel={
+          pendingCancel?.kind === "batch"
+            ? "Cancelar lote"
+            : "Cancelar transferencia"
+        }
+        variant="destructive"
+        loading={cancel.isPending || cancelBatch.isPending}
+        onConfirm={confirmCancel}
+      />
     </div>
   );
 }

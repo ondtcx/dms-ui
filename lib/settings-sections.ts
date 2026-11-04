@@ -1,0 +1,17 @@
+export const SETTINGS_SECTION_LABELS: Record<string, string> = {
+  institution: "Institución",
+  appearance: "Apariencia",
+  documents: "Documentos",
+  notifications: "Notificaciones",
+  security: "Seguridad",
+  "my-account": "Mi cuenta",
+  users: "Usuarios",
+  categories: "Categorías",
+  "document-types": "Tipos de documento",
+  templates: "Plantillas",
+  roles: "Roles",
+  workflows: "Flujos de trabajo",
+  "academic-years": "Años lectivos",
+  transfers: "Transferencias",
+  "authoring-templates": "Plantillas institucionales",
+};

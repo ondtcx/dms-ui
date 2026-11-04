@@ -26,6 +26,7 @@ import {
 import { authoringService } from '@/lib/services/authoring.service';
 import type { AuthoringDocument, PageFrame } from '@/lib/types/authoring';
 import { AuthoringDocumentForm } from '@/components/authoring/AuthoringDocumentForm';
+import { ReviewerPicker } from '@/components/documents/ReviewerPicker';
 import { AuthoringStatusBadge } from '@/components/authoring/AuthoringStatusBadge';
 import { PageFrameEditor } from '@/components/authoring/PageFrameEditor';
 import { buildPrebody, fieldsOf, getByPath } from '@/lib/authoring/fields';
@@ -72,7 +73,7 @@ function EditDocumentContent() {
   const usersQuery = useQuery({
     queryKey: ['authoring-users'],
     queryFn: () => authoringService.listUsers(),
-    enabled: showSubmit,
+    enabled: editable,
   });
 
   useEffect(() => {
@@ -250,7 +251,7 @@ function EditDocumentContent() {
     return (
       <div className="p-6">
         <p className="text-sm text-destructive">Documento no encontrado.</p>
-        <Button className="mt-4" variant="outline" onClick={() => router.push('/dashboard/elaboracion')}>
+        <Button className="mt-4" variant="outline" onClick={() => router.push('/dashboard/documents')}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Volver
         </Button>
       </div>
@@ -272,15 +273,15 @@ function EditDocumentContent() {
     `Documento #${document.id}`;
 
   return (
-    <div className="flex flex-col gap-5 p-4 sm:p-6">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <Button
             variant="ghost"
             className="mb-2 h-auto px-0 py-0 text-muted-foreground"
-            onClick={() => router.push('/dashboard/elaboracion')}
+            onClick={() => router.push('/dashboard/documents')}
           >
-            <ArrowLeft className="mr-1.5 h-4 w-4" /> Biblioteca
+            <ArrowLeft className="mr-1.5 h-4 w-4" /> Documentos
           </Button>
           <h1 className="truncate text-2xl font-semibold tracking-tight">{title}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -394,19 +395,14 @@ function EditDocumentContent() {
             <label className="text-sm font-medium" htmlFor="reviewer">
               Revisor (opcional)
             </label>
-            <select
+            <ReviewerPicker
               id="reviewer"
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              users={usersQuery.data}
               value={reviewerId}
-              onChange={(event) => setReviewerId(event.target.value)}
-            >
-              <option value="">Cualquier usuario del módulo</option>
-              {(usersQuery.data ?? []).map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.name || user.email}
-                </option>
-              ))}
-            </select>
+              onChange={setReviewerId}
+              disabled={submitting}
+              loading={usersQuery.isLoading}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSubmit(false)}>

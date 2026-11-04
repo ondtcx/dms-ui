@@ -1,7 +1,8 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   Breadcrumb,
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { documentsService } from "@/lib/services/documents.service";
 import { batchService } from "@/lib/services/batch.service";
+import { SETTINGS_SECTION_LABELS } from "@/lib/settings-sections";
 
 const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Inicio",
@@ -24,6 +26,14 @@ const SEGMENT_LABELS: Record<string, string> = {
   categories: "Categorías",
   sections: "Secciones",
   workflows: "Flujos de trabajo",
+  elaboracion: "Plantillas institucionales",
+  pending: "Pendientes de revisión",
+  transfers: "Transferencias",
+  sent: "Enviadas",
+  received: "Recibidas",
+  "new-transfer": "Nueva transferencia",
+  pendientes: "Pendientes",
+  plantillas: "Plantillas",
   trash: "Papelera",
   archive: "Archivo",
   reports: "Reportes",
@@ -61,6 +71,7 @@ function useBatchName(batchId: string | null) {
 
 export function DashboardBreadcrumb() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const segments = pathname.split("/").filter(Boolean);
 
   // Detect document ID: /documents/[number]
@@ -103,10 +114,26 @@ export function DashboardBreadcrumb() {
     const seg = segments[i];
     path += `/${seg}`;
 
+    // `/dashboard` already means "Inicio"; repeating `home` yields "Inicio / Inicio".
+    if (seg === "home" && segments[i - 1] === "dashboard") continue;
+
     const label = resolveSegmentLabel(seg, i);
     const href = path;
 
     items.push({ label, href });
+  }
+
+  const settingsSection = pathname === "/dashboard/settings"
+    ? searchParams.get("section")
+    : null;
+  const settingsSectionLabel = settingsSection
+    ? SETTINGS_SECTION_LABELS[settingsSection]
+    : undefined;
+  if (settingsSectionLabel) {
+    items.push({
+      label: settingsSectionLabel,
+      href: `${pathname}?section=${settingsSection}`,
+    });
   }
 
   if (items.length <= 1) {
@@ -119,7 +146,7 @@ export function DashboardBreadcrumb() {
         {items.map((item, idx) => {
           const isLast = idx === items.length - 1;
           return (
-            <span key={item.href} className="inline-flex items-center gap-1.5">
+            <Fragment key={item.href}>
               {idx > 0 && <BreadcrumbSeparator />}
               <BreadcrumbItem>
                 {isLast ? (
@@ -130,7 +157,7 @@ export function DashboardBreadcrumb() {
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>
-            </span>
+            </Fragment>
           );
         })}
       </BreadcrumbList>

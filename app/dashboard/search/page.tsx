@@ -182,7 +182,7 @@ function SearchContent() {
     return (
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Buscar documentos</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Buscar documentos</h1>
           <p className="text-muted-foreground mt-1">
             Usa la barra de búsqueda del encabezado para encontrar documentos.
           </p>
@@ -254,7 +254,7 @@ function SearchContent() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Resultados para{" "}
             <span className="text-primary">"{query}"</span>
           </h1>
@@ -301,7 +301,7 @@ function SearchContent() {
               <CardContent className="flex items-center gap-3 p-4">
                 <Folder className="h-5 w-5 shrink-0 text-primary" />
                 <Link
-                  href={`/dashboard/directories?directoryId=${directory.id}`}
+                  href={`/dashboard/documents?directoryId=${directory.id}`}
                   className="font-medium hover:underline"
                 >
                   {directory.name}

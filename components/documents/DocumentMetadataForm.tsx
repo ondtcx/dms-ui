@@ -26,6 +26,8 @@ interface DocumentMetadataFormProps {
   documentTypeError?: string;
   academicYears?: AcademicYear[];
   disabled?: boolean;
+  showNumber?: boolean;
+  nameHelp?: string;
 }
 
 export function DocumentMetadataForm({
@@ -35,6 +37,8 @@ export function DocumentMetadataForm({
   documentTypeError,
   academicYears,
   disabled = false,
+  showNumber = true,
+  nameHelp = "Si se deja vacío, se usará el nombre del archivo original.",
 }: DocumentMetadataFormProps) {
   // El predeterminado persistido (`Documento general`) nunca aparece en el
   // desplegable de tipos concretos.
@@ -67,21 +71,25 @@ export function DocumentMetadataForm({
         aria-describedby={`${nameId}-help`}
       />
       <p id={`${nameId}-help`} className="text-sm text-muted-foreground">
-        Si se deja vacío, se usará el nombre del archivo original.
+        {nameHelp}
       </p>
-      <label htmlFor={numberId} className="text-sm font-medium">
-        Número institucional (opcional)
-      </label>
-      <Input
-        id={numberId}
-        disabled={disabled}
-        value={value.documentNumber ?? ""}
-        onChange={(event) => onChange({ ...value, documentNumber: event.target.value })}
-        aria-describedby={`${numberId}-help`}
-      />
-      <p id={`${numberId}-help`} className="text-sm text-muted-foreground">
-        Debe ser único. Si se deja vacío, el documento quedará sin número institucional.
-      </p>
+      {showNumber ? (
+        <>
+          <label htmlFor={numberId} className="text-sm font-medium">
+            Número institucional (opcional)
+          </label>
+          <Input
+            id={numberId}
+            disabled={disabled}
+            value={value.documentNumber ?? ""}
+            onChange={(event) => onChange({ ...value, documentNumber: event.target.value })}
+            aria-describedby={`${numberId}-help`}
+          />
+          <p id={`${numberId}-help`} className="text-sm text-muted-foreground">
+            Debe ser único. Si se deja vacío, el documento quedará sin número institucional.
+          </p>
+        </>
+      ) : null}
       {/* Tipo de documento */}
       <div className="flex items-center justify-between gap-2">
         <label htmlFor={documentTypeId} className="text-sm font-medium">

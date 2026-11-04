@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { documentsService } from '@/lib/services/documents.service';
 import { useState, useEffect, useRef } from 'react';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import {
@@ -28,6 +28,7 @@ import {
   ScrollText,
   MessageSquare,
   ArrowRightLeft,
+  FolderOpen,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -55,6 +56,7 @@ import { DocumentSharingAction } from '@/components/documents/DocumentSharingAct
 import { SharingIndicator } from '@/components/documents/SharingIndicator';
 import { ChangeRequestPanel } from '@/components/documents/ChangeRequestPanel';
 import { DocumentReviewPanel } from '@/components/documents/DocumentReviewPanel';
+import { AuthoringReviewCard } from '@/components/documents/AuthoringReviewCard';
 import { RequestChangesDialog } from '@/components/documents/RequestChangesDialog';
 import { TransferDocumentDialog } from '@/components/transfers/TransferDocumentDialog';
 
@@ -235,7 +237,7 @@ export default function DocumentDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4">
         <FileText className="h-16 w-16 text-muted-foreground" />
-        <h1 className="text-2xl font-bold">Documento no encontrado</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Documento no encontrado</h1>
         <Button onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
@@ -245,11 +247,11 @@ export default function DocumentDetailPage() {
   }
 
   const originDate = doc.originDate && validOriginDate(doc.originDate)
-    ? parseISO(doc.originDate)
+    ? new Date(`${doc.originDate.slice(0, 10)}T12:00:00`)
     : null;
 
   return (
-    <div className="space-y-6 p-8">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
@@ -301,7 +303,12 @@ export default function DocumentDetailPage() {
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon">
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Más acciones"
+                title="Más acciones"
+              >
                 <MoreVertical className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -353,11 +360,31 @@ export default function DocumentDetailPage() {
         </div>
       </div>
 
+      {doc.authoring ? (
+        <AuthoringReviewCard
+          document={doc}
+          onChanged={() => query.refetch()}
+        />
+      ) : null}
+
       {doc.review && (
         <DocumentReviewPanel
           documentId={doc.id}
           review={doc.review}
           onChanged={() => query.refetch()}
+          canUpdate={canAct('editContent')}
+          canEditMetadata={canAct('editMetadata')}
+          canArchive={
+            doc.uploadedById === user?.id ||
+            user?.role === UserRole.ADMIN ||
+            user?.role === UserRole.RECTOR
+          }
+          onReplaceFile={() => {
+            if (canAct('editContent')) setShowReplaceDialog(true);
+          }}
+          onEditMetadata={() => {
+            if (canAct('editMetadata')) setShowEditDialog(true);
+          }}
         />
       )}
 
@@ -437,6 +464,18 @@ export default function DocumentDetailPage() {
                    <div className="flex-1">
                      <p className="text-sm font-medium">Tipo de archivo</p>
                      <p className="text-sm text-muted-foreground">{formatMimeType(((doc?.versions?.[0]?.mimetype) ?? ''))}</p>
+                   </div>
+                 </div>
+
+                 <Separator />
+
+                 <div className="flex items-start gap-3">
+                   <FolderOpen className="h-5 w-5 text-muted-foreground mt-0.5" />
+                   <div className="flex-1">
+                     <p className="text-sm font-medium">Carpeta</p>
+                     <p className="text-sm text-muted-foreground">
+                       {doc.directory?.name ?? "Raíz"}
+                     </p>
                    </div>
                  </div>
 

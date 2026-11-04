@@ -146,13 +146,13 @@ function CategoriesPageContent() {
   if (error) {
     return (
       <div className="p-8 text-center">
-        <p className="text-red-500">Error al cargar categorías</p>
+        <p className="text-destructive">Error al cargar categorías</p>
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Gestión de Categorías</h1>
         <p className="text-muted-foreground mt-1">
@@ -332,7 +332,7 @@ function CategoriesPageContent() {
                           size="icon"
                           onClick={() => handleDelete(category.id, category.name)}
                         >
-                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>

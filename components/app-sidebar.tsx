@@ -27,18 +27,12 @@ import {
   Home,
   FileText,
   Settings,
-  Clock3,
-  FilePlus2,
-  Trash2,
   Plus,
   ChevronRight,
   Building2,
   Folder,
-  FolderKanban,
   PlusCircle,
-  Send,
   Inbox,
-  BookOpen,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -73,70 +67,22 @@ export const mainMenuItems: MenuItem[] = [
     title: "Documentos",
     icon: FileText,
     url: "/dashboard/documents",
+    activationPaths: ["/dashboard/documents"],
     items: [
       {
-        title: "Recientemente accedido",
-        icon: Clock3,
-        url: "/dashboard/documents?view=recent-accessed",
-      },
-      {
-        title: "Recientemente creado",
-        icon: FilePlus2,
-        url: "/dashboard/documents?view=recent-created",
-      },
-      {
-        title: "Todos los documentos",
+        title: "Bandeja",
         icon: FileText,
-        url: "/dashboard/documents?view=all",
-      },
-      {
-        title: "Papelera",
-        icon: Trash2,
-        url: "/dashboard/documents?view=trash",
-      },
-      {
-        title: "Nuevo Documento",
-        icon: Plus,
-        url: "/dashboard/documents?action=new",
-      },
-    ],
-  },
-  {
-    title: "Elaboración documental",
-    icon: BookOpen,
-    url: "/dashboard/elaboracion",
-    items: [
-      {
-        title: "Biblioteca de plantillas",
-        icon: BookOpen,
-        url: "/dashboard/elaboracion",
+        url: "/dashboard/documents",
       },
       {
         title: "Pendientes de revisión",
         icon: Inbox,
-        url: "/dashboard/elaboracion/pendientes",
+        url: "/dashboard/documents/pending",
       },
-    ],
-  },
-  {
-    title: "Transferencias",
-    icon: FolderKanban,
-    url: "/dashboard/transfers",
-    items: [
       {
-        title: "Nueva Transferencia",
+        title: "Nuevo",
         icon: PlusCircle,
-        url: "/dashboard/transfers/new-transfer",
-      },
-      {
-        title: "Enviadas",
-        icon: Send,
-        url: "/dashboard/transfers/sent",
-      },
-      {
-        title: "Recibidas",
-        icon: Inbox,
-        url: "/dashboard/transfers/received",
+        url: "/dashboard/documents?action=new",
       },
     ],
   },
@@ -168,7 +114,7 @@ export function AppSidebar() {
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
   const currentUrl = queryString ? `${pathname}?${queryString}` : pathname;
-  const { settings } = useSettings();
+  const { settings, isLoading } = useSettings();
   const directorySummary = useQuery({
     queryKey: directoryQueryKeys.summary,
     queryFn: documentsService.getDirectoryNavigationSummary,
@@ -180,8 +126,12 @@ export function AppSidebar() {
   const logoUrl = settings?.institution?.logoPath
     ? `${apiBase}${settings.institution.logoPath}`
     : null;
-  const institutionName = settings?.institution?.name?.trim() || "Institución no configurada";
-  const schoolYearName = settings?.schoolYear?.name?.trim() || "Año lectivo no disponible";
+  const institutionName = isLoading
+    ? "Institución"
+    : settings?.institution?.name?.trim() || "Institución no configurada";
+  const schoolYearName = isLoading
+    ? "Cargando año lectivo…"
+    : settings?.schoolYear?.name?.trim() || "Año lectivo no disponible";
   const highlightedDirectories = mergeDirectoryNavigation(
     directorySummary.data?.recent,
     directorySummary.data?.mostUsed,
@@ -226,68 +176,75 @@ export function AppSidebar() {
 
       {/* Content - Menu de navegacion */}
       <SidebarContent>
+        <nav aria-label="Navegación principal">
         {/* Menu Principal */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainMenuItems.filter(shouldShowMenuItem).map((item, index) => {
-                const isDocumentsSubmenu = item.title === "Documentos";
-
+              {mainMenuItems.filter(shouldShowMenuItem).map((item) => {
                 return item.items?.length ? (
                   <Collapsible
-                    key={item.title}
-                    defaultOpen={index === 1}
+                    key={`${item.title}-${currentUrl}`}
+                    defaultOpen={isNavItemActive(item, currentUrl)}
                     className="group/collapsible"
                   >
                     <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
+                      <div className="flex items-center gap-1">
                         <SidebarMenuButton
+                          asChild
                           isActive={isNavItemActive(item, currentUrl)}
+                          aria-current={
+                            isNavItemActive(item, currentUrl) &&
+                            !item.items?.some((subItem) =>
+                              isNavItemActive(subItem, currentUrl),
+                            )
+                              ? "page"
+                              : undefined
+                          }
                           tooltip={item.title}
-                          className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
+                          className="data-[active=true]:border-sidebar-primary-foreground data-[active=true]:font-medium data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                         >
-                          {item.icon && <item.icon className="h-4 w-4 mr-2" />}
-                          {item.title}{" "}
-                          <ChevronRight
-                            aria-hidden="true"
-                            className="ml-auto size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
-                          />
+                          <Link
+                            href={item.url}
+                            className="flex w-full items-center"
+                          >
+                            {item.icon && (
+                              <item.icon className="h-4 w-4 mr-2 shrink-0" />
+                            )}
+                            <span className="flex-1 truncate">{item.title}</span>
+                          </Link>
                         </SidebarMenuButton>
-                      </CollapsibleTrigger>
+                        <CollapsibleTrigger asChild>
+                          <button
+                            type="button"
+                            aria-label={`Alternar ${item.title}`}
+                            className="rounded-md p-1.5 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none group-data-[collapsible=icon]:hidden"
+                          >
+                            <ChevronRight
+                              aria-hidden="true"
+                              className="size-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90"
+                            />
+                          </button>
+                        </CollapsibleTrigger>
+                      </div>
                       <CollapsibleContent>
-                        <SidebarMenuSub className={isDocumentsSubmenu ? "gap-1.5 py-1" : undefined}>
+                        <SidebarMenuSub>
                           {item.items.map((subItem) => (
                             <SidebarMenuSubItem key={subItem.title}>
                               <SidebarMenuSubButton
                                 asChild
                                 size="sm"
                                 isActive={isNavItemActive(subItem, currentUrl)}
-                                className={
-                                  isDocumentsSubmenu
-                                    ? "min-h-8 h-auto items-start overflow-visible py-1.5 [&>span:last-child]:whitespace-normal [&>span:last-child]:break-words [&>span:last-child]:leading-tight [&>span:last-child]:overflow-visible [&>span:last-child]:text-clip"
-                                    : undefined
-                                }
+                                aria-current={isNavItemActive(subItem, currentUrl) ? "page" : undefined}
                               >
                                 <Link
                                   href={subItem.url}
-                                  className={isDocumentsSubmenu ? "flex items-start" : "flex items-center"}
+                                  className="flex items-center"
                                 >
                                   {subItem.icon && (
-                                    <subItem.icon
-                                      className={
-                                        isDocumentsSubmenu
-                                          ? "h-3.5 w-3.5 mr-2 shrink-0 self-start"
-                                          : "h-4 w-4 mr-2"
-                                      }
-                                    />
+                                    <subItem.icon className="h-4 w-4 mr-2" />
                                   )}
-                                  {isDocumentsSubmenu ? (
-                                    <span className="min-w-0 flex-1 whitespace-normal break-words leading-tight">
-                                      {subItem.title}
-                                    </span>
-                                  ) : (
-                                    subItem.title
-                                  )}
+                                  {subItem.title}
                                 </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
@@ -302,10 +259,15 @@ export function AppSidebar() {
                       asChild
                       isActive={isNavItemActive(item, currentUrl)}
                       tooltip={item.title}
-                      className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
+                      className="data-[active=true]:border-sidebar-primary-foreground data-[active=true]:font-medium data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                     >
                       <Link
                         href={item.url}
+                        aria-current={
+                          isNavItemActive(item, currentUrl)
+                            ? "page"
+                            : undefined
+                        }
                         className="flex items-center w-full"
                       >
                         <item.icon className="h-4 w-4 mr-2 shrink-0" />
@@ -324,7 +286,7 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       isActive={isNavItemActive({ url: "/dashboard/directories", items: [{}] }, currentUrl)}
                       tooltip="Carpetas"
-                      className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
+                      className="data-[active=true]:border-sidebar-primary-foreground data-[active=true]:font-medium data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                     >
                       <Folder className="h-4 w-4 mr-2" />
                       Carpetas
@@ -361,8 +323,8 @@ export function AppSidebar() {
                         </SidebarMenuSubItem>
                       ))}
                       <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild size="sm" isActive={isNavItemActive({ url: "/dashboard/directories" }, currentUrl)}>
-                          <Link href="/dashboard/directories"><Folder className="h-4 w-4" /><span>Todos</span></Link>
+                        <SidebarMenuSubButton asChild size="sm" isActive={isNavItemActive({ url: "/dashboard/documents" }, currentUrl)}>
+                          <Link href="/dashboard/documents"><Folder className="h-4 w-4" /><span>Raíz</span></Link>
                         </SidebarMenuSubButton>
                       </SidebarMenuSubItem>
                       <SidebarMenuSubItem>
@@ -415,7 +377,7 @@ export function AppSidebar() {
                             <SidebarMenuButton
                               isActive={isNavItemActive(item, currentUrl)}
                               tooltip={item.title}
-                              className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
+                              className="data-[active=true]:border-sidebar-primary-foreground data-[active=true]:font-medium data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                             >
                               {item.icon && (
                                 <item.icon className="h-4 w-4 mr-2" />
@@ -435,6 +397,7 @@ export function AppSidebar() {
                                     asChild
                                     size="sm"
                                     isActive={isNavItemActive(subItem, currentUrl)}
+                                    aria-current={isNavItemActive(subItem, currentUrl) ? "page" : undefined}
                                   >
                                     <Link
                                       href={subItem.url}
@@ -461,9 +424,17 @@ export function AppSidebar() {
                         asChild
                         isActive={isNavItemActive(item, currentUrl)}
                         tooltip={item.title}
-                        className="data-[active=true]:border-sidebar-primary data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
+                        className="data-[active=true]:border-sidebar-primary-foreground data-[active=true]:font-medium data-[active=true]:border-l-2 data-[active=true]:pl-[6px]!"
                       >
-                        <Link href={item.url} className="flex items-center">
+                        <Link
+                          href={item.url}
+                          aria-current={
+                            isNavItemActive(item, currentUrl)
+                              ? "page"
+                              : undefined
+                          }
+                          className="flex items-center"
+                        >
                           <item.icon className="h-4 w-4 mr-2" />
                           {item.title}
                         </Link>
@@ -475,6 +446,7 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+        </nav>
       </SidebarContent>
 
       <SidebarRail />

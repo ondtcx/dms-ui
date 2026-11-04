@@ -20,10 +20,25 @@ import {
 import { ChevronDown } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Administrador",
+  RECTOR: "Rector",
+  VICERRECTOR: "Vicerrector",
+  COORDINADOR: "Coordinador",
+  PROFESOR: "Profesor",
+  SECRETARIO: "Secretario",
+  PADRE: "Padre",
+  ESTUDIANTE: "Estudiante",
+  MODERADOR: "Moderador",
+  USER: "Usuario",
+};
+
 function DashboardProfile() {
   const { user, logout } = useAuth();
   const userName = user?.name?.trim() || "Usuario";
-  const userRole = user?.role?.toUpperCase() || "USUARIO";
+  const userRole = user?.role
+    ? ROLE_LABELS[user.role.toUpperCase()] ?? user.role
+    : "Usuario";
   const userInitials = userName
     .split(/\s+/)
     .filter(Boolean)
@@ -72,6 +87,12 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
+      <a
+        href="#dashboard-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[60] focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Saltar al contenido
+      </a>
       <div className="flex min-h-screen w-full">
         <Suspense fallback={null}>
           <AppSidebar />
@@ -87,7 +108,11 @@ export default function DashboardLayout({
             <div className="flex h-16 min-w-0 items-center justify-between px-4 sm:px-6">
               <div className="flex min-w-0 items-center gap-2 sm:gap-4">
                 <SidebarTrigger />
-                <div className="min-w-0 truncate"><DashboardBreadcrumb /></div>
+                <div className="min-w-0 truncate">
+                  <Suspense fallback={null}>
+                    <DashboardBreadcrumb />
+                  </Suspense>
+                </div>
               </div>
               <div className="dashboard-header-search mx-2 min-w-0 max-w-md flex-1 sm:mx-6">
                 <SearchBar />
@@ -100,8 +125,8 @@ export default function DashboardLayout({
           </header>
 
           {/* Main Content */}
-          <SidebarInset>
-            <main className="flex-1 overflow-auto p-6">{children}</main>
+          <SidebarInset id="dashboard-content" tabIndex={-1} className="focus:outline-none">
+            <div className="flex-1 overflow-auto p-6">{children}</div>
           </SidebarInset>
         </div>
       </div>

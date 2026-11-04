@@ -10,6 +10,7 @@ jest.mock('@/lib/services/roles.service', () => ({
   },
 }));
 jest.mock('@/lib/services/permissions.service', () => ({ permissionsService: { getCatalog: jest.fn() } }));
+jest.mock('@/lib/config/features', () => ({ WORKFLOW_CONFIGURABLE_ENABLED: false }));
 let mockCanManage = true;
 jest.mock('@/hooks/use-permissions', () => ({ usePermissions: () => ({ hasPermission: () => mockCanManage }) }));
 
@@ -26,13 +27,14 @@ describe('RolesManagement', () => {
     jest.clearAllMocks();
     mockCanManage = true;
     mockedRoles.getAll.mockResolvedValue([
-      { id: 1, key: 'editor', label: 'Editor', isActive: true, permissions: [{ key: 'documents.read', label: 'Leer documentos' }] },
+      { id: 1, key: 'editor', label: 'Editor', isActive: true, permissions: [{ key: 'documents.read', label: 'Leer documentos' }, { key: 'workflow.start', label: 'Iniciar flujo' }] },
       { id: 2, key: 'legacy', label: 'Legacy', isActive: false, permissions: [] },
     ]);
     mockedPermissions.getCatalog.mockResolvedValue([
       { id: 4, key: 'documents.read', label: 'Leer documentos', isActive: true },
       { id: 5, key: 'users.manage', label: 'Gestionar usuarios', isActive: true },
       { id: 6, key: 'documents.delete', label: 'Eliminar documentos', isActive: false },
+      { id: 7, key: 'workflow.start', label: 'Iniciar flujo', isActive: true },
     ]);
   });
 
@@ -45,6 +47,11 @@ describe('RolesManagement', () => {
     expect(screen.getByText('Inactivo')).toBeInTheDocument();
     expect(screen.getAllByText('Leer documentos').length).toBeGreaterThan(0);
     expect(screen.queryByLabelText('Eliminar documentos')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Iniciar flujo')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Permisos base para todos los usuarios'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Permisos base').length).toBeGreaterThan(0);
 
     fireEvent.change(screen.getByLabelText('Clave del rol'), { target: { value: 'reviewer' } });
     fireEvent.change(screen.getByLabelText('Nombre del rol'), { target: { value: 'Reviewer' } });

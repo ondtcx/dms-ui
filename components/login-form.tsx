@@ -18,7 +18,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { useForm } from "react-hook-form";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { LoginDto } from "@/lib/types";
 
 export function LoginForm({
@@ -34,6 +34,7 @@ export function LoginForm({
   const [loading, setLoading] = useState(false);
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const router = useRouter();
 
@@ -119,19 +120,38 @@ export function LoginForm({
                     ¿Olvidaste tu contraseña?
                   </Link>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Ingresá tu contraseña"
-                  disabled={loading}
-                  {...register("password", {
-                    required: "La contraseña es obligatoria",
-                    minLength: {
-                      value: 6,
-                      message: "La contraseña debe tener al menos 6 caracteres",
-                    },
-                  })}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Ingresá tu contraseña"
+                    disabled={loading}
+                    className="pr-10"
+                    {...register("password", {
+                      required: "La contraseña es obligatoria",
+                      minLength: {
+                        value: 6,
+                        message: "La contraseña debe tener al menos 6 caracteres",
+                      },
+                    })}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-label={
+                      showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                    }
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((value) => !value)}
+                    disabled={loading}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
                 {errors.password && (
                   <p className="text-sm text-red-500">
                     {errors.password.message}

@@ -94,7 +94,7 @@ export function SchoolYearForm() {
               <Label htmlFor="cy-active" className="cursor-pointer font-medium">
                 Ciclo activo
               </Label>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Marca este ciclo como el período lectivo en curso
               </p>
             </div>

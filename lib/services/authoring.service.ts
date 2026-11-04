@@ -46,6 +46,7 @@ export const authoringService = {
     pageSize?: string;
     orientation?: string;
     numberPrefix: string;
+    documentTypeId?: number;
     duplicatedFromId?: number;
   }): Promise<AuthoringTemplate> {
     const response = await api.post<AuthoringTemplate>('/authoring/templates', payload);
@@ -186,7 +187,14 @@ export const authoringService = {
   },
 
   async createDocument(payload: {
-    templateVersionId: number;
+    templateVersionId?: number;
+    blank?: boolean;
+    institutionalFrame?: boolean;
+    name?: string;
+    description?: string;
+    documentTypeId?: number;
+    academicYearId?: number;
+    originDate?: string;
     formData?: Record<string, any>;
   }): Promise<AuthoringDocument> {
     const response = await api.post<AuthoringDocument>('/authoring/documents', payload);

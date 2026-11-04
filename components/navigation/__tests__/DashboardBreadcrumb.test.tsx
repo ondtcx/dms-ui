@@ -3,8 +3,12 @@ import type { ReactNode } from "react";
 import { DashboardBreadcrumb } from "@/components/navigation/DashboardBreadcrumb";
 
 let pathname = "/dashboard/settings";
+let search = "";
 
-jest.mock("next/navigation", () => ({ usePathname: () => pathname }));
+jest.mock("next/navigation", () => ({
+  usePathname: () => pathname,
+  useSearchParams: () => new URLSearchParams(search),
+}));
 jest.mock("next/link", () => ({
   __esModule: true,
   default: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a>,
@@ -17,6 +21,7 @@ jest.mock("@/lib/services/batch.service", () => ({ batchService: {} }));
 
 beforeEach(() => {
   pathname = "/dashboard/settings";
+  search = "";
 });
 
 describe("DashboardBreadcrumb", () => {
@@ -26,6 +31,13 @@ describe("DashboardBreadcrumb", () => {
     expect(screen.getByRole("navigation", { name: "Ruta de navegación" })).toBeInTheDocument();
     expect(screen.getByText("Inicio")).toBeInTheDocument();
     expect(screen.getByText("Configuración")).toBeInTheDocument();
+  });
+
+  it("appends the settings section label", () => {
+    search = "section=institution";
+    render(<DashboardBreadcrumb />);
+
+    expect(screen.getByText("Institución")).toBeInTheDocument();
   });
 
   it("labels the document audit route in Spanish", () => {

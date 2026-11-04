@@ -135,8 +135,6 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     document.documentElement.style.setProperty("--ring", primaryOklch);
     document.documentElement.style.setProperty("--sidebar-primary", primaryOklch);
     document.documentElement.style.setProperty("--sidebar-primary-foreground", primaryForeground);
-    document.documentElement.style.setProperty("--accent", secondaryOklch);
-    document.documentElement.style.setProperty("--accent-foreground", secondaryForeground);
     document.documentElement.style.setProperty("--secondary", secondaryOklch);
     document.documentElement.style.setProperty("--secondary-foreground", secondaryForeground);
     document.documentElement.style.setProperty("--institution-primary", primaryOklch);

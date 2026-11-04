@@ -4,6 +4,14 @@ import { useEffect, useId, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { DocumentMetadataForm } from "./DocumentMetadataForm";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { documentsService } from "@/lib/services/documents.service";
 import { useDirectorySubmission } from "@/hooks/use-directory-submission";
 import {
@@ -69,6 +78,15 @@ export function UploadDocumentsDialog({
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string>();
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+  const [shared, setShared] = useState<{
+    documentTypeId?: number | null;
+    originDate?: string;
+  }>(() => ({
+    documentTypeId: findDefaultDocumentType(uploadDocumentTypes)?.id,
+  }));
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+  const [touched, setTouched] = useState<Record<number, boolean>>({});
   const nextId = useRef(0);
   const busy = useRef(false);
   const inputId = useId();
@@ -86,8 +104,9 @@ export function UploadDocumentsDialog({
 
   const initialMetadata = (): UploadMetadata => ({
     ...EMPTY_UPLOAD_METADATA,
-    // Los nuevos archivos parten con `Documento general` preseleccionado.
-    documentTypeId: findDefaultDocumentType(uploadDocumentTypes)?.id,
+    documentTypeId:
+      shared.documentTypeId ?? findDefaultDocumentType(uploadDocumentTypes)?.id,
+    originDate: shared.originDate,
   });
 
   // Generación de diálogo: cambia al abrir/cerrar y al cambiar de actor o
@@ -111,6 +130,11 @@ export function UploadDocumentsDialog({
   // petición antigua pendiente), sin liberar la reclamación pendiente antigua.
   useEffect(() => {
     reset();
+    setShared({
+      documentTypeId: findDefaultDocumentType(uploadDocumentTypes)?.id,
+    });
+    setExpanded({});
+    setTouched({});
   }, [generation]);
 
   // Cuando la lista activa termina de cargar, completa el tipo predeterminado
@@ -118,6 +142,11 @@ export function UploadDocumentsDialog({
   const defaultTypeId = findDefaultDocumentType(uploadDocumentTypes)?.id;
   useEffect(() => {
     if (defaultTypeId === undefined) return;
+    setShared((current) =>
+      current.documentTypeId === undefined
+        ? { ...current, documentTypeId: defaultTypeId }
+        : current,
+    );
     setQueue((current) =>
       current.some((item) => item.metadata.documentTypeId === undefined)
         ? current.map((item) =>
@@ -157,6 +186,16 @@ export function UploadDocumentsDialog({
 
   const close = () => {
     if (busy.current) return;
+    if (queue.length > 0) {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+    reset();
+    onOpenChange(false);
+  };
+
+  const discardDraft = () => {
+    setConfirmDiscardOpen(false);
     reset();
     onOpenChange(false);
   };
@@ -204,6 +243,34 @@ export function UploadDocumentsDialog({
     }));
     setQueue((current) => (multiple ? [...current, ...entries] : entries));
     setError(undefined);
+  };
+
+  const updateShared = (patch: Partial<{
+    documentTypeId?: number | null;
+    originDate?: string;
+  }>) => {
+    setShared((current) => ({ ...current, ...patch }));
+    setQueue((current) =>
+      current.map((item) =>
+        touched[item.id]
+          ? item
+          : { ...item, metadata: { ...item.metadata, ...patch } },
+      ),
+    );
+  };
+
+  const applySharedToAll = () => {
+    setQueue((current) =>
+      current.map((item) => ({
+        ...item,
+        metadata: {
+          ...item.metadata,
+          documentTypeId: shared.documentTypeId,
+          originDate: shared.originDate,
+        },
+      })),
+    );
+    setTouched({});
   };
 
   const submit = async () => {
@@ -272,7 +339,7 @@ export function UploadDocumentsDialog({
       if (isCurrentOperation()) {
         toast.success(
           multiple && !singleQuota && queue.length > 1
-            ? `${queue.length} archivo(s) subido(s) exitosamente`
+            ? `${queue.length} ${queue.length === 1 ? "archivo subido" : "archivos subidos"} exitosamente`
             : "Archivo subido exitosamente",
         );
         documents.forEach((document, index) =>
@@ -335,7 +402,28 @@ export function UploadDocumentsDialog({
   const inputDisabled =
     submitting || uploadBlocked || (singleQuota && queue.length >= 1);
 
+  const typeIds = new Set(
+    queue.map((item) => item.metadata.documentTypeId ?? null),
+  );
+  const typeSummary =
+    typeIds.size === 1
+      ? uploadDocumentTypes?.find(
+          (type) => type.id === queue[0]?.metadata.documentTypeId,
+        )?.name ?? "Sin tipo"
+      : "Mixto";
+  const dateValues = new Set(
+    queue.map((item) => item.metadata.originDate ?? ""),
+  );
+  const dateSummary =
+    dateValues.size === 1
+      ? queue[0]?.metadata.originDate
+        ? `Origen ${queue[0].metadata.originDate}`
+        : "Fecha actual"
+      : "Mixtas";
+  const touchedCount = queue.filter((item) => touched[item.id]).length;
+
   return (
+    <>
     <Dialog
       open={open}
       onOpenChange={(next) => {
@@ -354,11 +442,11 @@ export function UploadDocumentsDialog({
       >
         <DialogHeader>
           <DialogTitle>
-            {multiple ? "Subir Múltiples Documentos" : "Subir Documento"}
+            {multiple ? "Subir varios documentos" : "Subir documento"}
           </DialogTitle>
           <DialogDescription>
-            Agrega archivos y completa los metadatos de cada documento. El
-            servidor determina el año lectivo.
+            Agrega archivos y define los metadatos compartidos. Puedes ajustar
+            cada archivo. El servidor determina el año lectivo.
           </DialogDescription>
         </DialogHeader>
         {notice}
@@ -392,46 +480,176 @@ export function UploadDocumentsDialog({
                 } aquí.`}
           </p>
         </div>
-        {queue.map((item) => (
-          <section
-            key={item.id}
-            role="group"
-            aria-label={item.file.name}
-            className="space-y-2 border rounded-md p-4"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span>
-                {item.file.name} ({formatFileSize(item.file.size)})
-              </span>
-              <Button
-                variant="outline"
-                disabled={submitting}
-                aria-label={`Quitar ${item.file.name}`}
-                onClick={() =>
-                  setQueue((current) =>
-                    current.filter((entry) => entry.id !== item.id),
-                  )
+        {multiple && !singleQuota && (
+        <section
+          aria-labelledby="shared-upload-metadata"
+          className="space-y-3 rounded-md border border-border bg-muted/30 p-4"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 id="shared-upload-metadata" className="text-sm font-medium">
+              Metadatos para todos
+            </h3>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={applySharedToAll}
+              disabled={
+                submitting ||
+                !queue.length ||
+                shared.documentTypeId === undefined
+              }
+            >
+              Aplicar tipo y fecha a todos
+            </Button>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="shared-document-type">Tipo de documento</Label>
+              <Select
+                value={shared.documentTypeId?.toString() ?? ""}
+                onValueChange={(value) =>
+                  updateShared({ documentTypeId: Number(value) })
                 }
+                disabled={submitting}
               >
-                Quitar
-              </Button>
+                <SelectTrigger
+                  id="shared-document-type"
+                  aria-label="Tipo de documento para todos"
+                >
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {uploadDocumentTypes?.map((type) => (
+                    <SelectItem key={type.id} value={type.id.toString()}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Se aplica automáticamente a los archivos sin cambios propios.
+              </p>
             </div>
-            <DocumentMetadataForm
-              value={item.metadata}
-              uploadDocumentTypes={uploadDocumentTypes}
-              academicYears={academicYears}
-              disabled={submitting}
-              onChange={(metadata) => {
-                if (!busy.current)
-                  setQueue((current) =>
-                    current.map((entry) =>
-                      entry.id === item.id ? { ...entry, metadata } : entry,
-                    ),
-                  );
-              }}
-            />
-          </section>
-        ))}
+            <div className="space-y-2">
+              <Label htmlFor="shared-origin-date">Fecha de origen</Label>
+              <Input
+                id="shared-origin-date"
+                type="date"
+                value={shared.originDate ?? ""}
+                onChange={(event) =>
+                  updateShared({ originDate: event.target.value || undefined })
+                }
+                disabled={submitting}
+                aria-describedby="shared-origin-date-help"
+              />
+              <p
+                id="shared-origin-date-help"
+                className="text-xs text-muted-foreground"
+              >
+                Si se deja vacía, se usa la fecha actual; el servidor confirma
+                el año lectivo.
+              </p>
+            </div>
+          </div>
+        </section>
+        )}
+        {queue.map((item) => {
+          const typeId = item.metadata.documentTypeId;
+          const hasType =
+            typeId !== undefined &&
+            (typeId === null ||
+              (Number.isInteger(typeId) && typeId > 0));
+          const invalidOrigin =
+            item.metadata.originDate !== undefined &&
+            !validOriginDate(item.metadata.originDate);
+          const typeName =
+            uploadDocumentTypes?.find((type) => type.id === typeId)?.name ??
+            "Sin tipo";
+          const singleMode = !multiple || singleQuota;
+          const isExpanded = singleMode || expanded[item.id] === true;
+          return (
+            <section
+              key={item.id}
+              role="group"
+              aria-label={item.file.name}
+              className="rounded-md border border-border"
+            >
+              <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p
+                    className="truncate text-sm font-medium"
+                    title={item.file.name}
+                  >
+                    {item.file.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {formatFileSize(item.file.size)} · {typeName}
+                    {item.metadata.originDate
+                      ? ` · Origen: ${item.metadata.originDate}`
+                      : ""}
+                  </p>
+                  {!hasType || invalidOrigin ? (
+                    <p role="alert" className="mt-1 text-xs text-destructive">
+                      {!hasType
+                        ? "Falta el tipo de documento."
+                        : "La fecha de origen no es válida."}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  {!singleMode && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={submitting}
+                      aria-expanded={isExpanded}
+                      onClick={() =>
+                        setExpanded((current) => ({
+                          ...current,
+                          [item.id]: !isExpanded,
+                        }))
+                      }
+                    >
+                      {isExpanded ? "Ocultar metadatos" : "Editar metadatos"}
+                    </Button>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={submitting}
+                    aria-label={`Quitar ${item.file.name}`}
+                    onClick={() =>
+                      setQueue((current) =>
+                        current.filter((entry) => entry.id !== item.id),
+                      )
+                    }
+                  >
+                    Quitar
+                  </Button>
+                </div>
+              </div>
+              <div className={isExpanded ? "border-t border-border p-3" : "hidden"}>
+                <DocumentMetadataForm
+                  value={item.metadata}
+                  uploadDocumentTypes={uploadDocumentTypes}
+                  academicYears={academicYears}
+                  disabled={submitting}
+                  onChange={(metadata) => {
+                    if (!busy.current)
+                      setQueue((current) =>
+                        current.map((entry) =>
+                          entry.id === item.id ? { ...entry, metadata } : entry,
+                        ),
+                      );
+                  }}
+                />
+              </div>
+            </section>
+          );
+        })}
         {error && (
           <p role="alert" className="text-destructive">
             {error}
@@ -452,6 +670,18 @@ export function UploadDocumentsDialog({
             </p>
           </div>
         )}
+        {queue.length > 0 && (
+          <div className="rounded-md border border-border bg-muted/30 p-3 text-sm">
+            <p className="font-medium">Resumen de la subida</p>
+            <p className="mt-1 text-muted-foreground">
+              {queue.length} {queue.length === 1 ? "archivo" : "archivos"} ·
+              Tipo: {typeSummary} · Fecha de origen: {dateSummary}
+              {touchedCount > 0
+                ? ` · ${touchedCount} con metadatos propios`
+                : ""}
+            </p>
+          </div>
+        )}
         <DialogFooter>
           <Button variant="outline" disabled={submitting} onClick={close}>
             Cancelar
@@ -463,11 +693,22 @@ export function UploadDocumentsDialog({
             {submitting
               ? "Procesando..."
               : multiple && !singleQuota
-                ? `Subir ${queue.length} archivo(s)`
+                ? `Subir ${queue.length} ${queue.length === 1 ? "archivo" : "archivos"}`
                 : "Subir Documento"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    <ConfirmDialog
+      open={confirmDiscardOpen}
+      onOpenChange={setConfirmDiscardOpen}
+      title="Descartar borrador"
+      description={`Hay ${queue.length} ${queue.length === 1 ? "archivo" : "archivos"} con metadata sin subir. Si descartas, se perderá el trabajo.`}
+      confirmLabel="Descartar borrador"
+      cancelLabel="Seguir editando"
+      variant="destructive"
+      onConfirm={discardDraft}
+    />
+    </>
   );
 }

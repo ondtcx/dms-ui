@@ -9,6 +9,8 @@ import { TransferStats } from "@/components/transfer-stats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -27,6 +29,13 @@ import {
 } from "@/lib/transfer-utils";
 import type { BulkTransferFailure, TransferStatus } from "@/lib/types";
 
+type TransferAction = {
+  kind: "accept" | "reject" | "accept-batch" | "reject-batch";
+  id: number | string;
+  label: string;
+  count: number;
+};
+
 export default function ReceivedTransfersPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -35,11 +44,20 @@ export default function ReceivedTransfersPage() {
     batchId: string;
     failed: BulkTransferFailure[];
   } | null>(null);
+  const [pendingTransferAction, setPendingTransferAction] =
+    useState<TransferAction | null>(null);
 
   const transfers = useQuery({
     queryKey: ["transfers-received"],
     queryFn: () => transfersService.getReceived(),
   });
+
+  const documentNameById = new Map(
+    (transfers.data ?? []).map((transfer) => [
+      transfer.document.id,
+      transferDocumentName(transfer),
+    ]),
+  );
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["transfers-received"] });
@@ -72,12 +90,12 @@ export default function ReceivedTransfersPage() {
     mutationFn: (batchId: string) => transfersService.acceptBatch(batchId),
     onSuccess: (result) => {
       if (result.accepted > 0) {
-        toast.success(`${result.accepted} documento(s) transferidos`);
+        toast.success(`${result.accepted} ${result.accepted === 1 ? "documento transferido" : "documentos transferidos"}`);
       }
       if (result.failed.length > 0) {
         setBatchFailure({ batchId: result.batchId, failed: result.failed });
         toast.error(
-          `${result.failed.length} documento(s) no se pudieron transferir; revisa el detalle`,
+          `${result.failed.length} ${result.failed.length === 1 ? "documento no se pudo transferir" : "documentos no se pudieron transferir"}; revisa el detalle`,
         );
       } else {
         setBatchFailure(null);
@@ -91,12 +109,55 @@ export default function ReceivedTransfersPage() {
   const cancelBatch = useMutation({
     mutationFn: (batchId: string) => transfersService.cancelBatch(batchId),
     onSuccess: (result) => {
-      toast.success(`${result.canceled} documento(s) rechazados`);
+      toast.success(`${result.canceled} ${result.canceled === 1 ? "documento rechazado" : "documentos rechazados"}`);
       refresh();
     },
     onError: (error) =>
       toast.error(transferErrorMessage(error, "No se pudo rechazar el lote")),
   });
+
+  const confirmTransferAction = async () => {
+    const action = pendingTransferAction;
+    if (!action) return;
+    try {
+      if (action.kind === "accept") {
+        await accept.mutateAsync(action.id as number);
+      } else if (action.kind === "reject") {
+        await cancel.mutateAsync(action.id as number);
+      } else if (action.kind === "accept-batch") {
+        await acceptBatch.mutateAsync(action.id as string);
+      } else {
+        await cancelBatch.mutateAsync(action.id as string);
+      }
+    } catch {
+      // Las mutaciones ya reportan el error con un toast.
+    } finally {
+      setPendingTransferAction(null);
+    }
+  };
+
+  const isBatchAction =
+    pendingTransferAction?.kind.endsWith("-batch") ?? false;
+  const isAcceptAction =
+    pendingTransferAction?.kind.startsWith("accept") ?? false;
+  const transferActionTitle = pendingTransferAction
+    ? `${isAcceptAction ? "Aceptar" : "Rechazar"} ${isBatchAction ? "lote" : "transferencia"}`
+    : "";
+  const transferActionDescription = pendingTransferAction
+    ? isBatchAction
+      ? `Se ${isAcceptAction ? "aceptarán" : "rechazarán"} ${pendingTransferAction.count} ${
+          pendingTransferAction.count === 1 ? "documento" : "documentos"
+        } del lote "${pendingTransferAction.label}". ${
+          isAcceptAction
+            ? "Pasarán a tu propiedad."
+            : "Volverán a su propietario actual."
+        }`
+      : `"${pendingTransferAction.label}" ${
+          isAcceptAction
+            ? "pasará a tu propiedad. La persona que lo envía dejará de ser su propietaria."
+            : "volverá a su propietario actual."
+        }`
+    : "";
 
   const matchesSearch = (transfer: import("@/lib/types").TransferHistory) => {
     const sender = transfer.fromUser.name || transfer.fromUser.email;
@@ -128,7 +189,7 @@ export default function ReceivedTransfersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Transferencias recibidas</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Transferencias recibidas</h1>
         <p className="text-sm text-muted-foreground">
           Acepta o rechaza las solicitudes de cambio de propiedad.
         </p>
@@ -159,9 +220,14 @@ export default function ReceivedTransfersPage() {
             <div className="space-y-2">
               {batchFailure.failed.map((item) => (
                 <p key={item.transferId} className="text-sm">
-                  <span className="font-medium">
-                    Documento {item.documentId}:
-                  </span>{" "}
+                  <Link
+                    href={`/dashboard/documents/${item.documentId}`}
+                    className="font-medium hover:underline"
+                  >
+                    {documentNameById.get(item.documentId) ??
+                      `Documento ${item.documentId}`}
+                  </Link>
+                  :{" "}
                   <span className="text-muted-foreground">{item.reason}</span>
                 </p>
               ))}
@@ -178,11 +244,12 @@ export default function ReceivedTransfersPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por documento o remitente..."
+              aria-label="Buscar transferencias recibidas"
               className="pl-9"
             />
           </div>
           <Select value={status} onValueChange={(value) => setStatus(value as "all" | TransferStatus)}>
-            <SelectTrigger className="w-full sm:w-48">
+            <SelectTrigger className="w-full sm:w-48" aria-label="Filtrar por estado">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -197,7 +264,25 @@ export default function ReceivedTransfersPage() {
 
       <Card>
         <CardContent className="p-0">
-          {transfers.isLoading ? (
+          {transfers.isError ? (
+            <div className="p-6">
+              <Alert variant="destructive">
+                <AlertTitle>No se pudieron cargar las transferencias recibidas</AlertTitle>
+                <AlertDescription className="flex flex-col gap-3">
+                  <p>Revisa la conexión e inténtalo de nuevo.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    onClick={() => transfers.refetch()}
+                  >
+                    Reintentar
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : transfers.isLoading ? (
             <p className="p-6 text-sm text-muted-foreground">Cargando transferencias...</p>
           ) : !hasResults ? (
             <div className="flex flex-col items-center gap-2 p-10 text-center">
@@ -211,7 +296,7 @@ export default function ReceivedTransfersPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium">
-                        Transferencia masiva · {batch.totalCount} documento(s)
+                        Transferencia masiva · {batch.totalCount} {batch.totalCount === 1 ? "documento" : "documentos"}
                       </span>
                       <Badge variant="outline" className={transferStatusConfig[batch.status].className}>
                         {transferStatusConfig[batch.status].label}
@@ -257,7 +342,14 @@ export default function ReceivedTransfersPage() {
                       <Button
                         size="sm"
                         disabled={busy}
-                        onClick={() => acceptBatch.mutate(batch.batchId)}
+                        onClick={() =>
+                          setPendingTransferAction({
+                            kind: "accept-batch",
+                            id: batch.batchId,
+                            label: transferDocumentName(batch.representative),
+                            count: batch.pendingCount,
+                          })
+                        }
                       >
                         <CheckCircle2 className="mr-2 h-4 w-4" />
                         Aceptar lote
@@ -266,7 +358,14 @@ export default function ReceivedTransfersPage() {
                         variant="outline"
                         size="sm"
                         disabled={busy}
-                        onClick={() => cancelBatch.mutate(batch.batchId)}
+                        onClick={() =>
+                          setPendingTransferAction({
+                            kind: "reject-batch",
+                            id: batch.batchId,
+                            label: transferDocumentName(batch.representative),
+                            count: batch.pendingCount,
+                          })
+                        }
                       >
                         <XCircle className="mr-2 h-4 w-4" />
                         Rechazar lote
@@ -302,7 +401,14 @@ export default function ReceivedTransfersPage() {
                       <Button
                         size="sm"
                         disabled={busy}
-                        onClick={() => accept.mutate(transfer.id)}
+                        onClick={() =>
+                          setPendingTransferAction({
+                            kind: "accept",
+                            id: transfer.id,
+                            label: transferDocumentName(transfer),
+                            count: 1,
+                          })
+                        }
                       >
                         <CheckCircle2 className="mr-2 h-4 w-4" />
                         Aceptar
@@ -311,7 +417,14 @@ export default function ReceivedTransfersPage() {
                         variant="outline"
                         size="sm"
                         disabled={busy}
-                        onClick={() => cancel.mutate(transfer.id)}
+                        onClick={() =>
+                          setPendingTransferAction({
+                            kind: "reject",
+                            id: transfer.id,
+                            label: transferDocumentName(transfer),
+                            count: 1,
+                          })
+                        }
                       >
                         <XCircle className="mr-2 h-4 w-4" />
                         Rechazar
@@ -324,6 +437,27 @@ export default function ReceivedTransfersPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={pendingTransferAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingTransferAction(null);
+        }}
+        title={transferActionTitle}
+        description={transferActionDescription}
+        confirmLabel={
+          isAcceptAction
+            ? isBatchAction
+              ? "Aceptar lote"
+              : "Aceptar"
+            : isBatchAction
+              ? "Rechazar lote"
+              : "Rechazar"
+        }
+        variant={isAcceptAction ? "default" : "destructive"}
+        loading={busy}
+        onConfirm={confirmTransferAction}
+      />
     </div>
   );
 }

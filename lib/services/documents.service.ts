@@ -104,6 +104,9 @@ export const documentsService = {
     excludeComposites?: boolean;
     directoryId?: number | null;
     view?: DocumentListView;
+    sortBy?: "createdAt" | "updatedAt" | "name" | "documentNumber";
+    sortOrder?: "asc" | "desc";
+    transferableOnly?: boolean;
   }): Promise<DocumentsResponse> {
     const response = await api.get<DocumentsResponse>("/documents", {
       params: params?.directoryId === null ? { ...params, directoryId: "null" } : params,

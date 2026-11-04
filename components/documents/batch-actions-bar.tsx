@@ -5,12 +5,6 @@ import { batchService } from '@/lib/services/batch.service';
 import { BatchAction, readBatchActionCapabilities } from '@/lib/batch-action-capabilities';
 import { Document } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import toast from 'react-hot-toast';
@@ -18,11 +12,7 @@ import {
   Download,
   Trash2,
   RotateCcw,
-  Pencil,
   X,
-  ChevronDown,
-  Folder,
-  Tag,
 } from 'lucide-react';
 
 interface BatchActionsBarProps {
@@ -96,8 +86,8 @@ export function BatchActionsBar({
     () => batchService.delete({ documentIds: selectedIds, permanent }),
     () => {
       toast.success(permanent
-        ? `${selectedIds.length} documento(s) eliminados permanentemente`
-        : `${selectedIds.length} documento(s) movidos a la papelera`);
+        ? `${selectedIds.length} ${selectedIds.length === 1 ? "documento eliminado permanentemente" : "documentos eliminados permanentemente"}`
+        : `${selectedIds.length} ${selectedIds.length === 1 ? "documento movido a la papelera" : "documentos movidos a la papelera"}`);
       onClearSelection();
       onSuccess?.();
     }, 'Error al eliminar documentos',
@@ -113,7 +103,7 @@ export function BatchActionsBar({
         link.download = `documents-${Date.now()}.zip`;
         document.body.appendChild(link);
         link.click();
-        toast.success(`Descargando ${selectedIds.length} documento(s)...`);
+        toast.success(`Descargando ${selectedIds.length} ${selectedIds.length === 1 ? "documento" : "documentos"}...`);
       } finally {
         link.remove();
         window.URL.revokeObjectURL(url);
@@ -124,7 +114,7 @@ export function BatchActionsBar({
   const handleBatchRestore = () => runAction('restore',
     () => batchService.restore(selectedIds),
     () => {
-      toast.success(`${selectedDocuments.length} documento(s) restaurados`);
+      toast.success(`${selectedDocuments.length} ${selectedDocuments.length === 1 ? "documento restaurado" : "documentos restaurados"}`);
       onClearSelection();
       onSuccess?.();
     }, 'Error al restaurar documentos',
@@ -132,7 +122,7 @@ export function BatchActionsBar({
 
   if (selectedDocuments.length === 0) return null;
   const deleteAction = allDeleted ? 'permanentDelete' : 'trash';
-  const visibleActions: BatchAction[] = allDeleted ? ['restore', deleteAction] : ['export', 'update', deleteAction];
+  const visibleActions: BatchAction[] = allDeleted ? ['restore', deleteAction] : ['export', deleteAction];
   const blockedActions = visibleActions.filter((action) => !canRun(action));
   const actionLabels: Record<BatchAction, string> = { update: 'Editar', trash: 'Eliminar',
     restore: 'Restaurar', permanentDelete: 'Eliminar permanentemente', export: 'Descargar ZIP' };
@@ -140,7 +130,7 @@ export function BatchActionsBar({
   return (
     <>
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-        <div className="bg-background border border-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4">
+        <div className="flex max-w-[calc(100vw-2rem)] flex-wrap items-center justify-center gap-4 rounded-lg border border-border bg-background px-4 py-3 shadow-lg">
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="gap-1">
               {selectedDocuments.length} seleccionado{selectedDocuments.length > 1 && 's'}
@@ -149,6 +139,7 @@ export function BatchActionsBar({
               variant="ghost"
               size="sm"
               onClick={onClearSelection}
+              aria-label="Limpiar selección"
               className="h-6 px-2"
             >
               <X className="h-3 w-3" />
@@ -182,26 +173,7 @@ export function BatchActionsBar({
                   Descargar ZIP
                 </Button>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" disabled={loading || !canRun('update')}
-                      aria-describedby={!canRun('update') ? reasonId : undefined}>
-                      <Pencil className="h-4 w-4 mr-2" />
-                      Editar
-                      <ChevronDown className="h-4 w-4 ml-2" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Folder className="mr-2 h-4 w-4" />
-                      Cambiar categoría
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Tag className="mr-2 h-4 w-4" />
-                      Cambiar sección
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+
               </>
             )}
 
@@ -231,8 +203,8 @@ export function BatchActionsBar({
         title={deleteConfirm?.permanent ? "Eliminar permanentemente" : "Eliminar documentos"}
         description={
           deleteConfirm?.permanent
-            ? `¿Estás seguro de eliminar permanentemente ${selectedDocuments.length} documento(s)? Esta acción no se puede deshacer.`
-            : `¿Estás seguro de eliminar ${selectedDocuments.length} documento(s)? Serán enviados a la papelera.`
+            ? `¿Estás seguro de eliminar permanentemente ${selectedDocuments.length} ${selectedDocuments.length === 1 ? "documento" : "documentos"}? Esta acción no se puede deshacer.`
+            : `¿Estás seguro de eliminar ${selectedDocuments.length} ${selectedDocuments.length === 1 ? "documento" : "documentos"}? Serán enviados a la papelera.`
         }
         confirmLabel={deleteConfirm?.permanent ? "Eliminar permanentemente" : "Eliminar"}
         variant="destructive"

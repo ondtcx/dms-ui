@@ -81,7 +81,7 @@ export default function BatchDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center h-screen gap-4">
         <Layers className="h-16 w-16 text-muted-foreground" />
-        <h1 className="text-2xl font-bold">Lote no encontrado</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Lote no encontrado</h1>
         <Button onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Volver
         </Button>
@@ -92,7 +92,7 @@ export default function BatchDetailPage() {
   const documents = batch.documents ?? [];
 
   return (
-    <div className="space-y-6 p-8 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">

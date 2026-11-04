@@ -144,10 +144,12 @@ export interface AuthoringTemplate {
   description?: string | null;
   categoryId?: number | null;
   documentTypeId?: number | null;
+  documentType?: { id: number; name: string } | null;
   fields: AuthoringFieldsSchema;
   htmlTemplate: string;
   styles?: string | null;
   isActive: boolean;
+  isBlank?: boolean;
   catalog: string;
   versions: AuthoringTemplateVersion[];
   category?: { id: number; name: string } | null;
@@ -194,6 +196,8 @@ export interface AuthoringDocument {
   archivedAt?: string | null;
   uploadedBy?: { id: string; name?: string | null; email?: string | null; role?: string | null };
   category?: { id: number; name: string } | null;
+  documentType?: { id: number; name: string } | null;
+  academic?: { academicYear?: { id: number; name: string } | null } | null;
   versions: AuthoringDocumentVersion[];
   contentVersions: AuthoringContentVersion[];
   authoring: {
@@ -223,6 +227,7 @@ export interface AuthoringUser {
   name?: string | null;
   email?: string | null;
   role?: string | null;
+  roles?: Array<{ id: number; key: string; label: string }>;
 }
 
 export interface CreateAuthoringTemplatePayload {

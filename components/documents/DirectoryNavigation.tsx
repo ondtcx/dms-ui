@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { invalidateDirectoryQueries } from "@/lib/directory-cache";
 import { isValidReceptionReadback } from "@/hooks/use-directory-submission";
 import { DirectorySharingAction } from "./DirectorySharingAction";
@@ -50,6 +51,7 @@ export function DirectoryNavigation({ value, onChange, picker = false }: Directo
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Directory | null>(null);
   const [receptionOpen, setReceptionOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Directory | null>(null);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -191,7 +193,17 @@ export function DirectoryNavigation({ value, onChange, picker = false }: Directo
               {!picker && <>
                 <DirectorySharingAction key={directory.id} directory={directory} />
                 {!directory.navigationOnly && directory.capabilities?.canEdit && <Button variant="ghost" size="icon" aria-label={`Renombrar ${directory.name}`} onClick={() => openEdit(directory)}><Pencil className="h-4 w-4" /></Button>}
-                {directory.capabilities?.owner && <Button variant="ghost" size="icon" aria-label={`Eliminar ${directory.name}`} onClick={() => remove.mutate(directory.id)} disabled={remove.isPending}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                {directory.capabilities?.owner && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label={`Eliminar ${directory.name}`}
+                    onClick={() => setDeleteTarget(directory)}
+                    disabled={remove.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
               </>}
             </div>
           </div>
@@ -217,6 +229,27 @@ export function DirectoryNavigation({ value, onChange, picker = false }: Directo
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title="Eliminar carpeta"
+        description={
+          deleteTarget
+            ? `Se eliminará "${deleteTarget.name}". Solo se permiten carpetas vacías; si tiene documentos o subcarpetas, el sistema rechazará la operación.`
+            : ""
+        }
+        confirmLabel="Eliminar carpeta"
+        variant="destructive"
+        loading={remove.isPending}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          remove.mutate(deleteTarget.id);
+          setDeleteTarget(null);
+        }}
+      />
     </section>
   );
 }

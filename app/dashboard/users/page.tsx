@@ -219,7 +219,7 @@ function UsersManagementContent() {
         <div className="flex items-center gap-3">
           <Users className="h-7 w-7 text-primary" />
           <div>
-            <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Gestión de Usuarios</h1>
             <p className="text-sm text-muted-foreground">
               Administra los usuarios del sistema
             </p>

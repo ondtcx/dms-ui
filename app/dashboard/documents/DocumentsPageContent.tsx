@@ -7,29 +7,25 @@ import { useUploadMetadata } from "@/hooks/use-upload-metadata";
 import { useDocumentThumbnails } from "@/hooks/use-document-thumbnails";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
-import { onlyofficeService } from "@/lib/services/onlyoffice.service";
 import { useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
 import {
   FileText,
   Download,
-  Upload,
   Filter,
+  FilterX,
   User,
-  FolderOpen,
   AlertCircle,
+  ArrowDown,
+  ArrowUp,
+  FolderOpen,
   RefreshCw,
-  LayoutGrid,
-  List,
+  Search,
 } from "lucide-react";
 import { Document, DocumentListView } from "@/lib/types";
 import { NewDocumentButton } from "@/components/documents/NewDocumentButton";
-import { DocumentCard } from "@/components/documents/DocumentCard";
-import { DocumentListItem } from "@/components/documents/DocumentListItem";
-import {
-  DocumentWorkbenchRow,
-  WORKBENCH_GRID,
-} from "@/components/documents/DocumentWorkbenchRow";
+import { CreateDocumentDialog } from "@/components/documents/CreateDocumentDialog";
+import { DocumentWorkbenchRow } from "@/components/documents/DocumentWorkbenchRow";
 import { UploadDocumentsDialog } from "@/components/documents/UploadDocumentsDialog";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TrashView } from "@/components/documents/TrashView";
@@ -37,13 +33,11 @@ import { DocumentVersionHistory } from "@/components/documents/DocumentVersionHi
 import { ReplaceFileDialog } from "@/components/documents/ReplaceFileDialog";
 import { EditDocumentDialog } from "@/components/documents/EditDocumentDialog";
 import { BatchActionsBar } from "@/components/documents/batch-actions-bar";
-import { SelectTemplateDialog } from "@/components/documents/SelectTemplateDialog";
 import {
   AcademicYearSelector,
   useAcademicYearStore,
 } from "@/components/structure/AcademicYearSelector";
 import { DirectoryNavigation, useDirectoryAccess } from "@/components/documents/DirectoryNavigation";
-import { FolderBrowser } from "@/components/documents/FolderBrowser";
 import { DirectoryVisitRecorder } from "@/components/documents/DirectoryVisitRecorder";
 import { invalidateDirectoryQueries } from "@/lib/directory-cache";
 import { isResidualWorkflowFilename } from "@/lib/document-visibility";
@@ -56,13 +50,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -92,6 +79,8 @@ const DOCUMENT_LIST_VIEWS: DocumentListView[] = [
   "trash",
 ];
 
+const DOCUMENTS_PAGE_SIZE = 25;
+
 function parseDocumentView(value: string | null): DocumentListView | undefined {
   return DOCUMENT_LIST_VIEWS.includes(value as DocumentListView)
     ? (value as DocumentListView)
@@ -113,13 +102,9 @@ function parseDirectoryId(value: string | null): number | null {
   return isPositiveDirectoryId(parsed) ? parsed : INVALID_DIRECTORY_ID;
 }
 
-export function DocumentsPageContent({
-  variant = "v1",
-}: {
-  variant?: "v1" | "v2";
-} = {}) {
+export function DocumentsPageContent() {
   const { user } = useAuth();
-  const { currentYearId } = useAcademicYearStore();
+  const { currentYearId, setCurrentYearId } = useAcademicYearStore();
   const queryClient = useQueryClient();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -137,9 +122,9 @@ export function DocumentsPageContent({
     documentView === "all";
   const documentViewTitle =
     documentView === "recent-accessed"
-      ? "Recientemente accedido"
+      ? "Visitados recientemente"
       : documentView === "recent-created"
-        ? "Recientemente creado"
+        ? "Creados recientemente"
         : documentView === "all"
           ? "Todos los documentos"
           : "Documentos";
@@ -170,34 +155,35 @@ export function DocumentsPageContent({
   const [selectedDocuments, setSelectedDocuments] = useState<Document[]>([]);
   const batchSelection = useRef<number[]>([]);
   batchSelection.current = selectedDocuments.map((document) => document.id);
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<
+    "createdAt" | "updatedAt" | "name" | "documentNumber" | undefined
+  >(undefined);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const [showBatchSelectDialog, setShowBatchSelectDialog] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
-
-  // Create in editor dialog state
-  const [showCreateInEditorDialog, setShowCreateInEditorDialog] =
-    useState(false);
-  const [createInEditorData, setCreateInEditorData] = useState<{
-    title: string;
-    fileType: "docx" | "xlsx" | "pptx" | "txt" | "md";
-    categoryId?: number;
-    documentTypeId?: number;
-  }>({ title: "", fileType: "docx" });
-  const [creatingInEditor, setCreatingInEditor] = useState(false);
   const [directoryId, setDirectoryId] = useState<number | null>(() =>
     parseDirectoryId(searchParams.get("directoryId")),
   );
   const [movingDocument, setMovingDocument] = useState<Document | null>(null);
   const [moveDestination, setMoveDestination] = useState<number | null>(null);
-  const [newMenuOpen, setNewMenuOpen] = useState(false);
-  const skipNewMenuCloseRef = useRef(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const deleteEpoch = useRef<object | null>(null);
   const moveEpoch = useRef<object | null>(null);
   const editEpoch = useRef<object | null>(null);
   const replaceEpoch = useRef<object | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+  useEffect(() => {
+    setPage(1);
+  }, [documentTypeFilter, onlyMine, currentYearId, directoryId, documentView, search, sortBy, sortOrder]);
   const contextKey = JSON.stringify([user?.id, documentTypeFilter, onlyMine, currentYearId,
-    directoryId, searchParams.get("directoryId"), documentView]);
+    directoryId, searchParams.get("directoryId"), documentView, search, sortBy, sortOrder, page]);
   const actionState = useRef({ key: contextKey, epoch: {}, ready: false, rows: [] as Document[], alive: true });
   const batchSelectionEpoch = useRef<object | null>(null);
   if (actionState.current.key !== contextKey) {
@@ -235,7 +221,7 @@ export function DocumentsPageContent({
   }, [searchParams]);
 
   useEffect(() => {
-    setNewMenuOpen(newActionRequested);
+    setCreateDialogOpen(newActionRequested);
   }, [newActionRequested]);
 
   // Acción explícita desde Home: abre directamente el diálogo de carga
@@ -272,6 +258,10 @@ export function DocumentsPageContent({
       currentYearId,
       directoryId,
       documentView,
+      search,
+      sortBy,
+      sortOrder,
+      page,
       user?.id,
     ],
     queryFn: () =>
@@ -285,8 +275,10 @@ export function DocumentsPageContent({
               academicYearId: currentYearId ?? undefined,
               excludeBatched: true,
             }),
-        page: 1,
-        limit: 50,
+        ...(search ? { search } : {}),
+        ...(sortBy ? { sortBy, sortOrder } : {}),
+        page,
+        limit: DOCUMENTS_PAGE_SIZE,
       }),
     enabled: !!user?.id && !isTrashView && !directoryInvalid,
     placeholderData: () => undefined,
@@ -301,11 +293,182 @@ export function DocumentsPageContent({
         documentView === "all" ||
         !isResidualWorkflowFilename(document.versions?.[0]?.filename),
     ) ?? [];
+  const documentsMeta = documents?.meta;
+  const totalDocuments = documentsMeta?.total ?? filteredDocuments.length;
+  const currentPage = documentsMeta?.page ?? page;
+  const totalPages = Math.max(documentsMeta?.totalPages ?? 1, 1);
+  const rangeStart =
+    totalDocuments === 0
+      ? 0
+      : (currentPage - 1) * (documentsMeta?.limit ?? DOCUMENTS_PAGE_SIZE) + 1;
+  const rangeEnd =
+    totalDocuments === 0
+      ? 0
+      : Math.min(
+          rangeStart + (documentsMeta?.limit ?? DOCUMENTS_PAGE_SIZE) - 1,
+          totalDocuments,
+        );
+  const hasActiveFilters = Boolean(search || documentTypeFilter || onlyMine);
+
+  const clearFilters = () => {
+    setSearchInput("");
+    setSearch("");
+    setDocumentTypeFilter(undefined);
+    setOnlyMine(false);
+  };
+
+  const navigateToRoot = () => {
+    const params = new URLSearchParams(queryString);
+    params.delete("directoryId");
+    params.delete("action");
+    setDirectoryId(null);
+    router.push(
+      `/dashboard/documents${params.size ? `?${params.toString()}` : ""}`,
+    );
+  };
+
+  const toggleSort = (
+    field: "createdAt" | "updatedAt" | "name" | "documentNumber",
+  ) => {
+    if (sortBy === field) {
+      setSortOrder((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const renderSortButton = (
+    field: "createdAt" | "updatedAt" | "name" | "documentNumber",
+    label: string,
+  ) => {
+    const active = sortBy === field;
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(field)}
+        className="inline-flex items-center gap-1 text-left uppercase tracking-wide hover:text-foreground"
+        aria-label={`Ordenar por ${label}`}
+        aria-pressed={active}
+      >
+        {label}
+        {active ? (
+          sortOrder === "asc" ? (
+            <ArrowUp className="h-3 w-3" aria-hidden="true" />
+          ) : (
+            <ArrowDown className="h-3 w-3" aria-hidden="true" />
+          )
+        ) : null}
+      </button>
+    );
+  };
+
+  const renderSearchField = () => (
+    <div className="relative w-full sm:w-[260px]">
+      <Search
+        className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <Input
+        value={searchInput}
+        onChange={(event) => setSearchInput(event.target.value)}
+        placeholder="Filtrar por nombre, número o descripción"
+        aria-label="Filtrar esta bandeja"
+        className="h-9 pl-8"
+      />
+    </div>
+  );
+
+  const renderYearScope = () =>
+    isUnfilteredView ? (
+      <span className="inline-flex h-9 items-center rounded-md border border-dashed px-3 text-xs text-muted-foreground">
+        Todos los años · Todas las carpetas
+      </span>
+    ) : (
+      <div className="w-full sm:w-[200px]">
+        <AcademicYearSelector label="Filtrar por año lectivo" />
+      </div>
+    );
+
+  const viewOptions: { value?: DocumentListView; label: string }[] = [
+    { value: undefined, label: "Bandeja" },
+    { value: "recent-accessed", label: "Visitados recientemente" },
+    { value: "recent-created", label: "Creados recientemente" },
+    { value: "trash", label: "Papelera" },
+  ];
+  const selectDocumentView = (view?: DocumentListView) => {
+    const params = new URLSearchParams(queryString);
+    if (view) params.set("view", view);
+    else params.delete("view");
+    params.delete("action");
+    router.push(
+      `/dashboard/documents${params.size ? `?${params.toString()}` : ""}`,
+    );
+  };
+  const renderViewSelector = () => (
+    <div className="w-full sm:w-[200px]">
+      <Select
+        value={documentView ?? "bandeja"}
+        onValueChange={(value) =>
+          selectDocumentView(
+            value === "bandeja" ? undefined : (value as DocumentListView),
+          )
+        }
+      >
+        <SelectTrigger aria-label="Vista de documentos">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {viewOptions.map((option) => (
+            <SelectItem key={option.label} value={option.value ?? "bandeja"}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+
+  const renderPagination = () => {
+    if (!documentsMeta || documentsMeta.total === 0 || documentsMeta.totalPages <= 1) {
+      return null;
+    }
+    return (
+      <div className="flex flex-col gap-3 border-t border-border py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-end">
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            disabled={currentPage <= 1 || fetchingDocuments}
+          >
+            Anterior
+          </Button>
+          <span>
+            Página {currentPage} de {totalPages}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              setPage((current) => Math.min(totalPages, current + 1))
+            }
+            disabled={currentPage >= totalPages || fetchingDocuments}
+          >
+            Siguiente
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   actionState.current.rows = filteredDocuments;
   const canAct = (id: number, action: Exclude<keyof DocumentActionCapabilities, "scope">, epoch?: object | null) => {
     const current = actionState.current;
     const query = queryClient.getQueryState(["documents", documentTypeFilter, onlyMine,
-      currentYearId, directoryId, documentView, user?.id]);
+      currentYearId, directoryId, documentView, search, sortBy, sortOrder, page, user?.id]);
     return current.alive && current.ready && (!epoch || current.epoch === epoch) &&
       query?.fetchStatus === "idle" && !query.isInvalidated &&
        readDocumentActionCapabilities(current.rows.find((doc) => doc.id === id), user?.id ?? null)?.[action] === true;
@@ -315,7 +478,7 @@ export function DocumentsPageContent({
     const current = actionState.current;
     const selection = batchSelection.current;
     const query = queryClient.getQueryState(["documents", documentTypeFilter, onlyMine,
-      currentYearId, directoryId, documentView, user?.id]);
+      currentYearId, directoryId, documentView, search, sortBy, sortOrder, page, user?.id]);
     return current.alive && current.ready && current.epoch === batchEpoch &&
       batchSelectionEpoch.current === current.epoch &&
       query?.status === "success" && query.fetchStatus === "idle" && !query.isInvalidated &&
@@ -332,12 +495,7 @@ export function DocumentsPageContent({
     enabled: !!user?.id && !isTrashView,
   });
 
-  const {
-    categories,
-    loadingCategories,
-    uploadDocumentTypes,
-    academicYears,
-  } = useUploadMetadata();
+  const { uploadDocumentTypes, academicYears } = useUploadMetadata();
 
   // Mutations
   const deleteMutation = useMutation({
@@ -358,34 +516,6 @@ export function DocumentsPageContent({
   });
 
   // Handlers
-
-  const handleCreateInEditor = async () => {
-    if (!createInEditorData.title.trim()) {
-      toast.error("Ingresa un nombre para el documento");
-      return;
-    }
-    setCreatingInEditor(true);
-    try {
-      const doc = await onlyofficeService.createBlank(createInEditorData);
-      setShowCreateInEditorDialog(false);
-      setCreateInEditorData({
-        title: "",
-        fileType: "docx",
-      });
-      if (
-        createInEditorData.fileType === "txt" ||
-        createInEditorData.fileType === "md"
-      ) {
-        router.push(`/dashboard/documents/${doc.id}/edit?mode=basic`);
-      } else {
-        router.push(`/dashboard/documents/${doc.id}/edit`);
-      }
-    } catch {
-      toast.error("Error al crear el documento");
-    } finally {
-      setCreatingInEditor(false);
-    }
-  };
 
   const handleUploadSuccess = () => {
     invalidateDirectoryQueries(queryClient);
@@ -519,14 +649,8 @@ export function DocumentsPageContent({
     setShowReplaceFile(true);
   };
 
-  const handleNewMenuOpenChange = (open: boolean) => {
-    if (!open && skipNewMenuCloseRef.current) {
-      skipNewMenuCloseRef.current = false;
-      setNewMenuOpen(false);
-      return;
-    }
-
-    setNewMenuOpen(open);
+  const handleCreateDialogOpenChange = (open: boolean) => {
+    setCreateDialogOpen(open);
     const nextSearchParams = new URLSearchParams(queryString);
     if (open) {
       nextSearchParams.set("action", "new");
@@ -537,18 +661,6 @@ export function DocumentsPageContent({
     router.replace(`/dashboard/documents${nextQuery ? `?${nextQuery}` : ""}`, {
       scroll: false,
     });
-  };
-
-  const handleNewMenuSelection = (callback: () => void) => {
-    skipNewMenuCloseRef.current = true;
-    setNewMenuOpen(false);
-    const nextSearchParams = new URLSearchParams(queryString);
-    nextSearchParams.delete("action");
-    const nextQuery = nextSearchParams.toString();
-    router.replace(`/dashboard/documents${nextQuery ? `?${nextQuery}` : ""}`, {
-      scroll: false,
-    });
-    callback();
   };
 
   // No ofrece el diálogo de carga mientras la carpeta seleccionada no tenga
@@ -600,7 +712,14 @@ export function DocumentsPageContent({
   }
 
   if (isTrashView) {
-    return <TrashView />;
+    return (
+      <div className="bg-background">
+        <div className="mx-auto max-w-[1500px] space-y-4">
+          {renderViewSelector()}
+          <TrashView />
+        </div>
+      </div>
+    );
   }
 
   const renderWorkbench = () => (
@@ -618,8 +737,11 @@ export function DocumentsPageContent({
             ) : null}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {filteredDocuments.length}{" "}
-            {filteredDocuments.length === 1 ? "documento" : "documentos"}
+            {documentsMeta && documentsMeta.total > 0
+              ? `Mostrando ${rangeStart}–${rangeEnd} de ${totalDocuments} documentos`
+              : `${filteredDocuments.length} ${
+                  filteredDocuments.length === 1 ? "documento" : "documentos"
+                }`}
             {stats ? ` · ${stats.totalSizeMB} MB` : ""}
             {selectedDocuments.length > 0
               ? ` · ${selectedDocuments.length} ${
@@ -639,125 +761,148 @@ export function DocumentsPageContent({
             <RefreshCw className="h-4 w-4" />
             Actualizar
           </Button>
-          <NewDocumentButton
-            onUploadSingle={() =>
-              handleNewMenuSelection(() => openUploadDialog(false))
-            }
-            onUploadMultiple={() =>
-              handleNewMenuSelection(() => openUploadDialog(true))
-            }
-            uploadDisabled={!canUpload}
-            onFromTemplate={() =>
-              handleNewMenuSelection(() => router.push("/dashboard/templates"))
-            }
-            onBatchGenerate={() =>
-              handleNewMenuSelection(() => setShowBatchSelectDialog(true))
-            }
-            onCreateInEditor={() =>
-              handleNewMenuSelection(() => setShowCreateInEditorDialog(true))
-            }
-            open={newMenuOpen}
-            onOpenChange={handleNewMenuOpenChange}
-          />
+          <NewDocumentButton onClick={() => handleCreateDialogOpenChange(true)} />
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {!isUnfilteredView && (
-          <div className="w-full sm:w-[220px]">
-            <AcademicYearSelector label="Filtrar por año lectivo" />
-          </div>
-        )}
-        <Select
-          value={documentTypeFilter?.toString() || "all"}
-          onValueChange={(value) =>
-            setDocumentTypeFilter(value === "all" ? undefined : parseInt(value))
-          }
-        >
-          <SelectTrigger
-            size="sm"
-            className="w-full sm:w-[220px]"
-            aria-label="Filtrar por tipo de documento"
-          >
-            <SelectValue placeholder="Tipo de documento" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los tipos</SelectItem>
-            {uploadDocumentTypes?.map((type) => (
-              <SelectItem key={type.id} value={type.id.toString()}>
-                {type.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div className="flex items-center gap-1 rounded-md border bg-muted p-1">
+      <div className="flex w-full flex-wrap items-center gap-2">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          {renderViewSelector()}
+          {renderSearchField()}
+          {renderYearScope()}
+          {!isUnfilteredView && directoryId !== null && (
+            <span className="inline-flex h-8 items-center gap-1 rounded-full border border-border px-2.5 text-xs">
+              <FolderOpen
+                className="h-3.5 w-3.5 text-muted-foreground"
+                aria-hidden="true"
+              />
+              {folderAccess.directory?.name ?? "Carpeta"}
+              <button
+                type="button"
+                onClick={navigateToRoot}
+                aria-label="Quitar filtro de carpeta"
+                className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+              >
+                <FilterX className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </span>
+          )}
           <Button
             type="button"
+            variant="outline"
             size="sm"
-            variant={!onlyMine ? "default" : "ghost"}
-            className="h-7 px-3 text-xs"
-            onClick={() => setOnlyMine(false)}
+            className="h-8 px-3 text-xs"
+            aria-expanded={filtersOpen}
+            onClick={() => setFiltersOpen((current) => !current)}
           >
-            Todos
+            <Filter className="mr-1.5 h-3.5 w-3.5" />
+            Filtros
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={onlyMine ? "default" : "ghost"}
-            className="h-7 gap-1.5 px-3 text-xs"
-            onClick={() => setOnlyMine(true)}
-          >
-            <User className="h-3 w-3" />
-            Mis documentos
-          </Button>
+          {hasActiveFilters && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs"
+              onClick={clearFilters}
+            >
+              <FilterX className="mr-1.5 h-3.5 w-3.5" />
+              Limpiar filtros
+            </Button>
+          )}
         </div>
-
-        {filteredDocuments.length > 0 && (
-          <label
-            onClick={handleSelectAll}
-            className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border px-2 text-xs hover:bg-accent"
-          >
-            <Checkbox
-              checked={
-                filteredDocuments.length > 0 &&
-                selectedDocuments.length === filteredDocuments.length
-              }
-            />
-            {selectedDocuments.length === filteredDocuments.length
-              ? "Deseleccionar todos"
-              : "Seleccionar todos"}
-          </label>
-        )}
       </div>
 
-      <FolderBrowser
-        enabled={!isUnfilteredView}
-        directoryId={directoryId}
-        onNavigate={(id) => {
-          const params = new URLSearchParams(queryString);
-          if (id === null) params.delete("directoryId");
-          else params.set("directoryId", String(id));
-          params.delete("action");
-          setDirectoryId(id);
-          router.push(
-            `/dashboard/documents/v2${params.size ? `?${params.toString()}` : ""}`,
-          );
-        }}
-      >
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div
-            className={`hidden items-center gap-3 border-b border-border bg-muted/30 px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:grid ${WORKBENCH_GRID}`}
-          >
-            <span aria-hidden="true" />
-            <span>Documento</span>
-            <span>Categoría</span>
-            <span>Actualizado</span>
-            <span>Tamaño</span>
-            <span>Estado</span>
-            <span className="text-right">Acciones</span>
+      {filtersOpen && (
+        <div className="flex flex-wrap items-end gap-3 rounded-md border border-border bg-muted/30 p-3">
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">
+              Propietario
+            </p>
+            <div
+              className="flex items-center gap-1 rounded-md border bg-muted p-1"
+              role="group"
+              aria-label="Filtrar por propietario"
+            >
+              <Button
+                type="button"
+                size="sm"
+                variant={!onlyMine ? "default" : "ghost"}
+                className="h-7 px-3 text-xs"
+                aria-pressed={!onlyMine}
+                onClick={() => setOnlyMine(false)}
+              >
+                Cualquiera
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={onlyMine ? "default" : "ghost"}
+                className="h-7 gap-1.5 px-3 text-xs"
+                aria-pressed={onlyMine}
+                onClick={() => setOnlyMine(true)}
+              >
+                <User className="h-3 w-3" />
+                Mis documentos
+              </Button>
+            </div>
           </div>
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">
+              Tipo de documento
+            </p>
+            <Select
+              value={documentTypeFilter?.toString() || "all"}
+              onValueChange={(value) =>
+                setDocumentTypeFilter(
+                  value === "all" ? undefined : parseInt(value),
+                )
+              }
+            >
+              <SelectTrigger
+                size="sm"
+                className="w-full sm:w-[220px]"
+                aria-label="Filtrar por tipo de documento"
+              >
+                <SelectValue placeholder="Tipo de documento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                {uploadDocumentTypes?.map((type) => (
+                  <SelectItem key={type.id} value={type.id.toString()}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
 
+
+      {!isUnfilteredView && (
+        <details className="rounded-lg border border-border bg-card">
+          <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
+            Carpetas · {folderAccess.directory?.name ?? "Raíz"}
+          </summary>
+          <div className="border-t border-border p-4">
+            <DirectoryNavigation
+              value={directoryId}
+              onChange={(id) => {
+                const params = new URLSearchParams(queryString);
+                if (id === null) params.delete("directoryId");
+                else params.set("directoryId", String(id));
+                params.delete("action");
+                setDirectoryId(id);
+                router.push(
+                  `/dashboard/documents${params.size ? `?${params.toString()}` : ""}`,
+                );
+              }}
+            />
+          </div>
+        </details>
+      )}
+        <div className="overflow-hidden rounded-lg border border-border bg-card">
           {documentsError ? (
             <div className="p-4">
               <Alert variant="destructive">
@@ -797,37 +942,98 @@ export function DocumentsPageContent({
           ) : filteredDocuments.length === 0 ? (
             <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
               <FileText className="h-10 w-10 text-muted-foreground/40" />
-              <p className="mt-3 font-medium">No hay documentos</p>
+              <p className="mt-3 font-medium">
+                {hasActiveFilters ? "Sin resultados" : "No hay documentos"}
+              </p>
               <p className="text-sm text-muted-foreground">
-                Comienza subiendo tu primer documento.
+                {hasActiveFilters
+                  ? "Prueba con otro término o limpia los filtros."
+                  : "Comienza subiendo tu primer documento."}
               </p>
             </div>
           ) : (
-            <div role="list" aria-label="Documentos" className="divide-y divide-border">
-              {filteredDocuments.map((doc) => (
-                <DocumentWorkbenchRow
-                  key={doc.id}
-                  doc={doc}
-                  isSelected={selectedDocuments.some(
-                    (selected) => selected.id === doc.id,
-                  )}
-                  onToggle={handleToggleDocument}
-                  thumbnailUrl={thumbnailUrls[doc.id]?.url}
-                  onPreview={handlePreview}
-                  onDownload={handleDownload}
-                  onShowVersionHistory={handleShowVersionHistory}
-                  onEdit={handleEdit}
-                  onReplaceFile={handleShowReplaceFile}
-                  onDelete={handleDelete}
-                  onMove={handleMove}
-                  isDeleting={deleteMutation.isPending}
-                  actorId={user?.id ?? null}
-                />
-              ))}
-            </div>
+            <table className="w-full border-collapse text-sm" aria-label="Documentos">
+              <thead className="hidden border-b border-border bg-muted/30 text-[11px] font-medium uppercase tracking-wide text-muted-foreground md:table-header-group">
+                <tr>
+                  <th scope="col" className="w-10 px-3 py-2 text-left">
+                    <Checkbox
+                      checked={
+                        filteredDocuments.length > 0 &&
+                        selectedDocuments.length === filteredDocuments.length
+                      }
+                      onCheckedChange={() => handleSelectAll()}
+                      aria-label="Seleccionar página"
+                    />
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-3 py-2 text-left"
+                    aria-sort={
+                      sortBy === "name"
+                        ? sortOrder === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                  >
+                    {renderSortButton("name", "Documento")}
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left">
+                    Tipo de documento
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left">
+                    Carpeta
+                  </th>
+                  <th
+                    scope="col"
+                    className="px-3 py-2 text-left"
+                    aria-sort={
+                      sortBy === "updatedAt"
+                        ? sortOrder === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none"
+                    }
+                  >
+                    {renderSortButton("updatedAt", "Actualizado")}
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left">
+                    Tamaño
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-left">
+                    Estado
+                  </th>
+                  <th scope="col" className="px-3 py-2 text-right">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredDocuments.map((doc) => (
+                  <DocumentWorkbenchRow
+                    key={doc.id}
+                    doc={doc}
+                    isSelected={selectedDocuments.some(
+                      (selected) => selected.id === doc.id,
+                    )}
+                    onToggle={handleToggleDocument}
+                    thumbnailUrl={thumbnailUrls[doc.id]?.url}
+                    onPreview={handlePreview}
+                    onDownload={handleDownload}
+                    onShowVersionHistory={handleShowVersionHistory}
+                    onEdit={handleEdit}
+                    onReplaceFile={handleShowReplaceFile}
+                    onDelete={handleDelete}
+                    onMove={handleMove}
+                    isDeleting={deleteMutation.isPending}
+                    actorId={user?.id ?? null}
+                  />
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
-      </FolderBrowser>
+        <div className="px-4 sm:px-6">{renderPagination()}</div>
     </div>
   );
 
@@ -842,309 +1048,18 @@ export function DocumentsPageContent({
           documents !== undefined
         }
       />
-      <div
-        className={
-          variant === "v2"
-            ? "mx-auto max-w-[1500px] space-y-4"
-            : "mx-auto max-w-7xl space-y-6"
-        }
-      >
-        {variant === "v2" ? renderWorkbench() : (
-          <>
-        {/* Contexto de bandeja de recepción para el lector actual */}
-        {submission.isReception && submission.directoryName ? (
-          <h2 className="text-lg font-semibold">
-            Bandeja de recepción: {submission.directoryName}
-          </h2>
-        ) : null}
-        {/* Estadísticas compactas */}
-        {stats && (
-          <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border bg-card/50 p-1.5">
-            <div className="flex items-center gap-2 rounded-md px-3 py-1.5">
-              <div className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground">
-                <FileText className="h-4 w-4" />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-semibold text-foreground">
-                  {stats.totalDocuments}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  documentos
-                </span>
-              </div>
-            </div>
-            <div className="h-4 w-px bg-border" />
-            <div className="flex items-center gap-2 rounded-md px-3 py-1.5">
-              <div className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground">
-                <FolderOpen className="h-4 w-4" />
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-semibold text-foreground">
-                  {stats.totalSizeMB} MB
-                </span>
-                <span className="text-xs text-muted-foreground">espacio</span>
-              </div>
-            </div>
-          </div>
-        )}
+      <div className="mx-auto max-w-[1500px] space-y-4">
+        {renderWorkbench()}
 
-        <FolderBrowser enabled={!isUnfilteredView} directoryId={directoryId} onNavigate={(id) => {
-              const params = new URLSearchParams(queryString);
-              if (id === null) params.delete("directoryId");
-              else params.set("directoryId", String(id));
-              params.delete("action");
-              setDirectoryId(id);
-              router.push(`/dashboard/documents${params.size ? `?${params.toString()}` : ""}`);
-            }}>
-            {/* Lista de documentos */}
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <CardTitle>{documentViewTitle}</CardTitle>
-                      <CardDescription>
-                        {filteredDocuments.length} documento(s) encontrado(s)
-                        {selectedDocuments.length > 0 && (
-                          <span className="ml-2 text-primary">
-                            ({selectedDocuments.length} seleccionado
-                            {selectedDocuments.length > 1 ? "s" : ""})
-                          </span>
-                        )}
-                      </CardDescription>
-                    </div>
-                    <div className="flex shrink-0 justify-start sm:justify-end">
-                      {/* Botón Nuevo */}
-                      <NewDocumentButton
-                        onUploadSingle={() =>
-                          handleNewMenuSelection(() => openUploadDialog(false))
-                        }
-                        onUploadMultiple={() =>
-                          handleNewMenuSelection(() => openUploadDialog(true))
-                        }
-                        uploadDisabled={!canUpload}
-                        onFromTemplate={() =>
-                          handleNewMenuSelection(() =>
-                            router.push("/dashboard/templates"),
-                          )
-                        }
-                        onBatchGenerate={() =>
-                          handleNewMenuSelection(() =>
-                            setShowBatchSelectDialog(true),
-                          )
-                        }
-                        onCreateInEditor={() =>
-                          handleNewMenuSelection(() =>
-                            setShowCreateInEditorDialog(true),
-                          )
-                        }
-                        open={newMenuOpen}
-                        onOpenChange={handleNewMenuOpenChange}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:justify-end">
-                    {!isUnfilteredView && (
-                      <div className="w-full sm:w-[200px]">
-                        <AcademicYearSelector label="Filtrar por año lectivo" />
-                      </div>
-                    )}
-                    {/* Filtro de tipos de documento */}
-                    <Select
-                      value={documentTypeFilter?.toString() || "all"}
-                      onValueChange={(value) =>
-                        setDocumentTypeFilter(
-                          value === "all" ? undefined : parseInt(value),
-                        )
-                      }
-                    >
-                      <SelectTrigger
-                        size="sm"
-                        className="w-full sm:w-[200px]"
-                        aria-label="Filtrar por tipo de documento"
-                      >
-                        <Filter className="mr-1.5 h-3.5 w-3.5" />
-                        <SelectValue placeholder="Tipo de documento" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todos los tipos</SelectItem>
-                        {uploadDocumentTypes?.map((type) => (
-                          <SelectItem key={type.id} value={type.id.toString()}>
-                            {type.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    <div
-                      className="flex items-center gap-1 rounded-md border bg-muted p-1"
-                      role="group"
-                      aria-label="Cambiar vista"
-                    >
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={viewMode === "grid" ? "default" : "ghost"}
-                        className="h-7 px-2 text-xs focus-visible:ring-2"
-                        aria-label="Vista de tarjetas"
-                        aria-pressed={viewMode === "grid"}
-                        onClick={() => setViewMode("grid")}
-                      >
-                        <LayoutGrid className="h-3.5 w-3.5" />
-                        <span className="sr-only">Tarjetas</span>
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={viewMode === "list" ? "default" : "ghost"}
-                        className="h-7 px-2 text-xs focus-visible:ring-2"
-                        aria-label="Vista de lista"
-                        aria-pressed={viewMode === "list"}
-                        onClick={() => setViewMode("list")}
-                      >
-                        <List className="h-3.5 w-3.5" />
-                        <span className="sr-only">Lista</span>
-                      </Button>
-                    </div>
-                    {/* Control segmentado Todos / Mis documentos */}
-                    <div className="flex items-center rounded-md border bg-muted p-1 gap-1">
-                      <Button
-                        size="sm"
-                        variant={!onlyMine ? "default" : "ghost"}
-                        className="h-7 px-3 text-xs"
-                        onClick={() => setOnlyMine(false)}
-                      >
-                        Todos
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={onlyMine ? "default" : "ghost"}
-                        className="h-7 px-3 text-xs gap-1.5"
-                        onClick={() => setOnlyMine(true)}
-                      >
-                        <User className="h-3 w-3" />
-                        Mis documentos
-                      </Button>
-                    </div>
-                    {filteredDocuments.length > 0 && (
-                      <label
-                        onClick={handleSelectAll}
-                        className="inline-flex h-8 items-center gap-2 rounded-md border px-2 text-xs hover:bg-accent cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={
-                            filteredDocuments.length > 0 &&
-                            selectedDocuments.length ===
-                              filteredDocuments.length
-                          }
-                        />
-                        {selectedDocuments.length === filteredDocuments.length
-                          ? "Deseleccionar todos"
-                          : "Seleccionar todos"}
-                      </label>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {documentsError ? (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error al cargar documentos</AlertTitle>
-                    <AlertDescription className="flex flex-col gap-3">
-                      <p>
-                        No se pudieron cargar los documentos. Verifica que el
-                        servidor esté ejecutándose y que tengas conexión a
-                        internet.
-                      </p>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={() => refetchDocuments()}
-                          variant="outline"
-                          size="sm"
-                        >
-                          <RefreshCw className="mr-2 h-4 w-4" />
-                          Reintentar
-                        </Button>
-                      </div>
-                    </AlertDescription>
-                  </Alert>
-                ) : loadingDocuments || fetchingDocuments ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                    <p className="text-muted-foreground mt-4">
-                      Cargando documentos...
-                    </p>
-                  </div>
-                ) : filteredDocuments.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium">No hay documentos</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Comienza subiendo tu primer documento
-                    </p>
-                  </div>
-                ) : viewMode === "grid" ? (
-                  <ul
-                    aria-label="Documentos"
-                    className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5"
-                  >
-                    {filteredDocuments.map((doc) => (
-                      <DocumentCard
-                        key={doc.id}
-                        doc={doc}
-                        isSelected={selectedDocuments.some(
-                          (d) => d.id === doc.id,
-                        )}
-                        onToggle={handleToggleDocument}
-                        thumbnailUrl={thumbnailUrls[doc.id]?.url}
-                        onPreview={handlePreview}
-                        onDownload={handleDownload}
-                        onShowVersionHistory={handleShowVersionHistory}
-                        onEdit={handleEdit}
-                        onReplaceFile={handleShowReplaceFile}
-                        onDelete={handleDelete}
-                        canDelete={false}
-                        isOwn={doc.uploadedById === user?.id}
-                        actorId={user?.id ?? null}
-                        isDeleting={deleteMutation.isPending}
-                        onMove={handleMove}
-                      />
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="space-y-4">
-                    {filteredDocuments.map((doc, index) => (
-                      <DocumentListItem
-                        key={doc.id}
-                        doc={doc}
-                        index={index}
-                        isSelected={selectedDocuments.some(
-                          (d) => d.id === doc.id,
-                        )}
-                        onToggle={handleToggleDocument}
-                        thumbnailUrl={thumbnailUrls[doc.id]?.url}
-                        onPreview={handlePreview}
-                        onDownload={handleDownload}
-                        onShowVersionHistory={handleShowVersionHistory}
-                        onEdit={handleEdit}
-                        onReplaceFile={handleShowReplaceFile}
-                        onDelete={handleDelete}
-                        canDelete={false}
-                        isOwn={doc.uploadedById === user?.id}
-                        actorId={user?.id ?? null}
-                        isDeleting={deleteMutation.isPending}
-                        onMove={handleMove}
-                      />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            </FolderBrowser>
-          </>
-        )}
+        <CreateDocumentDialog
+          open={createDialogOpen}
+          onOpenChange={handleCreateDialogOpenChange}
+          uploadDocumentTypes={uploadDocumentTypes}
+          academicYears={academicYears}
+          uploadDisabled={!canUpload}
+          onUploadSingle={() => openUploadDialog(false)}
+          onUploadMultiple={() => openUploadDialog(true)}
+        />
 
         {/* Modal de subir documento */}
         <UploadDocumentsDialog
@@ -1258,115 +1173,6 @@ export function DocumentsPageContent({
           onClearSelection={handleClearSelection}
           onSuccess={handleBatchSuccess}
         />
-
-        {/* Dialog para seleccionar plantilla en modo lote */}
-        <SelectTemplateDialog
-          open={showBatchSelectDialog}
-          onOpenChange={setShowBatchSelectDialog}
-          mode="batch"
-        />
-
-        {/* Create in editor dialog */}
-        <Dialog
-          open={showCreateInEditorDialog}
-          onOpenChange={setShowCreateInEditorDialog}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Crear en Editor</DialogTitle>
-              <DialogDescription>
-                Se creará un documento en blanco y se abrirá en el editor
-                correspondiente.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  Nombre del documento
-                </label>
-                <Input
-                  placeholder="Ej. Notas de reunión"
-                  value={createInEditorData.title}
-                  onChange={(e) =>
-                    setCreateInEditorData((prev) => ({
-                      ...prev,
-                      title: e.target.value,
-                    }))
-                  }
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateInEditor()}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">Tipo de archivo</label>
-                <Select
-                  value={createInEditorData.fileType}
-                  onValueChange={(v) =>
-                    setCreateInEditorData((prev) => ({
-                      ...prev,
-                      fileType: v as "docx" | "xlsx" | "pptx" | "txt" | "md",
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="docx">Documento Word (.docx)</SelectItem>
-                    <SelectItem value="xlsx">
-                      Hoja de cálculo (.xlsx)
-                    </SelectItem>
-                    <SelectItem value="pptx">Presentación (.pptx)</SelectItem>
-                    <SelectItem value="txt">
-                      Documento de texto (.txt)
-                    </SelectItem>
-                    <SelectItem value="md">Markdown (.md)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium">
-                  Categoría (opcional)
-                </label>
-                <Select
-                  value={createInEditorData.categoryId?.toString() ?? "none"}
-                  onValueChange={(v) =>
-                    setCreateInEditorData((prev) => ({
-                      ...prev,
-                      categoryId: v === "none" ? undefined : parseInt(v),
-                    }))
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sin categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sin categoría</SelectItem>
-                    {!loadingCategories &&
-                      categories?.map((cat: { id: number; name: string }) => (
-                        <SelectItem key={cat.id} value={cat.id.toString()}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setShowCreateInEditorDialog(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleCreateInEditor}
-                disabled={creatingInEditor || !createInEditorData.title.trim()}
-              >
-                {creatingInEditor ? "Creando..." : "Crear y Abrir"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         <ConfirmDialog
           open={deleteConfirmId !== null && canAct(deleteConfirmId, "trash", deleteEpoch.current)}

@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import DashboardLayout from "@/app/dashboard/layout";
 import userEvent from "@testing-library/user-event";
 
@@ -8,7 +8,12 @@ const mockLogout = jest.fn();
 jest.mock("@/components/ui/sidebar", () => ({
   SidebarProvider: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SidebarTrigger: () => <button aria-label="Abrir navegación">Menú</button>,
-  SidebarInset: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SidebarInset: ({
+    children,
+    ...props
+  }: { children: ReactNode } & ComponentProps<"main">) => (
+    <main {...props}>{children}</main>
+  ),
 }));
 jest.mock("@/components/app-sidebar", () => ({ AppSidebar: () => <aside>Barra lateral</aside> }));
 jest.mock("@/components/navigation/DashboardBreadcrumb", () => ({
@@ -42,6 +47,15 @@ describe("DashboardLayout", () => {
     expect(screen.getByRole("main")).toHaveTextContent("Contenido");
   });
 
+  it("offers a skip link to the single main content region", () => {
+    render(<DashboardLayout><p>Contenido</p></DashboardLayout>);
+
+    expect(
+      screen.getByRole("link", { name: "Saltar al contenido" }),
+    ).toHaveAttribute("href", "#dashboard-content");
+    expect(screen.getByRole("main")).toHaveAttribute("id", "dashboard-content");
+  });
+
   it("applies the institutional header styling without changing control order", () => {
     render(<DashboardLayout><p>Contenido</p></DashboardLayout>);
 
@@ -60,7 +74,7 @@ describe("DashboardLayout", () => {
 
     const trigger = screen.getByRole("button", { name: "Abrir menú de cuenta" });
     expect(trigger).toHaveTextContent("Ana Torres");
-    expect(trigger).toHaveTextContent("ADMIN");
+    expect(trigger).toHaveTextContent("Administrador");
     expect(trigger).toHaveTextContent("AT");
     expect(screen.getByText("Ana Torres").parentElement).toHaveClass("hidden", "sm:block");
 

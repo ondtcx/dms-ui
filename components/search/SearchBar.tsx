@@ -85,12 +85,14 @@ export function SearchBar() {
             }}
             onFocus={() => setOpen(true)}
             onKeyDown={handleKeyDown}
-            aria-label="Buscar documentos"
-            placeholder="Buscar documentos..."
+            aria-label="Buscar en todo el sistema"
+            placeholder="Buscar en todo el sistema..."
             className="pl-9 pr-8 h-9 bg-muted/50 border-0 focus-visible:ring-1"
           />
           {query && (
             <button
+              type="button"
+              aria-label="Limpiar búsqueda"
               onClick={() => { setQuery(""); inputRef.current?.focus(); }}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >

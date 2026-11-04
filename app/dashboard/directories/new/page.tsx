@@ -32,7 +32,7 @@ export default function NewDirectoryPage() {
     mutationFn: () => documentsService.createDirectory({ name: name.trim(), parentId }),
     onSuccess: () => {
       invalidateDirectoryQueries(queryClient);
-      router.push("/dashboard/directories");
+      router.push("/dashboard/documents");
     },
   });
 

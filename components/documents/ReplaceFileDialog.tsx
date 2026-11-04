@@ -103,10 +103,10 @@ export function ReplaceFileDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label className="text-sm font-medium text-gray-700">
+            <Label className="text-sm font-medium text-foreground">
               Documento actual
             </Label>
-            <p className="text-sm text-gray-600 mt-1">{documentName}</p>
+            <p className="text-sm text-muted-foreground mt-1">{documentName}</p>
           </div>
 
           <div>
@@ -122,7 +122,7 @@ export function ReplaceFileDialog({
               className="mt-1"
             />
             {file && (
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Archivo seleccionado: {file.name} ({(file.size / 1024).toFixed(2)} KB)
               </p>
             )}
@@ -140,7 +140,7 @@ export function ReplaceFileDialog({
               className="mt-1"
               rows={3}
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Este comentario aparecerá en el historial de versiones
             </p>
           </div>

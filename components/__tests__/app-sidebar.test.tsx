@@ -101,34 +101,28 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
   it("renders and reflects active state, account menu and icon collapsible", async () => {
     const { container } = renderSidebar();
 
-    // a) Documentos is present (REQ-1/REQ-2 integration)
+    // a) Documentos is a direct destination of the scoped workbench.
     expect(screen.getByText("Documentos")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Documentos/ })).toHaveAttribute("data-active", "true");
-    expect(screen.getByRole("link", { name: "Recientemente accedido" })).toHaveAttribute(
+    const documentsLink = screen.getByRole("link", { name: "Documentos" });
+    expect(documentsLink).toHaveAttribute("href", "/dashboard/documents");
+    expect(documentsLink).toHaveAttribute("data-active", "true");
+    expect(screen.getByRole("link", { name: "Bandeja" })).toHaveAttribute(
       "href",
-      "/dashboard/documents?view=recent-accessed",
+      "/dashboard/documents",
     );
-    expect(screen.getByRole("link", { name: "Recientemente creado" })).toHaveAttribute(
-      "href",
-      "/dashboard/documents?view=recent-created",
+    expect(screen.getByRole("link", { name: "Bandeja" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    expect(screen.getByRole("link", { name: "Todos los documentos" })).toHaveAttribute(
-      "href",
-      "/dashboard/documents?view=all",
-    );
-    expect(screen.getByRole("link", { name: "Papelera" })).toHaveAttribute(
-      "href",
-      "/dashboard/documents?view=trash",
-    );
-    expect(screen.getByRole("link", { name: "Nuevo Documento" })).toHaveAttribute(
+    expect(
+      screen.getByRole("link", { name: "Pendientes de revisión" }),
+    ).toHaveAttribute("href", "/dashboard/documents/pending");
+    expect(screen.getByRole("link", { name: "Nuevo" })).toHaveAttribute(
       "href",
       "/dashboard/documents?action=new",
     );
-    expect(screen.queryByRole("link", { name: "Documentos" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Papelera", hidden: true })).not.toHaveAttribute(
-      "href",
-      "/dashboard/trash",
-    );
+    expect(screen.queryByRole("link", { name: "Recientemente accedido" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Papelera", hidden: true })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Calendario" })).not.toBeInTheDocument();
     const settingsLink = screen.getByRole("link", { name: "Configuración" });
     expect(settingsLink).toHaveAttribute("href", "/dashboard/settings");
@@ -146,136 +140,16 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
     expect(sidebarRoot).toHaveAttribute("data-collapsible", "icon");
   });
 
-  it.each([
-    ["view=recent-accessed", "Recientemente accedido"],
-    ["view=recent-created", "Recientemente creado"],
-    ["view=all", "Todos los documentos"],
-    ["view=trash", "Papelera"],
-    ["action=new", "Nuevo Documento"],
-  ])("marks the %s Documents query destination as active", (query, title) => {
-    currentSearch = query;
+  it("opens the pending view as a Documentos child", () => {
+    currentPathname = "/dashboard/documents/pending";
     renderSidebar();
 
-    expect(screen.getByRole("button", { name: /Documentos/ })).toHaveAttribute("data-active", "true");
-    expect(screen.getByRole("link", { name: title })).toHaveAttribute("data-active", "true");
-  });
-
-  it("uses wrapping-safe structure only for Documents submenu entries", () => {
-    renderSidebar();
-
-    for (const title of [
-      "Recientemente accedido",
-      "Recientemente creado",
-      "Todos los documentos",
-      "Papelera",
-      "Nuevo Documento",
-    ]) {
-      const link = screen.getByRole("link", { name: title });
-
-      expect(link).toHaveClass("min-h-8", "h-auto", "items-start", "overflow-visible", "py-1.5");
-      expect(link).toHaveAttribute("data-size", "sm");
-      expect(link).toHaveClass(
-        "[&>span:last-child]:whitespace-normal",
-        "[&>span:last-child]:break-words",
-        "[&>span:last-child]:leading-tight",
-        "[&>span:last-child]:overflow-visible",
-        "[&>span:last-child]:text-clip",
-      );
-      expect(link.querySelector("span")).toHaveClass(
-        "min-w-0",
-        "flex-1",
-        "whitespace-normal",
-        "break-words",
-        "leading-tight",
-      );
-    }
-
-    expect(screen.getByRole("link", { name: "Inicio" })).not.toHaveClass("min-h-7");
-  });
-
-  it("keeps Configuration as a single destination for a roles.manage-only user", async () => {
-    visiblePermissions = new Set(["roles.manage"]);
-    renderSidebar();
-
-    expect(screen.getByRole("link", { name: "Configuración" })).toHaveAttribute(
-      "href",
-      "/dashboard/settings",
-    );
-    expect(screen.queryByRole("link", { name: "Usuarios" })).not.toBeInTheDocument();
-  });
-
-  it("routes template managers through Settings without a duplicate workflow item", () => {
-    visiblePermissions = new Set(["workflow.templates.manage"]);
-    currentPathname = "/dashboard/workflows/definition/7";
-    renderSidebar();
-
-    const settingsLink = screen.getByRole("link", { name: "Configuración" });
-    expect(settingsLink).toHaveAttribute("href", "/dashboard/settings");
-    expect(settingsLink).toHaveAttribute("data-active", "true");
-    expect(screen.queryByRole("link", { name: "Flujos de trabajo" })).not.toBeInTheDocument();
-
-    cleanup();
-    visiblePermissions = new Set(["roles.manage"]);
-    renderSidebar();
-
-    expect(screen.queryByRole("link", { name: "Flujos de trabajo" })).not.toBeInTheDocument();
-  });
-
-  it("does not expose Settings workflow ownership to users without its permission", () => {
-    visiblePermissions = new Set(["documents.read"]);
-    visibleRoles = false;
-    currentPathname = "/dashboard/workflows";
-    renderSidebar();
-
-    expect(screen.queryByRole("link", { name: "Flujos de trabajo" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Configuración" })).not.toBeInTheDocument();
-  });
-
-  it("renders loading, empty, and error states for directory navigation", async () => {
-    currentPathname = "/dashboard/directories";
-    jest.mocked(documentsService.getDirectoryNavigationSummary).mockImplementation(() => new Promise(() => {}));
-    renderSidebar();
-    expect(await screen.findByText("Cargando...")).toBeInTheDocument();
-
-    jest.mocked(documentsService.getDirectoryNavigationSummary).mockResolvedValue({ recent: [], mostUsed: [] });
-    renderSidebar();
-    expect(await screen.findByText("Sin carpetas recientes")).toBeInTheDocument();
-
-    jest.mocked(documentsService.getDirectoryNavigationSummary).mockRejectedValue(new Error("offline"));
-    renderSidebar();
-    expect(await screen.findByRole("button", { name: /no se pudieron cargar/i })).toBeInTheDocument();
-  });
-
-  it("marks the active directory creation route while the sidebar is icon-collapsed", async () => {
-    currentPathname = "/dashboard/directories/new";
-    renderSidebar();
-
-    expect(screen.getByRole("button", { name: "Carpetas" })).toHaveAttribute("data-active", "true");
-    expect(screen.getByRole("link", { name: "Crear nuevo" })).toHaveAttribute("data-active", "true");
-  });
-
-  it("shows institutional and academic-year identity with explicit fallbacks", async () => {
-    renderSidebar();
-    expect(screen.getByText("Colegio")).toBeInTheDocument();
-    expect(screen.getByText("Año lectivo no disponible")).toBeInTheDocument();
-
-    mockSettings = {
-      institution: { name: "Instituto Central", logoPath: null },
-      schoolYear: { name: "2026–2027", isActive: true },
-    };
-    renderSidebar();
-    expect(screen.getByText("Instituto Central")).toBeInTheDocument();
-    expect(screen.getByText("2026–2027")).toBeInTheDocument();
-  });
-
-  it("uses institutional sidebar semantic tokens for surfaces and separators", () => {
-    const { container } = renderSidebar();
-
-    expect(container.querySelector('[data-slot="sidebar-container"]')).toHaveClass("border-sidebar-border");
-    expect(container.querySelector('[data-sidebar="sidebar"]')).toHaveClass("bg-sidebar");
-    expect(container.querySelector('[data-slot="sidebar"]')).toHaveClass("text-sidebar-foreground");
-    expect(container.querySelector('[data-sidebar="header"]')).toHaveClass("border-sidebar-border");
-    expect(container.querySelector('[data-sidebar="footer"]')).not.toBeInTheDocument();
+    const parent = screen.getByRole("link", { name: "Documentos" });
+    expect(parent).toHaveAttribute("href", "/dashboard/documents");
+    expect(parent).toHaveAttribute("data-active", "true");
+    expect(
+      screen.getByRole("link", { name: "Pendientes de revisión" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("uses formal rotating chevrons for collapsible groups", () => {
@@ -287,10 +161,8 @@ describe("AppSidebar render smoke (REQ-1, REQ-2, REQ-4, REQ-5)", () => {
 
     renderSidebar();
 
-    for (const title of ["Documentos", "Carpetas"]) {
-      const trigger = screen.getByRole("button", { name: new RegExp(title) });
-      expect(trigger).toHaveAttribute("aria-expanded");
-    }
+    const trigger = screen.getByRole("button", { name: /Carpetas/ });
+    expect(trigger).toHaveAttribute("aria-expanded");
   });
 
 });

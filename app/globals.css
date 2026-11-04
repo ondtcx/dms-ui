@@ -64,8 +64,8 @@
   --secondary-foreground: var(--institution-secondary-foreground);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: var(--institution-secondary);
-  --accent-foreground: var(--institution-secondary-foreground);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
@@ -106,8 +106,8 @@
   --secondary-foreground: var(--institution-secondary-foreground);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: var(--institution-secondary);
-  --accent-foreground: var(--institution-secondary-foreground);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
@@ -141,12 +141,7 @@
     @apply bg-background text-foreground;
   }
 
-  /* Fix para evitar que los overlays de diálogos persistan */
-  body[style*="pointer-events: none"] {
-    pointer-events: auto !important;
-  }
-
-  /* Asegurar que el body no mantenga overflow hidden después de cerrar diálogos */
+  /* Red de seguridad post-cierre: no afecta a diálogos abiertos. */
   body:not(:has([data-state="open"])) {
     overflow: auto !important;
   }

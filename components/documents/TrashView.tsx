@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/lib/contexts/AuthContext";
+import { useSettings } from "@/lib/contexts/SettingsContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { documentsService } from "@/lib/services/documents.service";
 import toast from "react-hot-toast";
@@ -40,6 +41,8 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 export function TrashView() {
   const { user } = useAuth();
+  const { settings } = useSettings();
+  const retentionDays = settings?.documents?.trashRetentionDays ?? 30;
   const queryClient = useQueryClient();
   const [restoreConfirmId, setRestoreConfirmId] = useState<number | null>(null);
   const [permanentDeleteConfirmId, setPermanentDeleteConfirmId] = useState<number | null>(null);
@@ -170,15 +173,15 @@ export function TrashView() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+        <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
           <Trash2 className="h-8 w-8" />
           Papelera
         </h1>
         <p className="text-muted-foreground mt-2">
-          Los documentos eliminados se conservan aquí durante 30 días antes de ser eliminados permanentemente
+          Los documentos eliminados se conservan aquí durante {retentionDays} días antes de ser eliminados permanentemente.
         </p>
       </div>
 
@@ -187,7 +190,7 @@ export function TrashView() {
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Información</AlertTitle>
         <AlertDescription>
-          Los documentos en la papelera se eliminan automáticamente después de 30 días.
+          Los documentos en la papelera se eliminan automáticamente después de {retentionDays} días.
           {documents?.data.some(canPermanentDelete) && " Puedes eliminar permanentemente los documentos que tengan esa acción habilitada."}
         </AlertDescription>
       </Alert>
@@ -250,7 +253,7 @@ export function TrashView() {
                         <h3 className="font-medium truncate">{((doc?.versions?.[0]?.filename) ?? '')}</h3>
                         {doc.deletedAt && daysInTrash(doc.deletedAt) >= 25 && (
                           <Badge variant="destructive">
-                            Eliminación automática en {30 - daysInTrash(doc.deletedAt)} días
+                            Eliminación automática en {Math.max(retentionDays - daysInTrash(doc.deletedAt), 0)} días
                           </Badge>
                         )}
                       </div>

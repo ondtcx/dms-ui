@@ -7,10 +7,10 @@ export const WORKFLOW_STATUS_CONFIG: Record<
   { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: LucideIcon }
 > = {
   [WorkflowStatus.DRAFT]:             { label: 'Borrador',           variant: 'outline',     icon: GitBranch },
-  [WorkflowStatus.PENDING]:           { label: 'Pendiente',          variant: 'secondary',   icon: Clock },
+  [WorkflowStatus.PENDING]:           { label: 'Pendiente',          variant: 'outline',     icon: Clock },
   [WorkflowStatus.IN_PROGRESS]:       { label: 'En progreso',        variant: 'default',     icon: CircleDot },
   [WorkflowStatus.CHANGES_REQUESTED]: { label: 'Cambios requeridos', variant: 'outline',     icon: MessageSquare },
-  [WorkflowStatus.APPROVED]:          { label: 'Aprobado',           variant: 'default',     icon: CheckCheck },
+  [WorkflowStatus.APPROVED]:          { label: 'Aprobado',           variant: 'secondary',   icon: CheckCheck },
   [WorkflowStatus.REJECTED]:          { label: 'Rechazado',          variant: 'destructive', icon: XCircle },
-  [WorkflowStatus.CANCELLED]:         { label: 'Cancelado',          variant: 'secondary',   icon: X },
+  [WorkflowStatus.CANCELLED]:         { label: 'Cancelado',          variant: 'outline',     icon: X },
 };

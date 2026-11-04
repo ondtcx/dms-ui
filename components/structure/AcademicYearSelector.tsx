@@ -44,7 +44,7 @@ export const useAcademicYearStore = create<{
   ),
 );
 
-export function AcademicYearSelector({ label = "Filtrar por año lectivo" }: { label?: string } = {}) {
+export function useActiveAcademicYear() {
   const { user } = useAuth();
   const { data: years, isLoading } = useQuery({
     queryKey: ["academic-years"],
@@ -68,6 +68,17 @@ export function AcademicYearSelector({ label = "Filtrar por año lectivo" }: { l
       setCurrentYearId(initialYear.id);
     }
   }, [user?.id, persistedUserId, hasInitializedYear, years, resetForUser, setCurrentYearId]);
+
+  const activeYear =
+    years?.data.find((year) => year.id === currentYearId) ??
+    years?.data.find((year) => year.isCurrent && year.isActive) ??
+    years?.data.find((year) => year.isActive);
+
+  return { years, isLoading, currentYearId, setCurrentYearId, activeYear };
+}
+
+export function AcademicYearSelector({ label = "Filtrar por año lectivo" }: { label?: string } = {}) {
+  const { years, isLoading, currentYearId, setCurrentYearId } = useActiveAcademicYear();
 
   if (isLoading) {
     return (
@@ -98,7 +109,7 @@ export function AcademicYearSelector({ label = "Filtrar por año lectivo" }: { l
         </div>
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">Todos los años</SelectItem>
+        <SelectItem value="all">Todos</SelectItem>
         {years.data
           .filter((year) => year.isActive)
           .map((year) => (

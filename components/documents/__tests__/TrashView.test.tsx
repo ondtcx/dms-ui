@@ -6,6 +6,9 @@ import toast from "react-hot-toast";
 
 let actor = { id: "actor-a", role: "admin" };
 jest.mock("@/lib/contexts/AuthContext", () => ({ useAuth: () => ({ user: actor }) }));
+jest.mock("@/lib/contexts/SettingsContext", () => ({
+  useSettings: () => ({ settings: { documents: { trashRetentionDays: 30 } } }),
+}));
 jest.mock("@/hooks/use-permissions", () => ({ usePermissions: () => ({ isAdmin: () => true }) }));
 jest.mock("react-hot-toast", () => ({ __esModule: true, default: { success: jest.fn(), error: jest.fn() } }));
 jest.mock("@/lib/services/documents.service", () => ({ documentsService: {

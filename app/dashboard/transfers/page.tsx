@@ -6,6 +6,8 @@ import { ArrowRight, Download, FileText, Send } from "lucide-react";
 import { TransferStats } from "@/components/transfer-stats";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { transfersService } from "@/lib/services/transfers.service";
 import { formatTransferDate, transferDocumentName, transferStatusConfig } from "@/lib/transfer-utils";
 import type { TransferHistory } from "@/lib/types";
@@ -20,7 +22,7 @@ function SummaryCard({ href, title, description, icon: Icon }: {
     <Link href={href}>
       <Card className="group h-full transition-colors hover:border-primary/50">
         <CardContent className="flex items-center gap-4 p-5">
-          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-secondary text-primary">
+          <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
@@ -34,7 +36,23 @@ function SummaryCard({ href, title, description, icon: Icon }: {
   );
 }
 
-function RecentList({ transfers, empty }: { transfers: TransferHistory[]; empty: string }) {
+function RecentList({
+  transfers,
+  empty,
+  loading,
+  error,
+}: {
+  transfers: TransferHistory[];
+  empty: string;
+  loading: boolean;
+  error: boolean;
+}) {
+  if (loading) {
+    return <p className="py-6 text-center text-sm text-muted-foreground">Cargando...</p>;
+  }
+  if (error) {
+    return <p className="py-6 text-center text-sm text-muted-foreground">No se pudieron cargar.</p>;
+  }
   if (transfers.length === 0) {
     return <p className="py-6 text-center text-sm text-muted-foreground">{empty}</p>;
   }
@@ -67,7 +85,7 @@ export default function TransfersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Transferencias</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Transferencias</h1>
         <p className="text-sm text-muted-foreground">
           Solicita y acepta el cambio de propiedad de documentos entre usuarios.
         </p>
@@ -75,10 +93,31 @@ export default function TransfersPage() {
 
       <TransferStats />
 
+      {(sent.isError || received.isError) && (
+        <Alert variant="destructive">
+          <AlertTitle>No se pudieron cargar las transferencias</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3">
+            <p>Revisa la conexión e inténtalo de nuevo.</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => {
+                sent.refetch();
+                received.refetch();
+              }}
+            >
+              Reintentar
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard href="/dashboard/transfers/new-transfer" title="Nueva transferencia" description="Selecciona un documento propio o administrado" icon={Send} />
-        <SummaryCard href="/dashboard/transfers/sent" title="Enviadas" description={`${sent.data?.length ?? 0} solicitudes registradas`} icon={FileText} />
-        <SummaryCard href="/dashboard/transfers/received" title="Recibidas" description={`${pendingReceived.length} pendientes de aceptar`} icon={Download} />
+        <SummaryCard href="/dashboard/transfers/sent" title="Enviadas" description={sent.isLoading ? "Cargando..." : sent.isError ? "No disponible" : `${sent.data?.length ?? 0} solicitudes registradas`} icon={FileText} />
+        <SummaryCard href="/dashboard/transfers/received" title="Recibidas" description={received.isLoading ? "Cargando..." : received.isError ? "No disponible" : `${pendingReceived.length} pendientes de aceptar`} icon={Download} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -88,7 +127,7 @@ export default function TransfersPage() {
             <CardDescription>Solicitudes que iniciaste o que pertenecen a tus documentos.</CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentList transfers={sent.data ?? []} empty="Todavía no has enviado transferencias." />
+            <RecentList transfers={sent.data ?? []} empty="Todavía no has enviado transferencias." loading={sent.isLoading} error={sent.isError} />
           </CardContent>
         </Card>
         <Card>
@@ -97,7 +136,7 @@ export default function TransfersPage() {
             <CardDescription>Documentos que esperan tu aceptación.</CardDescription>
           </CardHeader>
           <CardContent>
-            <RecentList transfers={pendingReceived} empty="No tienes transferencias pendientes." />
+            <RecentList transfers={pendingReceived} empty="No tienes transferencias pendientes." loading={received.isLoading} error={received.isError} />
           </CardContent>
         </Card>
       </div>

@@ -35,4 +35,11 @@ export const documentReviewService = {
       )
     ).data;
   },
+  async archive(documentId: number) {
+    return (
+      await api.post<DocumentReview>(
+        `/document-reviews/${documentId}/archive`,
+      )
+    ).data;
+  },
 };

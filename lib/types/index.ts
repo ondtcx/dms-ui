@@ -1,3 +1,5 @@
+import type { AuthoringStatus } from "./authoring";
+
 export enum UserRole {
   RECTOR = "rector",
   VICERRECTOR = "vicerrector",
@@ -226,6 +228,14 @@ export interface DocumentTemplateData {
   documentId: number;
   formData: Record<string, unknown> | null;
   generatedHtml: string | null;
+  template?: {
+    id: number;
+    name: string;
+    isBlank?: boolean;
+    documentType?: { id: number; name: string } | null;
+  } | null;
+  templateVersion?: { id: number; version: number } | null;
+  batch?: { id: string; name: string } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -242,7 +252,8 @@ export type DocumentReviewAction =
   | 'SUBMITTED'
   | 'APPROVED'
   | 'RETURNED'
-  | 'ARCHIVED';
+  | 'ARCHIVED'
+  | 'UPDATED';
 
 export interface DocumentReviewEvent {
   id: number;
@@ -277,6 +288,10 @@ export interface DocumentReview {
     uploadedBy?: { id: string; name: string } | null;
     currentVersion?: number;
     createdAt?: string;
+    documentType?: { id: number; name: string } | null;
+    templateData?: {
+      template?: { id: number; name: string } | null;
+    } | null;
   };
 }
 
@@ -311,6 +326,22 @@ export interface Document {
   };
   currentVersion: number;
   versions?: DocumentVersion[];
+  authoring?: {
+    id: number;
+    status: AuthoringStatus;
+    templateVersionId?: number | null;
+    reviewerId?: string | null;
+    reviewerName?: string | null;
+    submittedAt?: string | null;
+    reviewedAt?: string | null;
+    reviewedById?: string | null;
+    reviewedByName?: string | null;
+    reviewObservation?: string | null;
+    emittedAt?: string | null;
+    emittedById?: string | null;
+    emittedByName?: string | null;
+    events?: import("./authoring").AuthoringEvent[];
+  } | null;
   workflow?: {
     id: number;
     status: WorkflowStatus;
@@ -336,7 +367,9 @@ export interface Document {
   createdAt: string;
   updatedAt: string;
   directoryId?: number | null;
-  directory?: Directory | null;
+  directory?: { id: number; name: string; receptionEnabled?: boolean } | null;
+  receptionOriginDirectoryId?: number | null;
+  receptionOriginDirectory?: { id: number; name: string } | null;
 }
 
 export interface ResourceCapabilities {
@@ -523,7 +556,7 @@ export type DocumentListView =
 export interface DashboardDocumentRow
   extends Pick<
     Document,
-    "id" | "description" | "documentNumber" | "createdAt" | "updatedAt"
+    "id" | "name" | "description" | "documentNumber" | "createdAt" | "updatedAt"
   > {
   uploadedBy: Pick<Document["uploadedBy"], "id" | "name" | "email">;
   category: Pick<Category, "id" | "name" | "color" | "icon"> | null;

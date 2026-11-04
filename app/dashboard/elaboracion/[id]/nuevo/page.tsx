@@ -71,7 +71,7 @@ function NewDocumentContent() {
   const fields = published ? fieldsOf(published.fields) : [];
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-5 p-4 sm:p-6">
+    <div className="mx-auto flex max-w-3xl flex-col gap-5">
       <Button variant="ghost" className="w-fit" onClick={() => router.push('/dashboard/elaboracion')}>
         <ArrowLeft className="mr-2 h-4 w-4" /> Biblioteca
       </Button>

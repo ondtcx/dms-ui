@@ -271,6 +271,10 @@ function TemplateAdminContent() {
           <p className="mt-1 text-sm text-muted-foreground">
             {template.description || 'Plantilla institucional'}
           </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tipo de documento:{" "}
+            {template.documentType?.name || 'Sin tipo asignado'}
+          </p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
             <Badge variant={template.isActive ? 'default' : 'outline'}>
               {template.isActive ? 'Activa' : 'Inactiva'}

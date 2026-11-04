@@ -39,6 +39,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { usePermissions } from "@/hooks/use-permissions";
+import { WORKFLOW_CONFIGURABLE_ENABLED } from "@/lib/config/features";
 import { permissionsService } from "@/lib/services/permissions.service";
 import { Role, rolesService } from "@/lib/services/roles.service";
 import type { Permission } from "@/lib/types";
@@ -69,14 +70,23 @@ function permissionGroup(key: string) {
   return { key: prefix, label };
 }
 
+function isVisiblePermissionKey(key: string): boolean {
+  return WORKFLOW_CONFIGURABLE_ENABLED || !key.startsWith("workflow.");
+}
+
 function rolePermissionKeys(role: Role): string[] {
   return (role.permissions ?? [])
     .map((permission) => permission.key ?? permission.permission?.key)
-    .filter((key): key is string => Boolean(key));
+    .filter((key): key is string => Boolean(key))
+    .filter((key) => isVisiblePermissionKey(key));
 }
 
 function rolePermissionLabels(role: Role): string[] {
   return (role.permissions ?? [])
+    .filter((permission) => {
+      const key = permission.key ?? permission.permission?.key;
+      return !key || isVisiblePermissionKey(key);
+    })
     .map((permission) => permission.label ?? permission.permission?.label)
     .filter((label): label is string => Boolean(label));
 }
@@ -156,7 +166,11 @@ export function RolesManagement() {
 
   const roles = rolesQuery.data ?? [];
   const activeRoleCount = roles.filter((role) => role.isActive).length;
-  const permissions = (permissionsQuery.data ?? []).filter((permission) => permission.isActive);
+  const permissions = (permissionsQuery.data ?? []).filter(
+    (permission) =>
+      permission.isActive &&
+      (WORKFLOW_CONFIGURABLE_ENABLED || !permission.key.startsWith("workflow.")),
+  );
   const selectedCount = permissions.filter((permission) =>
     form.permissionKeys.includes(permission.key),
   ).length;
@@ -260,6 +274,30 @@ export function RolesManagement() {
         </div>
       )}
 
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Permisos base para todos los usuarios
+          </CardTitle>
+          <CardDescription>
+            Estas capacidades no dependen de un rol y se conservan aunque un rol
+            no tenga permisos de administración.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+            <li>Iniciar sesión y administrar su perfil, contraseña y autenticación en dos pasos.</li>
+            <li>Ver, buscar, previsualizar y descargar los documentos a los que tengan acceso.</li>
+            <li>Crear documentos desde plantilla o editor, guardar borradores y enviarlos a revisión.</li>
+            <li>Actualizar archivos y metadatos de sus propios documentos según su acceso y estado.</li>
+            <li>Revisar, aprobar o devolver documentos cuando estén asignados como revisores.</li>
+            <li>Emitir y numerar sus propios documentos aprobados, y archivarlos.</li>
+            <li>Enviar y recibir transferencias de documentos a los que tengan acceso.</li>
+            <li>Recibir y gestionar sus notificaciones y consultar versiones y actividad cuando tengan acceso.</li>
+          </ul>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Card>
           <CardHeader>
@@ -331,7 +369,7 @@ export function RolesManagement() {
                           )}
                           <div className="mt-1 text-xs text-muted-foreground md:hidden">
                             {labels.length === 0
-                              ? "Sin permisos"
+                              ? "Permisos base"
                               : `${labels.length} ${
                                   labels.length === 1 ? "permiso" : "permisos"
                                 }`}
@@ -376,7 +414,7 @@ export function RolesManagement() {
                               )}
                             </div>
                           ) : (
-                            <span className="text-sm text-muted-foreground">Sin permisos</span>
+                            <span className="text-sm text-muted-foreground" title="Este rol conserva los permisos base para todos los usuarios.">Permisos base</span>
                           )}
                         </TableCell>
                         <TableCell className="text-right">

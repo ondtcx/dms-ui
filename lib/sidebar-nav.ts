@@ -24,6 +24,7 @@ export function isNavItemActive(
   }
 
   const [itemPath, itemQueryString] = item.url.split("?", 2);
+  if (itemPath === "/dashboard" && currentPath === "/dashboard/home") return true;
   if (itemQueryString === undefined) return currentPath === itemPath;
 
   const itemQuery = new URLSearchParams(itemQueryString);

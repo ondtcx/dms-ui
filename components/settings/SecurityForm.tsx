@@ -63,7 +63,7 @@ export function SecurityForm() {
             <div className="space-y-2">
               <Label htmlFor="session-timeout">
                 Tiempo de sesión (minutos)
-                <span className="ml-2 text-xs text-gray-400">≈ {sessionHours} h</span>
+                <span className="ml-2 text-xs text-muted-foreground">≈ {sessionHours} h</span>
               </Label>
               <Input
                 id="session-timeout"
@@ -78,7 +78,7 @@ export function SecurityForm() {
                   })
                 }
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Mínimo 5 min · Máximo 1440 min (24 h)
               </p>
             </div>
@@ -98,7 +98,7 @@ export function SecurityForm() {
                   })
                 }
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Intentos fallidos antes de bloquear la cuenta
               </p>
             </div>
@@ -116,7 +116,7 @@ export function SecurityForm() {
               <Label htmlFor="require-2fa">
                 Exigir autenticación de dos factores
               </Label>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Los usuarios sin 2FA configurado solo podrán acceder a la
                 configuración de su cuenta hasta habilitarla.
               </p>

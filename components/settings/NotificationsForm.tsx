@@ -62,7 +62,7 @@ export function NotificationsForm() {
               <Label htmlFor="email-enabled" className="cursor-pointer font-medium">
                 Habilitar notificaciones por email
               </Label>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Envía correos automáticos para eventos importantes del sistema
               </p>
             </div>

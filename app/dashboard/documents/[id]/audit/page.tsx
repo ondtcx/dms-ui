@@ -10,6 +10,10 @@ import {
   AuditView,
   resolveAuditState,
 } from "@/components/documents/DocumentAuditView";
+import {
+  DocumentOriginCard,
+  DocumentStateCard,
+} from "@/components/documents/DocumentTraceabilitySections";
 
 const AUDIT_PAGE_LIMIT = 20;
 
@@ -71,15 +75,21 @@ export default function DocumentAuditPage() {
       });
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-4 sm:p-8">
+    <div className="mx-auto max-w-3xl space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold">Registro de actividad</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Registro de actividad</h1>
         {documentQuery.data?.name ? (
           <p className="text-sm text-muted-foreground">
             {documentQuery.data.name}
           </p>
         ) : null}
       </header>
+      {documentQuery.data ? (
+        <>
+          <DocumentOriginCard document={documentQuery.data} />
+          <DocumentStateCard document={documentQuery.data} />
+        </>
+      ) : null}
       <AuditView
         state={state}
         events={events}
@@ -87,6 +97,6 @@ export default function DocumentAuditPage() {
         totalPages={auditQuery.data?.totalPages ?? 1}
         onPageChange={setPage}
       />
-    </main>
+    </div>
   );
 }

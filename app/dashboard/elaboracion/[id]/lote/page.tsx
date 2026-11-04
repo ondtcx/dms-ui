@@ -145,7 +145,7 @@ function BatchContent() {
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-5 p-4 sm:p-6">
+    <div className="mx-auto flex max-w-5xl flex-col gap-5">
       <Button
         variant="ghost"
         className="w-fit"
@@ -190,6 +190,7 @@ function BatchContent() {
             value={recipientsText}
             onChange={(event) => setRecipientsText(event.target.value)}
             placeholder={'Ana Pérez | Directora\nLuis Gómez | Coordinador'}
+            aria-label="Destinatarios, uno por línea"
           />
         </CardContent>
       </Card>

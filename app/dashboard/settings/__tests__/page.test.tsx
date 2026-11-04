@@ -71,7 +71,7 @@ describe('authorized Settings management surface', () => {
 
     render(<QueryClientProvider client={client}><SettingsPage /></QueryClientProvider>);
 
-    expect(screen.getByRole('heading', { name: 'Configuración del Sistema' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Configuración' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Institución/ })).toHaveAttribute(
       'href',
       '/dashboard/settings?section=institution',
@@ -157,7 +157,7 @@ describe('authorized Settings management surface', () => {
     );
     expect(screen.queryByRole('link', { name: /Usuarios/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Categorías/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Plantillas/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Plantillas$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Roles/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Años lectivos/ })).not.toBeInTheDocument();
   });
@@ -180,6 +180,7 @@ describe('authorized Settings management surface', () => {
     render(<QueryClientProvider client={new QueryClient()}><SettingsPage /></QueryClientProvider>);
 
     expect(screen.getByText('Workflow administration surface')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Usuarios|Categorías|Plantillas|Roles/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Usuarios|Categorías|Roles/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^Plantillas$/ })).not.toBeInTheDocument();
   });
 });

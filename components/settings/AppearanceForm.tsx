@@ -7,14 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Save, Palette } from "lucide-react";
+import { Palette, RotateCcw, Save } from "lucide-react";
 import { settingsService, AppearanceSettings } from "@/lib/services/settings.service";
 import {
   normalizeHexColor,
@@ -23,17 +16,45 @@ import {
   useSettings,
 } from "@/lib/contexts/SettingsContext";
 
-const PRESET_COLORS = [
+const SECONDARY_PRESETS = [
+  "#047857",
+  "#059669",
+  "#0f766e",
+  "#15803d",
+  "#0891b2",
+  "#4d7c0f",
+];
+
+const PRIMARY_PRESETS = [
   "#1e3a5f",
   "#3b82f6", // blue
   "#10b981", // emerald
   "#8b5cf6", // violet
   "#f59e0b", // amber
-  "#ef4444", // red
   "#06b6d4", // cyan
   "#ec4899", // pink
   "#6366f1", // indigo
 ];
+
+function relativeLuminance(hex: string): number | null {
+  const normalized = normalizeHexColor(hex);
+  if (!normalized) return null;
+  const value = normalized.slice(1);
+  const channel = (start: number) => {
+    const c = parseInt(value.slice(start, start + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+}
+
+function contrastRatio(foreground: string, background: string): number | null {
+  const fg = relativeLuminance(foreground);
+  const bg = relativeLuminance(background);
+  if (fg === null || bg === null) return null;
+  const light = Math.max(fg, bg);
+  const dark = Math.min(fg, bg);
+  return (light + 0.05) / (dark + 0.05);
+}
 
 export function AppearanceForm() {
   const { settings, refresh } = useSettings();
@@ -71,6 +92,11 @@ export function AppearanceForm() {
     });
   };
 
+  const primaryForeground = resolveColorForeground(form.primaryColor);
+  const secondaryForeground = resolveColorForeground(form.secondaryColor);
+  const primaryContrast = contrastRatio(primaryForeground, form.primaryColor);
+  const secondaryContrast = contrastRatio(secondaryForeground, form.secondaryColor);
+
   return (
     <Card>
       <CardHeader>
@@ -84,30 +110,34 @@ export function AppearanceForm() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Color primario */}
           <div className="space-y-3">
-            <Label>Color primario</Label>
+            <Label htmlFor="appearance-primary-hex">Color primario</Label>
             <div className="flex items-center gap-3">
               <input
+                id="appearance-primary-color"
                 type="color"
+                aria-label="Selector de color primario"
                 value={form.primaryColor}
                 onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-                className="h-10 w-16 cursor-pointer rounded border border-gray-200"
+                className="h-10 w-16 cursor-pointer rounded border border-border"
               />
               <Input
+                id="appearance-primary-hex"
+                aria-label="Color primario en hexadecimal"
                 value={form.primaryColor}
                 onChange={(e) => setForm({ ...form, primaryColor: e.target.value })}
-                placeholder="#3b82f6"
+                placeholder="#1e3a5f"
                 className="w-32 font-mono"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
-              {PRESET_COLORS.map((c) => (
+              {PRIMARY_PRESETS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setForm({ ...form, primaryColor: c })}
                   aria-label={`Seleccionar color primario ${c}`}
                   aria-pressed={form.primaryColor === c}
-                  className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
+                  className="h-8 w-8 rounded-full border-2 transition-transform hover:scale-110"
                   style={{
                     backgroundColor: c,
                     borderColor: form.primaryColor === c ? resolveColorForeground(c) : "transparent",
@@ -121,30 +151,34 @@ export function AppearanceForm() {
 
           {/* Color secundario */}
           <div className="space-y-3">
-            <Label>Color secundario</Label>
+            <Label htmlFor="appearance-secondary-hex">Color secundario</Label>
             <div className="flex items-center gap-3">
               <input
+                id="appearance-secondary-color"
                 type="color"
+                aria-label="Selector de color secundario"
                 value={form.secondaryColor}
                 onChange={(e) => setForm({ ...form, secondaryColor: e.target.value })}
-                className="h-10 w-16 cursor-pointer rounded border border-gray-200"
+                className="h-10 w-16 cursor-pointer rounded border border-border"
               />
               <Input
+                id="appearance-secondary-hex"
+                aria-label="Color secundario en hexadecimal"
                 value={form.secondaryColor}
                 onChange={(e) => setForm({ ...form, secondaryColor: e.target.value })}
-                placeholder="#10b981"
+                placeholder="#047857"
                 className="w-32 font-mono"
               />
             </div>
             <div className="flex gap-2 flex-wrap">
-              {PRESET_COLORS.map((c) => (
+              {SECONDARY_PRESETS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setForm({ ...form, secondaryColor: c })}
                   aria-label={`Seleccionar color secundario ${c}`}
                   aria-pressed={form.secondaryColor === c}
-                  className="h-7 w-7 rounded-full border-2 transition-transform hover:scale-110"
+                  className="h-8 w-8 rounded-full border-2 transition-transform hover:scale-110"
                   style={{
                     backgroundColor: c,
                     borderColor: form.secondaryColor === c ? resolveColorForeground(c) : "transparent",
@@ -154,48 +188,76 @@ export function AppearanceForm() {
                 />
               ))}
             </div>
+            <p className="text-xs text-muted-foreground">
+              El color secundario se usa para confirmar, aprobar y emitir. Evita
+              rojos y ámbar para no confundirlos con errores.
+            </p>
           </div>
 
           {/* Vista previa */}
-          <div className="rounded-lg border p-4 space-y-2">
-            <p className="text-sm font-medium text-gray-700">Vista previa</p>
-            <div className="flex gap-3">
-              <div
-                className="flex h-8 flex-1 items-center rounded px-2 text-xs font-medium"
-                style={{ backgroundColor: form.primaryColor, color: resolveColorForeground(form.primaryColor) }}
-                title="Color primario"
+          <div className="space-y-3 rounded-lg border p-4">
+            <p className="text-sm font-medium text-foreground">Vista previa</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="inline-flex h-8 items-center rounded-md px-3 text-xs font-medium"
+                style={{
+                  backgroundColor: form.primaryColor,
+                  color: primaryForeground,
+                }}
               >
-                Primario
-              </div>
-              <div
-                className="flex h-8 flex-1 items-center rounded px-2 text-xs font-medium"
-                style={{ backgroundColor: form.secondaryColor, color: resolveColorForeground(form.secondaryColor) }}
-                title="Color secundario"
+                Acción primaria
+              </span>
+              <span
+                className="inline-flex h-8 items-center rounded-md px-3 text-xs font-medium"
+                style={{
+                  backgroundColor: form.secondaryColor,
+                  color: secondaryForeground,
+                }}
               >
-                Secundario
-              </div>
+                Emitir y numerar
+              </span>
+              <span
+                className="inline-flex h-6 items-center rounded-full px-2 text-[11px] font-medium"
+                style={{
+                  backgroundColor: form.secondaryColor,
+                  color: secondaryForeground,
+                }}
+              >
+                Aprobado
+              </span>
+              <span className="inline-flex h-6 items-center rounded-full border border-border bg-muted px-2 text-[11px] font-medium text-muted-foreground">
+                Borrador
+              </span>
             </div>
+            {primaryContrast !== null && primaryContrast < 4.5 && (
+              <p role="alert" className="text-xs text-destructive">
+                El texto sobre el color primario no alcanza contraste AA
+                (4.5:1).
+              </p>
+            )}
+            {secondaryContrast !== null && secondaryContrast < 4.5 && (
+              <p role="alert" className="text-xs text-destructive">
+                El texto sobre el color secundario no alcanza contraste AA
+                (4.5:1).
+              </p>
+            )}
           </div>
 
-          {/* Tema */}
-          <div className="space-y-2">
-            <Label htmlFor="theme-select">Tema de interfaz</Label>
-            <Select
-              value={form.theme}
-              onValueChange={(v) => setForm({ ...form, theme: v as AppearanceSettings["theme"] })}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setForm({
+                  ...form,
+                  primaryColor: "#1e3a5f",
+                  secondaryColor: "#047857",
+                })
+              }
             >
-              <SelectTrigger id="theme-select" className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="light">Claro</SelectItem>
-                <SelectItem value="dark">Oscuro</SelectItem>
-                <SelectItem value="system">Sistema (automático)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex justify-end">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Restaurar paleta institucional
+            </Button>
             <Button type="submit" disabled={mutation.isPending}>
               <Save className="mr-2 h-4 w-4" />
               {mutation.isPending ? "Guardando..." : "Guardar cambios"}

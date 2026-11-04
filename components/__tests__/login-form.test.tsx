@@ -61,4 +61,21 @@ describe("LoginForm", () => {
     expect(mockLogin).toHaveBeenCalledWith("user@example.com", "password", undefined);
     expect(mockPush).not.toHaveBeenCalled();
   });
+
+  it("toggles password visibility without losing the value", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    const password = screen.getByLabelText("Contraseña");
+    await user.type(password, "secret123");
+    expect(password).toHaveAttribute("type", "password");
+
+    await user.click(screen.getByRole("button", { name: "Mostrar contraseña" }));
+    expect(password).toHaveAttribute("type", "text");
+    expect(password).toHaveValue("secret123");
+
+    await user.click(screen.getByRole("button", { name: "Ocultar contraseña" }));
+    expect(password).toHaveAttribute("type", "password");
+    expect(password).toHaveValue("secret123");
+  });
 });

@@ -224,7 +224,7 @@ function DocumentTypesPageContent() {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Tipos de Documento</h1>
         <p className="text-muted-foreground mt-1">
@@ -246,10 +246,10 @@ function DocumentTypesPageContent() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Activos</CardTitle>
-            <Power className="h-4 w-4 text-green-500" />
+            <Power className="h-4 w-4 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-secondary">
               {documentTypes?.filter((dt) => dt.isActive).length ?? 0}
             </div>
           </CardContent>

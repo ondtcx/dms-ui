@@ -6,6 +6,12 @@ describe("isNavItemActive (REQ-1 / REQ-2)", () => {
     expect(isNavItemActive({ url: "/dashboard/documents" }, "/dashboard/trash")).toBe(false);
   });
 
+  it("treats /dashboard/home as the Inicio leaf", () => {
+    expect(isNavItemActive({ url: "/dashboard" }, "/dashboard/home")).toBe(true);
+    expect(isNavItemActive({ url: "/dashboard" }, "/dashboard")).toBe(true);
+    expect(isNavItemActive({ url: "/dashboard" }, "/dashboard/documents")).toBe(false);
+  });
+
   it("matches a parent item on any sub-route", () => {
     expect(
       isNavItemActive(

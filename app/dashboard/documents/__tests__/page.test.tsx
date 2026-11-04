@@ -79,7 +79,7 @@ jest.mock("@/components/structure/AcademicYearSelector", () => {
     ...actual,
     useAcademicYearStore: () => {
       const state = actual.useAcademicYearStore();
-      return useRealYearStore ? state : { currentYearId: browsingYear };
+      return useRealYearStore ? state : { ...state, currentYearId: browsingYear };
     },
   };
 });
@@ -148,41 +148,45 @@ jest.mock("@/components/documents/DirectoryVisitRecorder", () => ({
   DirectoryVisitRecorder: () => null,
 }));
 
-jest.mock("@/components/documents/NewDocumentButton", () => ({
-  NewDocumentButton: ({
+jest.mock("@/components/documents/CreateDocumentDialog", () => ({
+  CreateDocumentDialog: ({
     open,
     onOpenChange,
     onUploadSingle,
     onUploadMultiple,
     uploadDisabled,
   }: {
-    open?: boolean;
-    onOpenChange?: (open: boolean) => void;
-    onUploadSingle?: () => void;
-    onUploadMultiple?: () => void;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onUploadSingle: () => void;
+    onUploadMultiple: () => void;
     uploadDisabled?: boolean;
-  }) => (
-    <div>
-      <button type="button" onClick={() => onOpenChange?.(!open)}>
-        Nuevo documento
-      </button>
-      {open && (
-        <div role="menu">
-          <span>Crear Documento</span>
-          <button type="button" disabled={uploadDisabled} onClick={onUploadSingle}>
-            Subir Archivo
-          </button>
-          <button
-            type="button"
-            disabled={uploadDisabled}
-            onClick={onUploadMultiple}
-          >
-            Subir Múltiples Archivos
-          </button>
-        </div>
-      )}
-    </div>
-  ),
+  }) =>
+    open ? (
+      <div>
+        <span>Crear documento</span>
+        <button
+          type="button"
+          disabled={uploadDisabled}
+          onClick={() => {
+            onOpenChange(false);
+            onUploadSingle();
+          }}
+        >
+          Subir un archivo
+        </button>
+        <button
+          type="button"
+          disabled={uploadDisabled}
+          onClick={() => {
+            onOpenChange(false);
+            onUploadMultiple();
+          }}
+        >
+          Subir varios archivos
+        </button>
+      </div>
+    ) : null,
 }));
 
 beforeEach(() => {
@@ -219,8 +223,8 @@ jest.mock("@/components/documents/SelectTemplateDialog", () => ({
   SelectTemplateDialog: () => null,
 }));
 
-jest.mock("@/components/documents/DocumentCard", () => ({
-  DocumentCard: ({
+jest.mock("@/components/documents/DocumentWorkbenchRow", () => ({
+  DocumentWorkbenchRow: ({
     doc,
     isSelected,
     onToggle,
@@ -237,8 +241,8 @@ jest.mock("@/components/documents/DocumentCard", () => ({
     onMove: (doc: Document) => void;
     onEdit: (doc: Document) => void;
   }) => (
-    <li data-testid="document-card">
-      <article>
+    <tr data-testid="document-workbench-row">
+      <td colSpan={8}>
         <h3>{doc.versions?.[0]?.filename}</h3>
         <input
           type="checkbox"
@@ -252,35 +256,8 @@ jest.mock("@/components/documents/DocumentCard", () => ({
         <button onClick={() => onDelete(doc.id)}>Solicitar eliminar {doc.id}</button>
         <button onClick={() => onMove(doc)}>Solicitar mover {doc.id}</button>
         <button onClick={() => onEdit(doc)}>Editar {doc.id}</button>
-      </article>
-    </li>
-  ),
-}));
-
-jest.mock("@/components/documents/DocumentListItem", () => ({
-  DocumentListItem: ({
-    doc,
-    isSelected,
-    onToggle,
-    onPreview,
-  }: {
-    doc: Document;
-    isSelected: boolean;
-    onToggle: (doc: Document) => void;
-    onPreview: (doc: Document) => void;
-  }) => (
-    <div data-testid="document-list-item">
-      <h3>{doc.versions?.[0]?.filename}</h3>
-      <input
-        type="checkbox"
-        aria-label={`Seleccionar ${doc.versions?.[0]?.filename}`}
-        checked={isSelected}
-        onChange={() => onToggle(doc)}
-      />
-      <button type="button" onClick={() => onPreview(doc)}>
-        Ver
-      </button>
-    </div>
+      </td>
+    </tr>
   ),
 }));
 
@@ -376,7 +353,7 @@ function renderWorkbenchPage() {
   });
   return render(
     <QueryClientProvider client={client}>
-      <DocumentsPageContent variant="v2" />
+      <DocumentsPageContent />
     </QueryClientProvider>,
   );
 }
@@ -443,14 +420,14 @@ describe("DocumentsPage presentation switching", () => {
     });
   });
 
-  it("renders the URL-only workbench variant without the card grid", async () => {
+  it("renders the documents workbench by default without the card grid", async () => {
     renderWorkbenchPage();
 
     expect(
       await screen.findByRole("heading", { name: "Documentos" }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByRole("list", { name: "Documentos" }),
+      await screen.findByRole("table", { name: "Documentos" }),
     ).toBeInTheDocument();
     expect(screen.getByText("First document.pdf")).toBeInTheDocument();
     expect(screen.queryByTestId("document-card")).not.toBeInTheDocument();
@@ -478,8 +455,8 @@ describe("DocumentsPage presentation switching", () => {
   it("shows folder navigation beside documents and preserves filters in compatible folder links", async () => {
     currentSearch = "directoryId=7&filter=kept";
     renderPage();
-    expect(await screen.findByRole("list", { name: "Documentos" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Contenido de la carpeta" })).toBeInTheDocument();
+    expect(await screen.findByRole("table", { name: "Documentos" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText(/^Carpetas ·/));
     fireEvent.click(screen.getByRole("button", { name: "Abrir subcarpeta" }));
     expect(push).toHaveBeenCalledWith("/dashboard/documents?directoryId=99&filter=kept");
     fireEvent.click(screen.getByRole("button", { name: "Ir a raíz" }));
@@ -489,7 +466,7 @@ describe("DocumentsPage presentation switching", () => {
   it("does not restrict the all-documents view to the hierarchy root", async () => {
     currentSearch = "view=all";
     renderPage();
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
     expect(documentsService.getAll).toHaveBeenCalledWith(expect.objectContaining({ view: "all", directoryId: undefined }));
     expect(screen.queryByRole("region", { name: "Contenido de la carpeta" })).not.toBeInTheDocument();
   });
@@ -517,10 +494,10 @@ describe("DocumentsPage presentation switching", () => {
       breadcrumb: [],
     });
     renderPage();
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Nuevo documento" }));
-    expect(await screen.findByRole("button", { name: "Subir Archivo" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Crear" }));
+    expect(await screen.findByRole("button", { name: "Subir un archivo" })).toBeDisabled();
   });
 
   function allowBatchActions() {
@@ -717,57 +694,84 @@ describe("DocumentsPage presentation switching", () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
-  it("keeps directory navigation out of the page and places the new action beside the documents title", async () => {
+  it("keeps directory navigation out of the page and places the new action in the documents header", async () => {
     renderPage();
 
-    const cardList = await screen.findByRole("list", { name: "Documentos" });
-    const documentsCard = cardList.closest('[data-slot="card"]');
-    const documentsTitle = within(documentsCard as HTMLElement).getByText(
-      "Documentos",
-      { selector: '[data-slot="card-title"]' },
-    );
-    const titleRow = documentsTitle.parentElement?.parentElement;
+    const heading = await screen.findByRole("heading", { name: "Documentos" });
+    const header = heading.closest("header");
 
     expect(
       screen.queryByTestId("compact-directory-navigation"),
     ).not.toBeInTheDocument();
-    expect(documentsCard).not.toBeNull();
-    expect(titleRow).not.toBeNull();
+    expect(header).not.toBeNull();
     expect(
-      within(titleRow as HTMLElement).getByRole("button", {
-        name: "Nuevo documento",
+      within(header as HTMLElement).getByRole("button", {
+        name: "Crear",
       }),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filtros" }));
     expect(
-      within(documentsCard as HTMLElement).getByRole("combobox", {
+      screen.getByRole("combobox", {
         name: "Filtrar por tipo de documento",
       }),
     ).toHaveAttribute("data-size", "sm");
-    expect(screen.getAllByRole("combobox")).toHaveLength(2);
   });
 
-  it("defaults to cards and renders every filtered document", async () => {
+  it("renders the workbench by default with every filtered document", async () => {
     renderPage();
 
-    const cardList = await screen.findByRole("list", { name: "Documentos" });
-    expect(within(cardList).getAllByTestId("document-card")).toHaveLength(2);
+    const documentList = await screen.findByRole("table", { name: "Documentos" });
+    expect(within(documentList).getAllByTestId("document-workbench-row")).toHaveLength(2);
     expect(
-      within(cardList).getByText("First document.pdf"),
+      within(documentList).getByText("First document.pdf"),
     ).toBeInTheDocument();
-    expect(cardList).toHaveClass("xl:grid-cols-5");
+    fireEvent.click(screen.getByRole("button", { name: "Filtros" }));
     expect(
       screen.getByRole("combobox", { name: "Filtrar por tipo de documento" }),
     ).toHaveAttribute("data-size", "sm");
     expect(
-      screen.queryByPlaceholderText("Buscar documentos..."),
-    ).not.toBeInTheDocument();
+      screen.getByRole("textbox", { name: "Filtrar esta bandeja" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Vista de tarjetas" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("document-card")).not.toBeInTheDocument();
+  });
+
+  it("filters the list by search after the debounce", async () => {
+    const interaction = userEvent.setup();
+    renderPage();
+
+    const searchInput = await screen.findByRole("textbox", {
+      name: "Filtrar esta bandeja",
+    });
+    await interaction.type(searchInput, "acta");
+
+    await waitFor(
+      () =>
+        expect(documentsService.getAll).toHaveBeenCalledWith(
+          expect.objectContaining({ search: "acta" }),
+        ),
+      { timeout: 2000 },
+    );
+  });
+
+  it("shows the real total and requests the next page", async () => {
+    jest.mocked(documentsService.getAll).mockResolvedValue({
+      data: documents as unknown as Document[],
+      meta: { total: 60, page: 1, limit: 25, totalPages: 3 },
+    });
+    const interaction = userEvent.setup();
+    renderPage();
+
     expect(
-      screen.getByRole("button", { name: "Vista de tarjetas" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(
-      screen.getByRole("button", { name: "Vista de lista" }),
-    ).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByTestId("document-list-item")).not.toBeInTheDocument();
+      await screen.findByText(/Mostrando 1–25 de 60 documentos/),
+    ).toBeInTheDocument();
+    await interaction.click(screen.getByRole("button", { name: "Siguiente" }));
+
+    await waitFor(() =>
+      expect(documentsService.getAll).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 2 }),
+      ),
+    );
   });
 
   it("excludes residual workflow PDFs while keeping normal documents visible", async () => {
@@ -790,8 +794,8 @@ describe("DocumentsPage presentation switching", () => {
 
     renderPage();
 
-    const cardList = await screen.findByRole("list", { name: "Documentos" });
-    expect(within(cardList).getAllByTestId("document-card")).toHaveLength(2);
+    const cardList = await screen.findByRole("table", { name: "Documentos" });
+    expect(within(cardList).getAllByTestId("document-workbench-row")).toHaveLength(2);
     expect(
       within(cardList).getByText("First document.pdf"),
     ).toBeInTheDocument();
@@ -802,7 +806,7 @@ describe("DocumentsPage presentation switching", () => {
       within(cardList).queryByText("Workflow-1788839333360-WP4WBR.PDF"),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText("2 documento(s) encontrado(s)"),
+      screen.getByText(/Mostrando 1–3 de 3 documentos/),
     ).toBeInTheDocument();
   });
 
@@ -810,7 +814,7 @@ describe("DocumentsPage presentation switching", () => {
     currentSearch = "view=recent-accessed";
     renderPage();
 
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
 
     expect(documentsService.getAll).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -843,20 +847,18 @@ describe("DocumentsPage presentation switching", () => {
 
     renderPage();
 
-    const cardList = await screen.findByRole("list", { name: "Documentos" });
-    expect(within(cardList).getAllByTestId("document-card")).toHaveLength(3);
+    const cardList = await screen.findByRole("table", { name: "Documentos" });
+    expect(within(cardList).getAllByTestId("document-workbench-row")).toHaveLength(3);
     expect(
       within(cardList).getByText("Workflow-1788839333360-WP4WBR.PDF"),
     ).toBeInTheDocument();
   });
 
-  it("opens the creation menu from the URL-backed new action", async () => {
+  it("opens the creation dialog from the URL-backed new action", async () => {
     currentSearch = "action=new";
     renderPage();
 
-    expect(await screen.findByRole("menu")).toHaveTextContent(
-      "Crear Documento",
-    );
+    expect(await screen.findByText("Crear documento")).toBeInTheDocument();
   });
 
   it("opens the single upload dialog from the explicit upload action", async () => {
@@ -925,7 +927,7 @@ describe("DocumentsPage presentation switching", () => {
     currentSearch = "";
     renderPage();
 
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -950,7 +952,7 @@ describe("DocumentsPage presentation switching", () => {
     selectUploadOption(
       document.body,
       "Filtrar por año lectivo",
-      "Todos los años",
+      "Todos",
     );
     await waitFor(() =>
       expect(documentsService.getAll).toHaveBeenLastCalledWith(
@@ -960,13 +962,13 @@ describe("DocumentsPage presentation switching", () => {
     await act(async () => {
       await view.client.invalidateQueries({ queryKey: ["academic-years"] });
     });
-    expect(filter).toHaveTextContent("Todos los años");
+    expect(filter).toHaveTextContent("Todos");
     expect(yearStore.getState().currentYearId).toBeNull();
     await interaction.click(
-      screen.getByRole("button", { name: "Nuevo documento" }),
+      screen.getByRole("button", { name: "Crear" }),
     );
     await interaction.click(
-      screen.getByRole("button", { name: "Subir Archivo" }),
+      screen.getByRole("button", { name: "Subir un archivo" }),
     );
     const dialog = await screen.findByRole("dialog");
     expect(
@@ -986,7 +988,7 @@ describe("DocumentsPage presentation switching", () => {
     async (view) => {
       currentSearch = `view=${view}`;
       renderPage();
-      await screen.findByRole("list", { name: "Documentos" });
+      await screen.findByRole("table", { name: "Documentos" });
       expect(
         screen.queryByRole("combobox", { name: "Filtrar por año lectivo" }),
       ).not.toBeInTheDocument();
@@ -1007,10 +1009,10 @@ describe("DocumentsPage presentation switching", () => {
     renderPage();
 
     await interaction.click(
-      screen.getByRole("button", { name: "Nuevo documento" }),
+      screen.getByRole("button", { name: "Crear" }),
     );
     await interaction.click(
-      screen.getByRole("button", { name: "Subir Archivo" }),
+      screen.getByRole("button", { name: "Subir un archivo" }),
     );
 
     const dialog = await screen.findByRole("dialog");
@@ -1040,10 +1042,10 @@ describe("DocumentsPage presentation switching", () => {
     renderPage();
 
     await interaction.click(
-      screen.getByRole("button", { name: "Nuevo documento" }),
+      screen.getByRole("button", { name: "Crear" }),
     );
     await interaction.click(
-      screen.getByRole("button", { name: "Subir Múltiples Archivos" }),
+      screen.getByRole("button", { name: "Subir varios archivos" }),
     );
 
     const dialog = await screen.findByRole("dialog");
@@ -1064,10 +1066,10 @@ describe("DocumentsPage presentation switching", () => {
     renderPage();
 
     await interaction.click(
-      screen.getByRole("button", { name: "Nuevo documento" }),
+      screen.getByRole("button", { name: "Crear" }),
     );
     await interaction.click(
-      screen.getByRole("button", { name: "Subir Archivo" }),
+      screen.getByRole("button", { name: "Subir un archivo" }),
     );
 
     const dialog = await screen.findByRole("dialog");
@@ -1116,12 +1118,12 @@ describe("DocumentsPage presentation switching", () => {
       renderPage();
       const openUpload = async () => {
         await interaction.click(
-          screen.getByRole("button", { name: "Nuevo documento" }),
+          screen.getByRole("button", { name: "Crear" }),
         );
         await interaction.click(
           screen.getByRole("button", {
             name:
-              mode === "single" ? "Subir Archivo" : "Subir Múltiples Archivos",
+              mode === "single" ? "Subir un archivo" : "Subir varios archivos",
           }),
         );
         return screen.findByRole("dialog");
@@ -1153,7 +1155,7 @@ describe("DocumentsPage presentation switching", () => {
       }
       await interaction.click(
         within(dialog).getByRole("button", {
-          name: mode === "single" ? "Subir Documento" : "Subir 2 archivo(s)",
+          name: mode === "single" ? "Subir Documento" : "Subir 2 archivos",
         }),
       );
       const fields = expect.objectContaining({
@@ -1199,19 +1201,19 @@ describe("DocumentsPage presentation switching", () => {
       const interaction = userEvent.setup();
       renderPage();
       for (const action of [
-        "Subir Archivo",
-        "Subir Múltiples Archivos",
-        "Subir Archivo",
+        "Subir un archivo",
+        "Subir varios archivos",
+        "Subir un archivo",
       ]) {
         await interaction.click(
-          screen.getByRole("button", { name: "Nuevo documento" }),
+          screen.getByRole("button", { name: "Crear" }),
         );
         await interaction.click(screen.getByRole("button", { name: action }));
         const dialog = await screen.findByRole("dialog");
         expect(within(dialog).queryByRole("group")).not.toBeInTheDocument();
         await interaction.upload(
           within(dialog).getByLabelText(
-            action === "Subir Archivo" ? "Archivo *" : "Archivos *",
+            action === "Subir un archivo" ? "Archivo *" : "Archivos *",
           ),
           new File(["x"], "one.txt"),
         );
@@ -1229,6 +1231,12 @@ describe("DocumentsPage presentation switching", () => {
             within(dialog).getByRole("button", { name: "Cancelar" }),
           );
         else await interaction.keyboard("{Escape}");
+        const discard = await screen.findByRole("dialog", {
+          name: "Descartar borrador",
+        });
+        await interaction.click(
+          within(discard).getByRole("button", { name: "Descartar borrador" }),
+        );
       }
       expect(documentsService.upload).not.toHaveBeenCalled();
       expect(documentsService.uploadMultiple).not.toHaveBeenCalled();
@@ -1242,15 +1250,15 @@ describe("DocumentsPage presentation switching", () => {
       browsingYear = year;
       const interaction = userEvent.setup();
       renderPage();
-      for (const action of ["Subir Archivo", "Subir Múltiples Archivos"]) {
+      for (const action of ["Subir un archivo", "Subir varios archivos"]) {
         await interaction.click(
-          screen.getByRole("button", { name: "Nuevo documento" }),
+          screen.getByRole("button", { name: "Crear" }),
         );
         await interaction.click(screen.getByRole("button", { name: action }));
         const dialog = await screen.findByRole("dialog");
         await interaction.upload(
           within(dialog).getByLabelText(
-            action === "Subir Archivo" ? "Archivo *" : "Archivos *",
+            action === "Subir un archivo" ? "Archivo *" : "Archivos *",
           ),
           new File(["x"], "one.txt"),
         );
@@ -1267,6 +1275,12 @@ describe("DocumentsPage presentation switching", () => {
         await interaction.click(
           within(dialog).getByRole("button", { name: "Cancelar" }),
         );
+        const discard = await screen.findByRole("dialog", {
+          name: "Descartar borrador",
+        });
+        await interaction.click(
+          within(discard).getByRole("button", { name: "Descartar borrador" }),
+        );
       }
       expect(documentsService.getAll).toHaveBeenCalledWith(
         expect.objectContaining({ academicYearId: year ?? undefined }),
@@ -1282,10 +1296,10 @@ describe("DocumentsPage presentation switching", () => {
       const interaction = userEvent.setup();
       renderPage();
       await interaction.click(
-        screen.getByRole("button", { name: "Nuevo documento" }),
+        screen.getByRole("button", { name: "Crear" }),
       );
       await interaction.click(
-        screen.getByRole("button", { name: "Subir Archivo" }),
+        screen.getByRole("button", { name: "Subir un archivo" }),
       );
       const dialog = await screen.findByRole("dialog");
       await interaction.upload(
@@ -1306,12 +1320,12 @@ describe("DocumentsPage presentation switching", () => {
       const interaction = userEvent.setup();
       const view = renderPage();
       await interaction.click(
-        screen.getByRole("button", { name: "Nuevo documento" }),
+        screen.getByRole("button", { name: "Crear" }),
       );
       await interaction.click(
         screen.getByRole("button", {
           name:
-            mode === "single" ? "Subir Archivo" : "Subir Múltiples Archivos",
+            mode === "single" ? "Subir un archivo" : "Subir varios archivos",
         }),
       );
       const dialog = await screen.findByRole("dialog");
@@ -1351,7 +1365,7 @@ describe("DocumentsPage presentation switching", () => {
       jest.mocked(documentsService.uploadMultiple).mockResolvedValueOnce([]);
       await interaction.click(
         within(dialog).getByRole("button", {
-          name: mode === "single" ? "Subir Documento" : "Subir 1 archivo(s)",
+          name: mode === "single" ? "Subir Documento" : "Subir 1 archivo",
         }),
       );
       const fields = expect.objectContaining({
@@ -1375,131 +1389,17 @@ describe("DocumentsPage presentation switching", () => {
     },
   );
 
-  it("updates selected state and switches between the same card and list documents", async () => {
-    const interaction = userEvent.setup();
-    renderPage();
-
-    const firstCheckbox = await screen.findByRole("checkbox", {
-      name: "Seleccionar First document.pdf",
-    });
-    await interaction.click(firstCheckbox);
-    await interaction.click(
-      screen.getByRole("button", { name: "Vista de lista" }),
-    );
-
-    expect(
-      screen.getByRole("button", { name: "Vista de lista" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(
-      screen.getByRole("button", { name: "Vista de tarjetas" }),
-    ).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getAllByTestId("document-list-item")).toHaveLength(2);
-    expect(
-      screen.getByRole("checkbox", { name: "Seleccionar First document.pdf" }),
-    ).toBeChecked();
-
-    await interaction.click(
-      screen.getByRole("button", { name: "Vista de tarjetas" }),
-    );
-    expect(screen.getAllByTestId("document-card")).toHaveLength(2);
-    expect(
-      screen.getByRole("checkbox", { name: "Seleccionar First document.pdf" }),
-    ).toBeChecked();
-  });
-
-  it("keeps both view controls keyboard operable with selected state exposed", async () => {
-    const interaction = userEvent.setup();
-    renderPage();
-
-    const listButton = await screen.findByRole("button", {
-      name: "Vista de lista",
-    });
-    expect(listButton).toHaveAttribute("type", "button");
-    listButton.focus();
-    expect(document.activeElement).toBe(listButton);
-
-    await interaction.keyboard("{Enter}");
-
-    expect(listButton).toHaveAttribute("aria-pressed", "true");
-    expect(
-      screen.getByRole("button", { name: "Vista de tarjetas" }),
-    ).toHaveAttribute("aria-pressed", "false");
-  });
-
-  it("preserves filters, selection, and dialog behavior while switching", async () => {
-    const interaction = userEvent.setup();
-    jest
-      .mocked(documentsService.view)
-      .mockImplementation(() => new Promise(() => {}));
-    renderPage();
-
-    await interaction.click(
-      screen.getByRole("button", { name: "Mis documentos" }),
-    );
-    await interaction.click(
-      screen.getByRole("checkbox", { name: "Seleccionar First document.pdf" }),
-    );
-    await interaction.click(
-      screen.getByRole("button", { name: "Vista de lista" }),
-    );
-    await interaction.click(
-      within(screen.getAllByTestId("document-list-item")[0]).getByRole(
-        "button",
-        {
-          name: "Ver",
-        },
-      ),
-    );
-
-    expect(
-      screen.queryByPlaceholderText("Buscar documentos..."),
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/1 seleccionado/)).toBeInTheDocument();
-    expect(screen.getByRole("dialog")).toHaveTextContent(
-      "Vista Previa: First document.pdf",
-    );
-  });
-
   it("shows the logical name in the page preview independently of the original filename", async () => {
     jest.mocked(documentsService.getAll).mockResolvedValue({ data: [{ ...documents[0], name: "Consejo" }] as unknown as Document[],
       meta: { total: 1, page: 1, limit: 50, totalPages: 1 } });
     jest.mocked(documentsService.view).mockImplementation(() => new Promise(() => {}));
     const interaction = userEvent.setup();
     renderPage();
-    await interaction.click(await screen.findByRole("button", { name: "Vista de lista" }));
-    await interaction.click(within(screen.getByTestId("document-list-item")).getByRole("button", { name: "Ver" }));
+    await interaction.click(within(await screen.findByTestId("document-workbench-row")).getByRole("button", { name: "Ver" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("Vista Previa: Consejo");
   });
 
-  it("resets to cards on a new mount without reading or writing a view preference", async () => {
-    const interaction = userEvent.setup();
-    const getItem = jest.spyOn(Storage.prototype, "getItem");
-    const setItem = jest.spyOn(Storage.prototype, "setItem");
-    const firstRender = renderPage();
 
-    await interaction.click(
-      await screen.findByRole("button", { name: "Vista de lista" }),
-    );
-    firstRender.unmount();
-    renderPage();
-
-    expect(
-      await screen.findByRole("button", { name: "Vista de tarjetas" }),
-    ).toHaveAttribute("aria-pressed", "true");
-    expect(
-      getItem.mock.calls
-        .flat()
-        .filter((key) => key.toLowerCase().includes("view")),
-    ).toHaveLength(0);
-    expect(
-      setItem.mock.calls
-        .flat()
-        .filter((key) => key.toLowerCase().includes("view")),
-    ).toHaveLength(0);
-
-    getItem.mockRestore();
-    setItem.mockRestore();
-  });
 });
 
 describe("DocumentsPage document type filter and top tabs", () => {
@@ -1525,8 +1425,9 @@ describe("DocumentsPage document type filter and top tabs", () => {
 
   it("filters the list by document type and never by category", async () => {
     renderPage();
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
 
+    fireEvent.click(screen.getByRole("button", { name: "Filtros" }));
     const filter = screen.getByRole("combobox", {
       name: "Filtrar por tipo de documento",
     });
@@ -1566,7 +1467,7 @@ describe("DocumentsPage document type filter and top tabs", () => {
 
   it("removes the Documents and Lotes top tabs", async () => {
     renderPage();
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
 
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(
@@ -1625,7 +1526,7 @@ describe("DocumentsPage reception inbox integration", () => {
     renderPage();
 
     expect(
-      await screen.findByRole("heading", { name: /Bandeja de recepción/ }),
+      await screen.findByText(/Recepción: Recepción Central/),
     ).toBeInTheDocument();
     await waitFor(() =>
       expect(documentsService.getAll).toHaveBeenCalledWith(
@@ -1642,9 +1543,9 @@ describe("DocumentsPage reception inbox integration", () => {
 
     renderPage();
 
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
     expect(
-      screen.queryByRole("heading", { name: /Bandeja de recepción/ }),
+      screen.queryByText(/Recepción:/),
     ).not.toBeInTheDocument();
     expect(documentsService.getReception).not.toHaveBeenCalled();
     expect(documentsService.getAll).toHaveBeenCalledWith(
@@ -1663,7 +1564,7 @@ describe("DocumentsPage reception inbox integration", () => {
     expect(documentsService.getAll).not.toHaveBeenCalled();
     expect(documentsService.getDirectoryBreadcrumb).not.toHaveBeenCalled();
     expect(
-      screen.queryByRole("list", { name: "Documentos" }),
+      screen.queryByRole("table", { name: "Documentos" }),
     ).not.toBeInTheDocument();
   });
 
@@ -1696,7 +1597,7 @@ describe("DocumentsPage reception inbox integration", () => {
 
     renderPage();
 
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
     expect(documentsService.getAll).toHaveBeenCalledWith(
       expect.objectContaining({ directoryId: null }),
     );
@@ -1715,15 +1616,15 @@ describe("DocumentsPage reception inbox integration", () => {
 
     renderPage();
 
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
     await interaction.click(
-      screen.getByRole("button", { name: "Nuevo documento" }),
+      screen.getByRole("button", { name: "Crear" }),
     );
     expect(
-      await screen.findByRole("button", { name: "Subir Archivo" }),
+      await screen.findByRole("button", { name: "Subir un archivo" }),
     ).toBeDisabled();
     await interaction.click(
-      screen.getByRole("button", { name: "Subir Archivo" }),
+      screen.getByRole("button", { name: "Subir un archivo" }),
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -1740,12 +1641,12 @@ describe("DocumentsPage reception inbox integration", () => {
 
     renderPage();
 
-    await screen.findByRole("list", { name: "Documentos" });
+    await screen.findByRole("table", { name: "Documentos" });
     await interaction.click(
-      screen.getByRole("button", { name: "Nuevo documento" }),
+      screen.getByRole("button", { name: "Crear" }),
     );
     await interaction.click(
-      screen.getByRole("button", { name: "Subir Archivo" }),
+      screen.getByRole("button", { name: "Subir un archivo" }),
     );
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByLabelText("Archivo *")).toBeInTheDocument();

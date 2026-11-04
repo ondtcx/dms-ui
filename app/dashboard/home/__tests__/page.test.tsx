@@ -3,6 +3,9 @@ import { render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import DashboardHomePage from "../page";
 import { documentsService } from "@/lib/services/documents.service";
+import { authoringService } from "@/lib/services/authoring.service";
+import { documentReviewService } from "@/lib/services/document-reviews.service";
+import { transfersService } from "@/lib/services/transfers.service";
 import { UserRole } from "@/lib/types";
 
 let mockRole = UserRole.USER;
@@ -24,6 +27,18 @@ jest.mock("@/lib/contexts/SettingsContext", () => ({
 
 jest.mock("@/lib/services/documents.service", () => ({
   documentsService: { getDashboardSummary: jest.fn() },
+}));
+
+jest.mock("@/lib/services/authoring.service", () => ({
+  authoringService: { pendingDocuments: jest.fn() },
+}));
+
+jest.mock("@/lib/services/document-reviews.service", () => ({
+  documentReviewService: { pending: jest.fn() },
+}));
+
+jest.mock("@/lib/services/transfers.service", () => ({
+  transfersService: { getReceived: jest.fn() },
 }));
 
 const mockPush = jest.fn();
@@ -72,10 +87,70 @@ function renderPage() {
 }
 
 describe("DashboardHomePage", () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.mocked(authoringService.pendingDocuments).mockResolvedValue([]);
+    jest.mocked(documentReviewService.pending).mockResolvedValue([]);
+    jest.mocked(transfersService.getReceived).mockResolvedValue([]);
+  });
 
   afterEach(() => {
     mockRole = UserRole.USER;
+  });
+
+  it("shows a worklist of named pending items with direct links", async () => {
+    jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
+    jest.mocked(authoringService.pendingDocuments).mockResolvedValue([
+      {
+        id: 11,
+        name: "Acta de consejo",
+        updatedAt: "2026-11-01T10:00:00.000Z",
+        uploadedBy: { name: "Ana" },
+        templateData: { template: { name: "Acta institucional" } },
+        authoring: { submittedAt: "2026-11-01T10:00:00.000Z" },
+      },
+    ] as never);
+    jest.mocked(documentReviewService.pending).mockResolvedValue([
+      {
+        id: 21,
+        documentId: 42,
+        submittedAt: "2026-11-02T10:00:00.000Z",
+        document: { name: "Informe", uploadedBy: { name: "Luis" } },
+      },
+    ] as never);
+    jest.mocked(transfersService.getReceived).mockResolvedValue([
+      {
+        id: 31,
+        status: "PENDING",
+        document: { id: 7, name: "Oficio", versions: [{ filename: "oficio.pdf" }] },
+        fromUser: { name: "Ana" },
+        createdAt: "2026-11-03T10:00:00.000Z",
+      },
+    ] as never);
+
+    renderPage();
+
+    const pendingSection = await screen.findByRole("region", { name: "Pendientes" });
+    expect(
+      await within(pendingSection).findByText("Acta de consejo"),
+    ).toBeInTheDocument();
+    expect(within(pendingSection).getByText("Informe")).toBeInTheDocument();
+    expect(within(pendingSection).getByText("Oficio")).toBeInTheDocument();
+    expect(
+      within(pendingSection).getByRole("link", { name: /acta de consejo/i }),
+    ).toHaveAttribute("href", "/dashboard/elaboracion/11");
+    expect(
+      within(pendingSection).getByRole("link", { name: /informe/i }),
+    ).toHaveAttribute("href", "/dashboard/documents/42");
+    expect(
+      within(pendingSection).getByRole("link", { name: /oficio/i }),
+    ).toHaveAttribute("href", "/dashboard/transfers/received");
+    expect(
+      within(pendingSection).getByRole("link", { name: /revisiones/i }),
+    ).toHaveAttribute("href", "/dashboard/documents/pending");
+    expect(
+      within(pendingSection).getByRole("link", { name: /transferencias/i }),
+    ).toHaveAttribute("href", "/dashboard/transfers/received");
   });
 
   it("renders recent documents and opens their rows through existing routes", async () => {
@@ -142,51 +217,28 @@ describe("DashboardHomePage", () => {
     expect(documentsLink).toHaveAttribute("href", "/dashboard/documents");
   });
 
-  it("shows only the upload options to an ordinary role", async () => {
+  it("opens the unified creation flow from the single Nuevo documento action", async () => {
     mockRole = UserRole.USER;
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
     renderPage();
 
-    await userEvent.click(await screen.findByRole("button", { name: /nuevo documento/i }));
-    expect(await screen.findByText("Subir Archivo")).toBeInTheDocument();
-    expect(screen.getByText("Subir Múltiples Archivos")).toBeInTheDocument();
-    expect(screen.queryByText("Desde Plantilla")).not.toBeInTheDocument();
-    expect(screen.queryByText("Crear en Editor")).not.toBeInTheDocument();
-    expect(screen.queryByText("Generar en Lote")).not.toBeInTheDocument();
-    expect(screen.queryByText("Escanear Documento")).not.toBeInTheDocument();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /nuevo documento/i }),
+    );
+
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/documents?action=new");
   });
 
-  it("shows only the upload options even for an authorized role", async () => {
+  it("keeps the same creation flow for an authorized role", async () => {
     mockRole = UserRole.ADMIN;
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
     renderPage();
 
-    await userEvent.click(await screen.findByRole("button", { name: /nuevo documento/i }));
-    expect(await screen.findByText("Subir Archivo")).toBeInTheDocument();
-    expect(screen.getByText("Subir Múltiples Archivos")).toBeInTheDocument();
-    expect(screen.queryByText("Desde Plantilla")).not.toBeInTheDocument();
-    expect(screen.queryByText("Crear en Editor")).not.toBeInTheDocument();
-    expect(screen.queryByText("Generar en Lote")).not.toBeInTheDocument();
-    expect(screen.queryByText("Escanear Documento")).not.toBeInTheDocument();
-  });
-
-  it("navigates each upload choice to the matching documents dialog action", async () => {
-    jest.mocked(documentsService.getDashboardSummary).mockResolvedValue(summary as never);
-    renderPage();
-
-    const trigger = await screen.findByRole("button", { name: /nuevo documento/i });
-    await userEvent.click(trigger);
-    await userEvent.click(await screen.findByText("Subir Archivo"));
-    expect(mockPush).toHaveBeenCalledWith(
-      "/dashboard/documents?action=upload-single",
+    await userEvent.click(
+      await screen.findByRole("button", { name: /nuevo documento/i }),
     );
 
-    mockPush.mockClear();
-    await userEvent.click(trigger);
-    await userEvent.click(await screen.findByText("Subir Múltiples Archivos"));
-    expect(mockPush).toHaveBeenCalledWith(
-      "/dashboard/documents?action=upload-multiple",
-    );
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/documents?action=new");
   });
 
   it("does not restore removed shortcuts for a privileged role", async () => {
@@ -219,7 +271,7 @@ describe("DashboardHomePage", () => {
     renderPage();
     expect(await screen.findByText("Los documentos recientes no están disponibles.")).toHaveAttribute("role", "status");
     expect(screen.queryByText(/no hay documentos recientes/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reintentar/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /reintentar/i })).toBeInTheDocument();
   });
 
   it("distinguishes permission denial and preserves documents navigation", async () => {
@@ -248,8 +300,7 @@ describe("DashboardHomePage", () => {
 
     expect(await screen.findByText("Los documentos recientes no están disponibles.")).toHaveAttribute("role", "status");
     await userEvent.click(screen.getByRole("button", { name: /nuevo documento/i }));
-    await userEvent.click(await screen.findByText("Subir Archivo"));
-    expect(mockPush).toHaveBeenCalledWith("/dashboard/documents?action=upload-single");
+    expect(mockPush).toHaveBeenCalledWith("/dashboard/documents?action=new");
   });
 
   it("distinguishes an empty repository from an unavailable summary", async () => {
@@ -288,6 +339,10 @@ describe("DashboardHomePage", () => {
     await user.tab();
     expect(document.activeElement).toHaveAccessibleName("Nuevo documento");
     await user.tab();
+    expect(document.activeElement).toHaveAccessibleName(/revisiones/i);
+    await user.tab();
+    expect(document.activeElement).toHaveAccessibleName(/transferencias/i);
+    await user.tab();
     expect(document.activeElement).toHaveAccessibleName(/ver todos/i);
     await user.tab();
     expect(document.activeElement).toHaveAccessibleName(/notas\.docx/i);
@@ -306,7 +361,7 @@ describe("DashboardHomePage", () => {
     expect(row).toHaveTextContent("Versión 3");
   });
 
-  it("uses explicit unavailable fallbacks when number and version are absent", async () => {
+  it("omits unavailable number and version metadata", async () => {
     jest.mocked(documentsService.getDashboardSummary).mockResolvedValue({
       ...summary,
       recent: [{ ...summary.recent[0], documentNumber: null, versions: [] }],
@@ -315,7 +370,7 @@ describe("DashboardHomePage", () => {
     renderPage();
 
     const row = await screen.findByRole("link", { name: /documento sin nombre/i });
-    expect(row).toHaveTextContent("Número no disponible");
-    expect(row).toHaveTextContent("Versión no disponible");
+    expect(row).not.toHaveTextContent("Número no disponible");
+    expect(row).not.toHaveTextContent("Versión no disponible");
   });
 });

@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownRight, ArrowUpRight, Clock, Files } from "lucide-react";
 import { transfersService } from "@/lib/services/transfers.service";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 function Stat({
@@ -21,7 +22,7 @@ function Stat({
       <Icon
         className={cn(
           "h-4 w-4",
-          highlight ? "text-destructive" : "text-muted-foreground",
+          highlight ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground",
         )}
       />
       <span
@@ -38,10 +39,31 @@ function Stat({
 }
 
 export function TransferStats() {
-  const { data } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["transfer-stats"],
     queryFn: () => transfersService.getStats(),
   });
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-border bg-card/50 p-3 text-sm text-muted-foreground">
+        Cargando estadísticas...
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card/50 p-3 text-sm">
+        <span className="text-muted-foreground">
+          No se pudieron cargar las estadísticas de transferencias.
+        </span>
+        <Button type="button" variant="outline" size="sm" onClick={() => refetch()}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center divide-x divide-border rounded-lg border border-border bg-card/50 p-1.5">

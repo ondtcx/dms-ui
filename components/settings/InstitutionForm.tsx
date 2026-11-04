@@ -81,16 +81,16 @@ export function InstitutionForm() {
       <CardContent className="space-y-6">
         {/* Logo */}
         <div className="flex items-center gap-6">
-          <div className="h-24 w-24 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50">
+          <div className="h-24 w-24 rounded-lg border-2 border-dashed border-border flex items-center justify-center overflow-hidden bg-muted">
             {logoSrc ? (
               <img src={logoSrc} alt="Logo" className="h-full w-full object-contain" />
             ) : (
-              <Building2 className="h-10 w-10 text-gray-300" />
+              <Building2 className="h-10 w-10 text-muted-foreground/50" />
             )}
           </div>
           <div className="space-y-1">
             <p className="text-sm font-medium">Logo institucional</p>
-             <p className="text-xs text-gray-500">PNG, JPG o SVG. Tamaño máximo: 5 MB.</p>
+             <p className="text-xs text-muted-foreground">PNG, JPG o SVG. Tamaño máximo: 5 MB.</p>
             <Button
               type="button"
               variant="outline"
@@ -119,7 +119,7 @@ export function InstitutionForm() {
                 id="inst-name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Colegio San José"
+                placeholder="Unidad Educativa Vicente Fierro"
                 required
               />
             </div>
@@ -129,7 +129,7 @@ export function InstitutionForm() {
                 id="inst-phone"
                 value={form.phone ?? ""}
                 onChange={(e) => setForm({ ...form, phone: e.target.value || null })}
-                placeholder="+52 55 1234 5678"
+                placeholder="+593 99 123 4567"
               />
             </div>
              <div className="space-y-2">
@@ -139,7 +139,7 @@ export function InstitutionForm() {
                 type="email"
                 value={form.email ?? ""}
                 onChange={(e) => setForm({ ...form, email: e.target.value || null })}
-                placeholder="contacto@colegio.edu"
+                placeholder="contacto@institucion.edu.ec"
               />
             </div>
             <div className="space-y-2">
@@ -149,7 +149,7 @@ export function InstitutionForm() {
                 type="url"
                 value={form.website ?? ""}
                 onChange={(e) => setForm({ ...form, website: e.target.value || null })}
-                placeholder="https://www.colegio.edu"
+                placeholder="https://www.institucion.edu.ec"
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
@@ -158,7 +158,7 @@ export function InstitutionForm() {
                 id="inst-address"
                 value={form.address ?? ""}
                 onChange={(e) => setForm({ ...form, address: e.target.value || null })}
-                placeholder="Av. Principal 123, Ciudad"
+                placeholder="Av. Principal 123, Tulcán"
               />
             </div>
           </div>
