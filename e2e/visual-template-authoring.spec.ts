@@ -98,6 +98,17 @@ test.describe('Creador visual de plantillas', () => {
       });
       await expect(page.getByLabel(/Asunto/)).toBeVisible();
       await expect(page.getByLabel(/Nombre del destinatario/)).toBeVisible();
+
+      const documentId = Number(
+        page.url().match(/elaboracion\/(\d+)\/editar/)?.[1],
+      );
+      expect(documentId).toBeGreaterThan(0);
+      const previewResponse = await request.get(
+        `${API}/authoring/documents/${documentId}/preview`,
+        { headers },
+      );
+      expect(previewResponse.ok()).toBeTruthy();
+      expect((await previewResponse.body()).length).toBeGreaterThan(1_000);
     } finally {
       if (templateId) {
         await request.post(
