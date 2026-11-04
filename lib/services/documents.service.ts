@@ -245,6 +245,7 @@ export const documentsService = {
   async getAccessibleDirectories(params?: {
     page?: number;
     limit?: number;
+    q?: string;
   }): Promise<AccessibleDirectoriesResponse> {
     const response = await api.get<AccessibleDirectoriesResponse>(
       "/directories/accessible",

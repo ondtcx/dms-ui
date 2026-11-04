@@ -90,6 +90,39 @@ test.describe('Búsqueda documental', () => {
         timeout: 20_000,
       });
 
+      const directoryName = `searchdir-${marker}`;
+      const directoryResponse = await adminApi.post(
+        `${API_BASE_URL}/directories`,
+        { data: { name: directoryName } },
+      );
+      expect(directoryResponse.ok(), await directoryResponse.text()).toBeTruthy();
+
+      await loginViaApi(page, SEED_USERS.admin.email, SEED_USERS.admin.password);
+      await page.goto(
+        `/dashboard/search?q=${encodeURIComponent(directoryName)}`,
+      );
+      await expect(page.getByText('Carpetas', { exact: true })).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(
+        page.getByRole('link', { name: directoryName, exact: true }),
+      ).toBeVisible({ timeout: 20_000 });
+
+      await loginViaApi(
+        page,
+        SEED_USERS.profesor.email,
+        SEED_USERS.profesor.password,
+      );
+      await page.goto(
+        `/dashboard/search?q=${encodeURIComponent(directoryName)}`,
+      );
+      await expect(page.getByText(/0 documento/)).toBeVisible({
+        timeout: 20_000,
+      });
+      await expect(
+        page.getByRole('link', { name: directoryName, exact: true }),
+      ).toHaveCount(0);
+
       await loginViaApi(page, SEED_USERS.admin.email, SEED_USERS.admin.password);
       await page.goto('/dashboard/search');
       await expect(page.getByText('Búsquedas recientes')).toBeVisible({

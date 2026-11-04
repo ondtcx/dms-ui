@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, useCallback } from "react";
 import {
   FileText,
+  Folder,
   Search,
   Clock,
   TrendingUp,
@@ -133,6 +134,15 @@ function SearchContent() {
     enabled: !!query.trim() && !dateError,
     staleTime: 30_000,
   });
+
+  const directoriesQuery = useQuery({
+    queryKey: ["search-directories", query],
+    queryFn: () =>
+      documentsService.getAccessibleDirectories({ q: query, limit: 20 }),
+    enabled: !!query.trim() && !dateError,
+    staleTime: 30_000,
+  });
+  const directories = directoriesQuery.data?.data ?? [];
 
   // History and popular (shown when no query)
   const { data: history } = useQuery({
@@ -282,8 +292,28 @@ function SearchContent() {
         </div>
       )}
 
+      {/* Carpetas */}
+      {!isLoading && directories.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">Carpetas</h2>
+          {directories.map((directory) => (
+            <Card key={directory.id} className="hover:shadow-sm transition-shadow">
+              <CardContent className="flex items-center gap-3 p-4">
+                <Folder className="h-5 w-5 shrink-0 text-primary" />
+                <Link
+                  href={`/dashboard/directories?directoryId=${directory.id}`}
+                  className="font-medium hover:underline"
+                >
+                  {directory.name}
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {/* Sin resultados */}
-      {!isLoading && data && data.data.length === 0 && (
+      {!isLoading && data && data.data.length === 0 && directories.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <Search className="mx-auto h-12 w-12 mb-4 opacity-30" />
           <p className="text-lg font-medium">
