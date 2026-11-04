@@ -10,6 +10,7 @@ export interface AppNotification {
   createdAt: string;
 }
 export interface NotificationPage { data: AppNotification[]; unreadCount: number; page: number; limit: number }
+export interface NotificationPreferences { inAppEnabled: boolean }
 
 export const notificationsService = {
   async list(page = 1): Promise<NotificationPage> {
@@ -20,5 +21,13 @@ export const notificationsService = {
   },
   async readAll() {
     return (await api.patch('/notifications/read-all')).data;
+  },
+  async getPreferences(): Promise<NotificationPreferences> {
+    return (await api.get<NotificationPreferences>('/notifications/preferences')).data;
+  },
+  async updatePreferences(inAppEnabled: boolean): Promise<NotificationPreferences> {
+    return (await api.patch<NotificationPreferences>('/notifications/preferences', {
+      inAppEnabled,
+    })).data;
   },
 };
