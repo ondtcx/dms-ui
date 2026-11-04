@@ -64,6 +64,9 @@ test.describe('Auditoría documental y de plantillas', () => {
         timeout: 20_000,
       });
       await expect(
+        page.getByText('Compartición', { exact: true }).first(),
+      ).toBeVisible({ timeout: 20_000 });
+      await expect(
         page.getByText('Descarga', { exact: true }).first(),
       ).toBeVisible({ timeout: 20_000 });
 
