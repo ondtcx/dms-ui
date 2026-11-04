@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Folder, FolderPlus, Pencil, Trash2 } from "lucide-react";
+import { ChevronRight, Folder, FolderPlus, Pencil, Settings2, Trash2 } from "lucide-react";
 import { documentsService } from "@/lib/services/documents.service";
 import type { Directory } from "@/lib/types";
 import { useAuth } from "@/lib/contexts/AuthContext";
@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { invalidateDirectoryQueries } from "@/lib/directory-cache";
 import { isValidReceptionReadback } from "@/hooks/use-directory-submission";
 import { DirectorySharingAction } from "./DirectorySharingAction";
+import { ReceptionSettingsDialog } from "./ReceptionSettingsDialog";
 import { SharingIndicator } from "./SharingIndicator";
 
 interface DirectoryNavigationProps {
@@ -48,6 +49,7 @@ export function DirectoryNavigation({ value, onChange, picker = false }: Directo
   const { user } = useAuth();
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Directory | null>(null);
+  const [receptionOpen, setReceptionOpen] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -138,6 +140,22 @@ export function DirectoryNavigation({ value, onChange, picker = false }: Directo
       {!picker && access.directory && <div className="flex flex-wrap items-center gap-2">
         <SharingIndicator summary={access.directory.sharingSummary} provenance={access.directory.sharingProvenance} reception={access.directory.receptionEnabled} />
         <DirectorySharingAction key={access.directory.id} directory={access.directory} />
+        {(access.directory.receptionEnabled ||
+          (actorId !== null && access.directory.createdById === actorId)) && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setReceptionOpen(true)}
+            aria-label={
+              access.directory.receptionEnabled
+                ? `Ver recepción de ${access.directory.name}`
+                : `Configurar recepción de ${access.directory.name}`
+            }
+          >
+            <Settings2 className="mr-2 h-4 w-4" />
+            {access.directory.receptionEnabled ? "Ver recepción" : "Configurar recepción"}
+          </Button>
+        )}
       </div>}
 
       {access.directory?.navigationOnly && <p className="text-sm text-muted-foreground">Solo navegación: abre una subcarpeta compartida. No tienes acceso al contenido de esta carpeta.</p>}
@@ -180,6 +198,12 @@ export function DirectoryNavigation({ value, onChange, picker = false }: Directo
         ))
           : null}
       </div>
+
+      <ReceptionSettingsDialog
+        open={receptionOpen}
+        onOpenChange={setReceptionOpen}
+        directory={access.directory ?? null}
+      />
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent>
