@@ -42,6 +42,8 @@ export interface PageFrameBox {
   y: number;
   width: number;
   height?: number;
+  fit?: 'contain' | 'cover';
+  objectPosition?: 'center' | 'top' | 'bottom' | 'left' | 'right';
   fontSize: number;
   fontWeight?: string;
   fontStyle?: string;

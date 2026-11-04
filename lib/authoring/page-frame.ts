@@ -249,7 +249,9 @@ export const ACTA_PAGE_FRAME: PageFrame = {
 
 function frameBoxToHtml(box: PageFrameBox): string {
   if (box.type === 'image') {
-    const image = `<img src="${box.content}" style="position:absolute;left:${box.x}pt;top:${box.y}pt;width:${box.width}pt;height:${box.height ?? 50}pt;object-fit:contain;" />`;
+    const fit = box.fit === 'cover' ? 'cover' : 'contain';
+    const objectPosition = box.objectPosition ?? 'center';
+    const image = `<img src="${box.content}" style="position:absolute;left:${box.x}pt;top:${box.y}pt;width:${box.width}pt;height:${box.height ?? 50}pt;object-fit:${fit};object-position:${objectPosition};" />`;
     return box.content === '{{institucion.logo}}'
       ? `{{#if institucion.logo}}${image}{{/if}}`
       : image;
@@ -332,6 +334,11 @@ const FULL_PAGE_RICH_TEXT_CSS = `
 function fullPageBoxToHtml(box: PageFrameBox): string {
   const position = box.center ? 'left:50%;transform:translateX(-50%)' : `left:${box.x}pt`;
   const base = `${position};top:${box.y}pt;font-size:${box.fontSize}pt;font-family:${box.fontFamily ?? 'Arial, sans-serif'};font-weight:${box.fontWeight ?? '400'};font-style:${box.fontStyle ?? 'normal'};color:${box.color ?? '#000000'};text-align:${box.center ? 'center' : box.align ?? 'left'};`;
+  if (box.type === 'image') {
+    const fit = box.fit === 'cover' ? 'cover' : 'contain';
+    const objectPosition = box.objectPosition ?? 'center';
+    return `<img src="${box.content}" style="position:absolute;${position};top:${box.y}pt;width:${box.width}pt;height:${box.height ?? 50}pt;object-fit:${fit};object-position:${objectPosition};" />`;
+  }
   if (box.type === 'richText') {
     return `<div class="txt richtext" data-box-id="${box.id}" style="${base}width:${box.width}pt;height:${box.height ?? 240}pt;white-space:normal;">${box.content}</div>`;
   }

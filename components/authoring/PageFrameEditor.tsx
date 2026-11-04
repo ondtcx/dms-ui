@@ -17,6 +17,8 @@ import {
   pageFrameToFooterHtml,
   pageFrameToHeaderHtml,
 } from '@/lib/authoring/page-frame';
+import { ASSET_ORIGIN, assetUrl } from '@/lib/authoring/assets';
+import { AssetUploadButton } from './AssetUploadButton';
 
 const PAGE_SIZES: Record<string, { width: number; height: number }> = {
   A4: { width: 595, height: 842 },
@@ -96,9 +98,9 @@ function PagePreview({
   const html = useMemo(() => {
     if (frame.mode === 'fullPage') {
       const pageHtml = fullPageFrameToHtml(previewFrame(frame, variables));
-      return zoom === 1
-        ? pageHtml
-        : `${pageHtml}<style>.sheet{zoom:${zoom};}</style>`;
+      const withZoom =
+        zoom === 1 ? pageHtml : `${pageHtml}<style>.sheet{zoom:${zoom};}</style>`;
+      return `<base href="${ASSET_ORIGIN}/" />${withZoom}`;
     }
     const base = PAGE_SIZES[frame.pageSize] ?? PAGE_SIZES.Letter;
     const dimensions =
@@ -108,7 +110,7 @@ function PagePreview({
     const preview = previewFrame(frame, variables);
     const header = pageFrameToHeaderHtml(preview);
     const footer = pageFrameToFooterHtml(preview);
-    return `<!doctype html><html><head><meta charset="utf-8"/><style>
+    return `<!doctype html><html><head><meta charset="utf-8"/><base href="${ASSET_ORIGIN}/" /><style>
       body { margin:0; background:#e5e7eb; font-family:Arial, sans-serif; }
       .page { position:relative; width:${dimensions.width}pt; height:${dimensions.height}pt; background:white; margin:0 auto; overflow:hidden; zoom:0.78; }
       .header { position:absolute; top:0; left:0; width:100%; height:${frame.margins.top}; }
@@ -149,13 +151,83 @@ function BoxRow({
   return (
     <div className="grid gap-2 rounded-md border border-border p-2 sm:grid-cols-[minmax(0,1fr)_70px_70px_70px_70px_auto_auto_auto]">
       <div className="space-y-1">
-        <Input
-          value={box.content}
-          onChange={(event) => onChange({ content: event.target.value })}
-          className="h-8 text-xs"
-          aria-label={`Texto de ${box.id}`}
-          disabled={readOnly}
-        />
+        {isImage ? (
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <img
+                src={assetUrl(box.content)}
+                alt=""
+                className="h-10 w-16 rounded border border-border bg-muted/30 object-contain"
+              />
+              <AssetUploadButton
+                label="Cambiar"
+                onUploaded={(asset) => onChange({ content: asset.url })}
+                testId={`replace-image-${box.id}`}
+                size="sm"
+                disabled={readOnly}
+              />
+            </div>
+            <Input
+              value={box.content}
+              onChange={(event) => onChange({ content: event.target.value })}
+              className="h-8 text-xs"
+              aria-label={`URL de ${box.id}`}
+              disabled={readOnly}
+            />
+            <div className="flex flex-wrap items-center gap-1">
+              <select
+                className="h-7 rounded-md border border-input bg-background px-1 text-xs"
+                value={box.fit ?? 'contain'}
+                onChange={(event) =>
+                  onChange({
+                    fit: event.target.value as PageFrameBox['fit'],
+                  })
+                }
+                aria-label="Ajuste de imagen"
+                disabled={readOnly}
+              >
+                <option value="contain">Contener</option>
+                <option value="cover">Recortar</option>
+              </select>
+              <select
+                className="h-7 rounded-md border border-input bg-background px-1 text-xs"
+                value={box.objectPosition ?? 'center'}
+                onChange={(event) =>
+                  onChange({
+                    objectPosition: event.target
+                      .value as PageFrameBox['objectPosition'],
+                  })
+                }
+                aria-label="Posición de imagen"
+                disabled={readOnly}
+              >
+                <option value="center">Centro</option>
+                <option value="top">Arriba</option>
+                <option value="bottom">Abajo</option>
+                <option value="left">Izquierda</option>
+                <option value="right">Derecha</option>
+              </select>
+              <Input
+                type="number"
+                value={box.height ?? 50}
+                onChange={(event) =>
+                  onChange({ height: Number(event.target.value) })
+                }
+                className="h-7 w-16"
+                aria-label="Alto"
+                disabled={readOnly}
+              />
+            </div>
+          </div>
+        ) : (
+          <Input
+            value={box.content}
+            onChange={(event) => onChange({ content: event.target.value })}
+            className="h-8 text-xs"
+            aria-label={`Texto de ${box.id}`}
+            disabled={readOnly}
+          />
+        )}
         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
           {box.type} · {box.id}
         </div>
@@ -272,6 +344,41 @@ function AreaEditor({
     });
   };
 
+  const addImage = (asset: { url: string }) => {
+    const id = `image-${Date.now()}`;
+    onChange({
+      ...area,
+      boxes: [
+        ...area.boxes,
+        {
+          id,
+          type: 'image',
+          x: 60,
+          y: 30,
+          width: 160,
+          height: 80,
+          fontSize: 0,
+          fit: 'contain',
+          objectPosition: 'center',
+          content: asset.url,
+        },
+      ],
+    });
+  };
+
+  const setBackground = (asset: { url: string }) => {
+    onChange({
+      ...area,
+      backgroundSvg: `<img src="${asset.url}" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;" />`,
+    });
+  };
+
+  const clearBackground = () => {
+    onChange({ ...area, backgroundSvg: undefined });
+  };
+
+  const areaKey = title.toLowerCase().replace(/\s+/g, '-');
+
   const removeBox = (id: string) => {
     onChange({ ...area, boxes: area.boxes.filter((box) => box.id !== id) });
   };
@@ -281,9 +388,33 @@ function AreaEditor({
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-base">{title}</CardTitle>
         {!readOnly && (
-          <Button type="button" size="sm" variant="outline" onClick={addBox}>
-            <Plus className="mr-1.5 h-4 w-4" /> Agregar texto
-          </Button>
+          <div className="flex flex-wrap items-center gap-1">
+            <Button type="button" size="sm" variant="outline" onClick={addBox}>
+              <Plus className="mr-1.5 h-4 w-4" /> Agregar texto
+            </Button>
+            <AssetUploadButton
+              label="Agregar imagen"
+              testId={`add-image-${areaKey}`}
+              onUploaded={addImage}
+              size="sm"
+            />
+            <AssetUploadButton
+              label="Subir fondo"
+              testId={`add-background-${areaKey}`}
+              onUploaded={setBackground}
+              size="sm"
+            />
+            {area.backgroundSvg && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={clearBackground}
+              >
+                Quitar fondo
+              </Button>
+            )}
+          </div>
         )}
       </CardHeader>
       <CardContent className="space-y-2">

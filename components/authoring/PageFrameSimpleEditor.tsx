@@ -20,6 +20,8 @@ import {
   PREVIEW_VARIABLES,
   previewFrame,
 } from './PageFrameEditor';
+import { assetUrl, resolveAssetHtml } from '@/lib/authoring/assets';
+import { AssetUploadButton } from './AssetUploadButton';
 
 const PAGE_SIZES: Record<string, { width: number; height: number }> = {
   A4: { width: 595, height: 842 },
@@ -257,6 +259,47 @@ export function PageFrameSimpleEditor({
       },
     });
     setSelectedId(next.id);
+  };
+
+  const addImageBox = (asset: { url: string }) => {
+    const next: PageFrameBox = {
+      id: `image-${Date.now()}`,
+      type: 'image',
+      role: 'content',
+      x: 120,
+      y: 180,
+      width: 160,
+      height: 90,
+      fontSize: 0,
+      fit: 'contain',
+      objectPosition: 'center',
+      content: asset.url,
+    };
+    commit({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        boxes: [...(value.body?.boxes ?? []), next],
+      },
+    });
+    setSelectedId(next.id);
+  };
+
+  const setBodyBackground = (asset: { url: string }) => {
+    commit({
+      ...value,
+      body: {
+        ...(value.body ?? { boxes: [] }),
+        backgroundSvg: `<img src="${asset.url}" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;" />`,
+      },
+    });
+  };
+
+  const clearBodyBackground = () => {
+    commit({
+      ...value,
+      body: { ...(value.body ?? { boxes: [] }), backgroundSvg: undefined },
+    });
   };
 
   const duplicateSelected = () => {
@@ -888,6 +931,30 @@ export function PageFrameSimpleEditor({
           <Button type="button" size="sm" variant="outline" onClick={addTextBox} disabled={readOnly}>
             <Plus className="mr-1 h-4 w-4" /> Agregar texto
           </Button>
+          <AssetUploadButton
+            label="Imagen"
+            testId="simple-add-image"
+            onUploaded={addImageBox}
+            disabled={readOnly}
+            size="sm"
+          />
+          <AssetUploadButton
+            label="Fondo"
+            testId="simple-add-background"
+            onUploaded={setBodyBackground}
+            disabled={readOnly}
+            size="sm"
+          />
+          {value.body?.backgroundSvg && !readOnly && (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={clearBodyBackground}
+            >
+              Quitar fondo
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -1018,7 +1085,7 @@ export function PageFrameSimpleEditor({
           onPointerUp={onCanvasPointerEnd}
           onPointerCancel={onCanvasPointerEnd}
         >
-          <style>{value.styles ?? ''}</style>
+          <style>{resolveAssetHtml(value.styles ?? '')}</style>
           <style>{SIMPLE_RICH_TEXT_CSS}</style>
           <div
             className="relative mx-auto"
@@ -1045,7 +1112,7 @@ export function PageFrameSimpleEditor({
                   pointerEvents: 'none',
                 }}
                 dangerouslySetInnerHTML={{
-                  __html: value.body?.backgroundSvg ?? '',
+                  __html: resolveAssetHtml(value.body?.backgroundSvg ?? ''),
                 }}
               />
               {showGrid && (
@@ -1315,11 +1382,11 @@ export function PageFrameSimpleEditor({
                       />
                     ) : box.type === 'richText' ? (
                       <div
-                        dangerouslySetInnerHTML={{ __html: shown.content }}
+                        dangerouslySetInnerHTML={{ __html: resolveAssetHtml(shown.content) }}
                       />
                     ) : box.type === 'image' ? (
                       <img
-                        src={shown.content}
+                        src={assetUrl(shown.content)}
                         alt=""
                         style={{
                           width: '100%',
@@ -1443,7 +1510,11 @@ export function PageFrameSimpleEditor({
                     <Input
                       type="number"
                       value={selected.fontSize}
-                      disabled={readOnly || isLockedBox(selected)}
+                      disabled={
+                        readOnly ||
+                        isLockedBox(selected) ||
+                        selected.type === 'image'
+                      }
                       onChange={(event) =>
                         updateBox(selected.id, {
                           fontSize: Number(event.target.value),
@@ -1453,21 +1524,104 @@ export function PageFrameSimpleEditor({
                     />
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">Texto</Label>
-                  <textarea
-                    className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                    value={selected.content}
-                    disabled={
-                      isLockedBox(selected) ||
-                      isVariableBox(selected) ||
-                      selected.type === 'richText'
-                    }
-                    onChange={(event) =>
-                      updateBox(selected.id, { content: event.target.value })
-                    }
-                  />
-                </div>
+                {selected.type === 'image' ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Imagen</Label>
+                    <div className="flex items-center gap-2">
+                      <img
+                        src={assetUrl(selected.content)}
+                        alt=""
+                        className="h-12 w-20 rounded border border-border bg-muted/30 object-contain"
+                      />
+                      <AssetUploadButton
+                        label="Cambiar imagen"
+                        testId="simple-replace-image"
+                        onUploaded={(asset) =>
+                          updateBox(selected.id, { content: asset.url })
+                        }
+                        disabled={readOnly || isLockedBox(selected)}
+                        size="sm"
+                      />
+                    </div>
+                    <Input
+                      value={selected.content}
+                      onChange={(event) =>
+                        updateBox(selected.id, { content: event.target.value })
+                      }
+                      aria-label="URL de imagen"
+                      disabled={readOnly || isLockedBox(selected)}
+                      className="h-8 text-xs"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Ajuste</Label>
+                        <select
+                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                          value={selected.fit ?? 'contain'}
+                          onChange={(event) =>
+                            updateBox(selected.id, {
+                              fit: event.target.value as PageFrameBox['fit'],
+                            })
+                          }
+                          disabled={readOnly || isLockedBox(selected)}
+                        >
+                          <option value="contain">Contener</option>
+                          <option value="cover">Recortar</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Posición</Label>
+                        <select
+                          className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                          value={selected.objectPosition ?? 'center'}
+                          onChange={(event) =>
+                            updateBox(selected.id, {
+                              objectPosition: event.target
+                                .value as PageFrameBox['objectPosition'],
+                            })
+                          }
+                          disabled={readOnly || isLockedBox(selected)}
+                        >
+                          <option value="center">Centro</option>
+                          <option value="top">Arriba</option>
+                          <option value="bottom">Abajo</option>
+                          <option value="left">Izquierda</option>
+                          <option value="right">Derecha</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Alto (pt)</Label>
+                      <Input
+                        type="number"
+                        value={selected.height ?? 50}
+                        onChange={(event) =>
+                          updateBox(selected.id, {
+                            height: Number(event.target.value),
+                          })
+                        }
+                        disabled={readOnly || isLockedBox(selected)}
+                        className="h-8"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Texto</Label>
+                    <textarea
+                      className="min-h-20 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                      value={selected.content}
+                      disabled={
+                        isLockedBox(selected) ||
+                        isVariableBox(selected) ||
+                        selected.type === 'richText'
+                      }
+                      onChange={(event) =>
+                        updateBox(selected.id, { content: event.target.value })
+                      }
+                    />
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-2 text-xs">
                   <label className="flex items-center gap-1">
                     <input
@@ -1476,7 +1630,11 @@ export function PageFrameSimpleEditor({
                         selected.fontWeight === '700' ||
                         selected.fontWeight === '900'
                       }
-                      disabled={readOnly || isLockedBox(selected)}
+                      disabled={
+                        readOnly ||
+                        isLockedBox(selected) ||
+                        selected.type === 'image'
+                      }
                       onChange={(event) =>
                         updateBox(selected.id, {
                           fontWeight: event.target.checked ? '700' : '400',
@@ -1489,7 +1647,11 @@ export function PageFrameSimpleEditor({
                     <input
                       type="checkbox"
                       checked={selected.fontStyle === 'italic'}
-                      disabled={readOnly || isLockedBox(selected)}
+                      disabled={
+                        readOnly ||
+                        isLockedBox(selected) ||
+                        selected.type === 'image'
+                      }
                       onChange={(event) =>
                         updateBox(selected.id, {
                           fontStyle: event.target.checked ? 'italic' : 'normal',
