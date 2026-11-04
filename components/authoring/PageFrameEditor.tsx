@@ -13,12 +13,15 @@ import type {
 } from '@/lib/types/authoring';
 import {
   ACTA_PAGE_FRAME,
+  cssLengthToPt,
   fullPageFrameToHtml,
   pageFrameToFooterHtml,
   pageFrameToHeaderHtml,
 } from '@/lib/authoring/page-frame';
+import { FrameAreaCanvas } from './FrameAreaCanvas';
 import { ASSET_ORIGIN, assetUrl } from '@/lib/authoring/assets';
 import { AssetUploadButton } from './AssetUploadButton';
+import { ImageCropDialog } from './ImageCropDialog';
 
 const PAGE_SIZES: Record<string, { width: number; height: number }> = {
   A4: { width: 595, height: 842 },
@@ -148,6 +151,9 @@ function BoxRow({
   readOnly?: boolean;
 }) {
   const isImage = box.type === 'image';
+  const [cropOpen, setCropOpen] = useState(false);
+  const canCrop =
+    isImage && box.content.startsWith('/files/active/authoring/assets/');
   return (
     <div className="grid gap-2 rounded-md border border-border p-2 sm:grid-cols-[minmax(0,1fr)_70px_70px_70px_70px_auto_auto_auto]">
       <div className="space-y-1">
@@ -217,6 +223,44 @@ function BoxRow({
                 aria-label="Alto"
                 disabled={readOnly}
               />
+              <Input
+                type="number"
+                value={box.rotation ?? 0}
+                min={-180}
+                max={180}
+                onChange={(event) =>
+                  onChange({ rotation: Number(event.target.value) })
+                }
+                className="h-7 w-16"
+                aria-label="Rotación"
+                title="Rotación en grados"
+                disabled={readOnly}
+              />
+              <Input
+                type="number"
+                step="0.05"
+                min={0}
+                max={1}
+                value={box.opacity ?? 1}
+                onChange={(event) =>
+                  onChange({ opacity: Number(event.target.value) })
+                }
+                className="h-7 w-16"
+                aria-label="Opacidad"
+                title="Opacidad de 0 a 1"
+                disabled={readOnly}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() => setCropOpen(true)}
+                disabled={readOnly || !canCrop}
+                title="Recortar imagen"
+              >
+                Recortar
+              </Button>
             </div>
           </div>
         ) : (
@@ -298,6 +342,12 @@ function BoxRow({
           <Trash2 className="h-4 w-4" />
         </Button>
       )}
+      <ImageCropDialog
+        open={cropOpen}
+        onOpenChange={setCropOpen}
+        imageUrl={box.content}
+        onCropped={(asset) => onChange({ content: asset.url })}
+      />
     </div>
   );
 }
@@ -307,11 +357,15 @@ function AreaEditor({
   area,
   onChange,
   readOnly = false,
+  canvasWidthPt,
+  canvasHeightPt,
 }: {
   title: string;
   area: PageFrameArea;
   onChange: (area: PageFrameArea) => void;
   readOnly?: boolean;
+  canvasWidthPt?: number;
+  canvasHeightPt?: number;
 }) {
   const updateBox = (id: string, patch: Partial<PageFrameBox>) => {
     onChange({
@@ -418,6 +472,15 @@ function AreaEditor({
         )}
       </CardHeader>
       <CardContent className="space-y-2">
+        {canvasWidthPt && canvasHeightPt ? (
+          <FrameAreaCanvas
+            area={area}
+            widthPt={canvasWidthPt}
+            heightPt={canvasHeightPt}
+            onChange={onChange}
+            readOnly={readOnly}
+          />
+        ) : null}
         <div className="hidden gap-2 px-2 text-[10px] uppercase tracking-wide text-muted-foreground sm:grid sm:grid-cols-[minmax(0,1fr)_70px_70px_70px_70px_auto_auto_auto]">
           <span>Texto / variable</span>
           <span>X</span>
@@ -573,6 +636,12 @@ export function PageFrameEditor({
     );
   }
 
+  const pageBase = PAGE_SIZES[value.pageSize] ?? PAGE_SIZES.Letter;
+  const pageWidthPt =
+    value.orientation === 'landscape' ? pageBase.height : pageBase.width;
+  const headerHeightPt = cssLengthToPt(value.margins.top, 90);
+  const footerHeightPt = cssLengthToPt(value.margins.bottom, 90);
+
   return (
     <div className="space-y-4">
       <Card>
@@ -675,12 +744,16 @@ export function PageFrameEditor({
         area={value.header}
         onChange={(header) => update({ header })}
         readOnly={readOnly}
+        canvasWidthPt={pageWidthPt}
+        canvasHeightPt={headerHeightPt}
       />
       <AreaEditor
         title="Pie de página"
         area={value.footer}
         onChange={(footer) => update({ footer })}
         readOnly={readOnly}
+        canvasWidthPt={pageWidthPt}
+        canvasHeightPt={footerHeightPt}
       />
 
       <p className="text-xs text-muted-foreground">
