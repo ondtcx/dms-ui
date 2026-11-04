@@ -100,6 +100,19 @@ export const authoringService = {
     return response.data;
   },
 
+  async cleanupAssets(): Promise<{
+    scanned: number;
+    deleted: number;
+    kept: number;
+  }> {
+    const response = await api.post<{
+      scanned: number;
+      deleted: number;
+      kept: number;
+    }>('/authoring/assets/cleanup');
+    return response.data;
+  },
+
   async cropAsset(payload: {
     url: string;
     x: number;

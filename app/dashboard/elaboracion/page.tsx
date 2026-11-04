@@ -4,11 +4,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-import { BookOpen, Eye, FileText, Loader2, Plus, Search, Settings2 } from 'lucide-react';
+import { BookOpen, Eye, FileText, Loader2, Plus, Search, Settings2, Trash2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import ProtectedRoute from '@/guards/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { usePermissions } from '@/hooks/use-permissions';
 import { authoringService } from '@/lib/services/authoring.service';
 import type { AuthoringDocument, AuthoringTemplate } from '@/lib/types/authoring';
@@ -106,6 +108,8 @@ function ElaboracionPageContent() {
   const { hasPermission } = usePermissions();
   const canManageTemplates = hasPermission('authoring.templates.manage');
   const [search, setSearch] = useState('');
+  const [cleanupOpen, setCleanupOpen] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
 
   const templatesQuery = useQuery({
     queryKey: ['authoring-templates'],
@@ -131,6 +135,22 @@ function ElaboracionPageContent() {
     router.push(`/dashboard/elaboracion/${template.id}/nuevo`);
   };
 
+  const cleanupAssets = async () => {
+    setCleaning(true);
+    try {
+      const result = await authoringService.cleanupAssets();
+      toast.success(
+        `Limpieza completada: ${result.deleted} imágenes eliminadas y ${result.kept} conservadas.`,
+      );
+      setCleanupOpen(false);
+      await templatesQuery.refetch();
+    } catch {
+      toast.error('No se pudo limpiar las imágenes');
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-8 p-4 sm:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -141,12 +161,26 @@ function ElaboracionPageContent() {
           </p>
         </div>
         {canManageTemplates && (
-          <Button asChild>
-            <Link href="/dashboard/elaboracion/plantillas/nueva">
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva plantilla
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCleanupOpen(true)}
+              disabled={cleaning}
+            >
+              {cleaning ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="mr-2 h-4 w-4" />
+              )}
+              Limpiar imágenes
+            </Button>
+            <Button asChild>
+              <Link href="/dashboard/elaboracion/plantillas/nueva">
+                <Plus className="mr-2 h-4 w-4" />
+                Nueva plantilla
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 
@@ -230,6 +264,17 @@ function ElaboracionPageContent() {
           </div>
         </Card>
       </section>
+
+      <ConfirmDialog
+        open={cleanupOpen}
+        onOpenChange={setCleanupOpen}
+        title="Limpiar imágenes no usadas"
+        description="Se eliminarán las imágenes subidas que no estén referenciadas por ninguna plantilla, documento o versión, y que tengan más de 24 horas. Esta acción no se puede deshacer."
+        confirmLabel="Limpiar"
+        variant="destructive"
+        loading={cleaning}
+        onConfirm={cleanupAssets}
+      />
     </div>
   );
 }
