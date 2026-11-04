@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
+import type { Editor, JSONContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -28,12 +29,22 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+export interface RichTextInsertButton {
+  label: string;
+  title?: string;
+  onClick: (editor: Editor) => void;
+}
+
+type RichTextValue = string | JSONContent | null | undefined;
+
 interface RichTextEditorProps {
-  value: any;
-  onChange: (value: any) => void;
+  value: RichTextValue;
+  onChange: (value: RichTextValue) => void;
   onHtmlChange?: (html: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  format?: 'json' | 'html';
+  insertButtons?: RichTextInsertButton[];
 }
 
 function ToolbarButton({
@@ -72,11 +83,15 @@ export function RichTextEditor({
   onHtmlChange,
   placeholder = 'Escribe el contenido del documento...',
   disabled = false,
+  format = 'json',
+  insertButtons = [],
 }: RichTextEditorProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onHtmlChangeRef = useRef(onHtmlChange);
   onHtmlChangeRef.current = onHtmlChange;
+  const formatRef = useRef<'json' | 'html'>(format);
+  formatRef.current = format;
   const lastEmitted = useRef<string>('');
 
   const editor = useEditor({
@@ -99,21 +114,25 @@ export function RichTextEditor({
       TableCell,
       Placeholder.configure({ placeholder }),
     ],
-    content: value ?? { type: 'doc', content: [] },
+    content: value ?? (format === 'html' ? '' : { type: 'doc', content: [] }),
     onCreate: ({ editor: current }) => {
       onHtmlChangeRef.current?.(current.getHTML());
     },
     onUpdate: ({ editor: current }) => {
+      const html = current.getHTML();
       const json = current.getJSON();
-      lastEmitted.current = JSON.stringify(json);
-      onChangeRef.current(json);
-      onHtmlChangeRef.current?.(current.getHTML());
+      const output = formatRef.current === 'html' ? html : json;
+      lastEmitted.current =
+        formatRef.current === 'html' ? html : JSON.stringify(json);
+      onChangeRef.current(output);
+      onHtmlChangeRef.current?.(html);
     },
   });
 
   useEffect(() => {
     if (!editor || value === undefined || value === null) return;
-    const serialized = JSON.stringify(value);
+    const serialized =
+      formatRef.current === 'html' ? String(value) : JSON.stringify(value);
     if (serialized === lastEmitted.current) return;
     editor.commands.setContent(value, { emitUpdate: false });
     lastEmitted.current = serialized;
@@ -241,6 +260,25 @@ export function RichTextEditor({
           <Redo2 className="h-4 w-4" />
         </ToolbarButton>
       </div>
+      {insertButtons.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 border-b border-border bg-muted/20 px-2 py-1.5">
+          <span className="mr-1 text-xs text-muted-foreground">Insertar:</span>
+          {insertButtons.map((button) => (
+            <Button
+              key={button.label}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              title={button.title}
+              disabled={disabled}
+              onClick={() => button.onClick(editor)}
+            >
+              {button.label}
+            </Button>
+          ))}
+        </div>
+      )}
       <EditorContent editor={editor} className="tiptap-editor" />
     </div>
   );
