@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { PageFrameArea, PageFrameBox } from '@/lib/types/authoring';
 import { assetUrl, resolveAssetHtml } from '@/lib/authoring/assets';
 
@@ -28,6 +28,7 @@ export function FrameAreaCanvas({
   readOnly = false,
 }: FrameAreaCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   const boxes = area.boxes ?? [];
 
   const updateBox = (id: string, patch: Partial<PageFrameBox>) => {
@@ -45,6 +46,7 @@ export function FrameAreaCanvas({
   ) => {
     if (readOnly) return;
     if ((event.target as HTMLElement).dataset.resizeHandle === 'true') return;
+    if ((event.target as HTMLElement).dataset.rotateHandle === 'true') return;
     event.preventDefault();
     event.stopPropagation();
     setSelectedId(box.id);
@@ -60,6 +62,46 @@ export function FrameAreaCanvas({
       const x = clamp(originX + (moveEvent.clientX - startX) * 0.75, 0, maxX);
       const y = clamp(originY + (moveEvent.clientY - startY) * 0.75, 0, maxY);
       updateBox(box.id, { x: round(x), y: round(y) });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
+  const beginRotate = (
+    event: React.PointerEvent<HTMLSpanElement>,
+    box: PageFrameBox,
+  ) => {
+    if (readOnly) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedId(box.id);
+
+    const rect = canvas.getBoundingClientRect();
+    const pxPerPt = widthPt > 0 ? rect.width / widthPt : 1;
+    const centerX = rect.left + (box.x + box.width / 2) * pxPerPt;
+    const centerY = rect.top + (box.y + (box.height ?? 50) / 2) * pxPerPt;
+
+    const onMove = (moveEvent: PointerEvent) => {
+      let angle =
+        (Math.atan2(
+          moveEvent.clientY - centerY,
+          moveEvent.clientX - centerX,
+        ) *
+          180) /
+          Math.PI +
+        90;
+      if (moveEvent.shiftKey) {
+        angle = Math.round(angle / 15) * 15;
+      }
+      while (angle > 180) angle -= 360;
+      while (angle < -180) angle += 360;
+      updateBox(box.id, { rotation: round(angle) });
     };
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
@@ -122,6 +164,7 @@ export function FrameAreaCanvas({
       </p>
       <div className="overflow-auto rounded-md border border-border bg-muted/20 p-3">
         <div
+          ref={canvasRef}
           data-frame-canvas
           className="relative overflow-hidden border border-dashed border-border bg-white"
           style={{ width: `${widthPt}pt`, height: `${heightPt}pt` }}
@@ -190,6 +233,15 @@ export function FrameAreaCanvas({
                   />
                 ) : (
                   box.content
+                )}
+                {selected && !readOnly && box.type === 'image' && (
+                  <span
+                    data-rotate-handle="true"
+                    className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border border-primary bg-background"
+                    style={{ zIndex: 4 }}
+                    title="Girar"
+                    onPointerDown={(event) => beginRotate(event, box)}
+                  />
                 )}
                 {selected &&
                   !readOnly &&

@@ -134,6 +134,7 @@ export function PageFrameSimpleEditor({
   });
   const [zoom, setZoom] = useState(() => initialZoom(value));
   const [cropTarget, setCropTarget] = useState<PageFrameBox | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const [showGrid, setShowGrid] = useState(true);
   const [snap, setSnap] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -854,6 +855,48 @@ export function PageFrameSimpleEditor({
     };
   };
 
+  const beginRotate = (
+    event: React.PointerEvent<HTMLSpanElement>,
+    box: PageFrameBox,
+  ) => {
+    if (readOnly) return;
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedId(box.id);
+
+    const rect = sheet.getBoundingClientRect();
+    const pxPerPt = pageWidth > 0 ? rect.width / pageWidth : 1;
+    const centerX = rect.left + (box.x + box.width / 2) * pxPerPt;
+    const centerY = rect.top + (box.y + (box.height ?? 50) / 2) * pxPerPt;
+    const startFrame = cloneFrame(value);
+
+    const onMove = (moveEvent: PointerEvent) => {
+      let angle =
+        (Math.atan2(
+          moveEvent.clientY - centerY,
+          moveEvent.clientX - centerX,
+        ) *
+          180) /
+          Math.PI +
+        90;
+      if (moveEvent.shiftKey) {
+        angle = Math.round(angle / 15) * 15;
+      }
+      while (angle > 180) angle -= 360;
+      while (angle < -180) angle += 360;
+      updateBox(box.id, { rotation: Math.round(angle * 100) / 100 });
+    };
+    const onUp = () => {
+      recordHistory(startFrame);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+
   const startResize = (
     event: React.PointerEvent<HTMLDivElement>,
     box: PageFrameBox,
@@ -1101,6 +1144,7 @@ export function PageFrameSimpleEditor({
             style={{ width: pageWidth * zoom, height: pageHeight * zoom }}
           >
             <div
+              ref={sheetRef}
               className="sheet"
               style={{
                 width: pageWidth,
@@ -1228,6 +1272,22 @@ export function PageFrameSimpleEditor({
                         style={{ zIndex: 5 }}
                       />
                     )}
+                    {selectedNow &&
+                      !readOnly &&
+                      !isLockedBox(box) &&
+                      box.type === 'image' && (
+                        <span
+                          data-rotate-handle="true"
+                          className="absolute left-1/2 h-3 w-3 -translate-x-1/2 cursor-grab rounded-full border border-primary bg-background"
+                          style={{
+                            top: '-56px',
+                            zIndex: 8,
+                            pointerEvents: 'auto',
+                          }}
+                          title="Girar"
+                          onPointerDown={(event) => beginRotate(event, box)}
+                        />
+                      )}
                     {selectedNow &&
                       selectedIds.length === 1 &&
                       !readOnly &&
