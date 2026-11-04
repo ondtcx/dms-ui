@@ -142,6 +142,31 @@ test.describe('Editor gráfico de plantillas', () => {
         timeout: 20_000,
       });
 
+      const newImage = page
+        .locator('[data-frame-canvas] [data-box-id^="image-"]')
+        .first();
+      await newImage.scrollIntoViewIfNeeded();
+      await newImage.click();
+      const rotateHandle = page.locator(
+        '[data-frame-canvas] [data-rotate-handle]',
+      );
+      await expect(rotateHandle).toBeVisible();
+      const handleBounds = await rotateHandle.boundingBox();
+      const imageBounds = await newImage.boundingBox();
+      expect(handleBounds).not.toBeNull();
+      expect(imageBounds).not.toBeNull();
+      await page.mouse.move(
+        handleBounds!.x + handleBounds!.width / 2,
+        handleBounds!.y + handleBounds!.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        imageBounds!.x + imageBounds!.width + 20,
+        imageBounds!.y + imageBounds!.height / 2,
+        { steps: 5 },
+      );
+      await page.mouse.up();
+
       const cropResponse = await request.post(
         `${API}/authoring/assets/crop`,
         {
@@ -193,6 +218,10 @@ test.describe('Editor gráfico de plantillas', () => {
         (box: any) => box.id === 'institution',
       );
       expect(institution?.x).toBeGreaterThan(235.5);
+      const rotatedImage = latest.pageFrame?.header?.boxes?.find(
+        (box: any) => box.content === imageAsset.url,
+      );
+      expect(Math.abs(rotatedImage?.rotation ?? 0)).toBeGreaterThan(1);
       expect(latest.headerHtml).toContain(imageAsset.url);
       expect(latest.headerHtml).toContain(backgroundAsset.url);
 

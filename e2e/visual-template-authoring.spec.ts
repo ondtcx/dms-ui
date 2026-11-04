@@ -37,6 +37,14 @@ test.describe('Creador visual de plantillas', () => {
         SEED_USERS.admin.password,
       );
       await page.goto('/dashboard/elaboracion');
+      await expect(
+        page.getByRole('button', { name: /Limpiar imágenes/ }),
+      ).toBeVisible();
+      await page.getByRole('button', { name: /Limpiar imágenes/ }).click();
+      await expect(
+        page.getByRole('dialog').getByText('Limpiar imágenes no usadas'),
+      ).toBeVisible();
+      await page.getByRole('button', { name: 'Cancelar' }).click();
       await page.getByRole('link', { name: /Nueva plantilla/ }).click();
 
       await page.getByLabel('Nombre', { exact: true }).fill(name);
@@ -80,6 +88,11 @@ test.describe('Creador visual de plantillas', () => {
       const bodyImage = (await (await bodyImageResponse).json()) as {
         url: string;
       };
+      await expect(
+        page.getByRole('button', { name: 'Izq', exact: true }),
+      ).toBeVisible({ timeout: 10_000 });
+      await page.getByRole('button', { name: 'Izq', exact: true }).click();
+      await page.getByLabel('Ancho de imagen').selectOption('50');
       await page.waitForTimeout(500);
 
       await page.getByRole('button', { name: 'Guardar borrador' }).click();
@@ -103,6 +116,8 @@ test.describe('Creador visual de plantillas', () => {
       expect(draft.bodyHtml).toContain('{{{contenido}}}');
       expect(draft.bodyHtml).toContain(`Contenido visual E2E ${marker}.`);
       expect(draft.bodyHtml).toContain(bodyImage.url);
+      expect(draft.bodyHtml).toMatch(/width:\s*50%/);
+      expect(draft.bodyHtml).toMatch(/margin-left:\s*0(?:px)?/);
 
       await page.getByRole('button', { name: 'Guardar y publicar' }).click();
       await expect(

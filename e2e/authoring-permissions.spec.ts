@@ -19,6 +19,9 @@ test.describe('Permisos de elaboración documental', () => {
     await expect(
       page.getByRole('link', { name: /Nueva plantilla/ }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: /Limpiar imágenes/ }),
+    ).toHaveCount(0);
 
     await page.goto('/dashboard/elaboracion/plantillas/61');
     await expect(page.getByText('Oficio institucional').first()).toBeVisible({
