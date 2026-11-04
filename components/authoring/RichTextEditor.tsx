@@ -271,6 +271,60 @@ export function RichTextEditor({
             variant="outline"
           />
         )}
+        {allowImages &&
+          editor.isActive('templateImage') &&
+          (() => {
+            const attributes = editor.getAttributes('templateImage');
+            const width = Number(attributes.width ?? 100);
+            const align = String(attributes.align ?? 'center');
+            return (
+              <div className="flex items-center gap-1">
+                <span className="mx-1 h-5 w-px bg-border" />
+                <span className="text-xs text-muted-foreground">Imagen:</span>
+                {(['left', 'center', 'right'] as const).map((value) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    size="sm"
+                    variant={align === value ? 'secondary' : 'ghost'}
+                    className="h-7 px-2 text-xs"
+                    onClick={() =>
+                      editor
+                        .chain()
+                        .focus()
+                        .updateAttributes('templateImage', { align: value })
+                        .run()
+                    }
+                  >
+                    {value === 'left'
+                      ? 'Izq'
+                      : value === 'center'
+                        ? 'Centro'
+                        : 'Der'}
+                  </Button>
+                ))}
+                <select
+                  aria-label="Ancho de imagen"
+                  className="h-7 rounded-md border border-input bg-background px-1 text-xs"
+                  value={width}
+                  onChange={(event) =>
+                    editor
+                      .chain()
+                      .focus()
+                      .updateAttributes('templateImage', {
+                        width: Number(event.target.value),
+                      })
+                      .run()
+                  }
+                >
+                  <option value={25}>25%</option>
+                  <option value={50}>50%</option>
+                  <option value={75}>75%</option>
+                  <option value={100}>100%</option>
+                </select>
+              </div>
+            );
+          })()}
         <ToolbarButton
           label="Deshacer"
           onClick={() => editor.chain().focus().undo().run()}
